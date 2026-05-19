@@ -10596,6 +10596,118 @@ function showRouteMap() {
   showView('routemap');
   document.getElementById('bottomNav').style.display = 'none';
 }
+async function runMultiDayOptimize() {
+  const city = getTripCity();
+  const numDays = APP_CONFIG.numDays || days.length;
+  const hotel = window.HOTEL_DATA;
+
+  // Collect all stops, marking fixed/booked ones
+  const allStops = [];
+  days.forEach((day, di) => {
+    (day.stops || []).forEach((s, si) => {
+      allStops.push({
+        di, si,
+        name: s.name, time: s.time, duration: s.duration,
+        lat: s.lat, lng: s.lng,
+        type: s.type || s.type_label || '',
+        booked: !!(s.status === 'booked' || s.prebook || (s.statusTag && s.statusTag.includes('BOOK'))),
+        meal: /breakfast|lunch|dinner|café|cafe|restaurant|tea|brunch/i.test(s.name + ' ' + (s.type||'')),
+        museum: /museum|gallery|gallery|exhibit/i.test(s.name + ' ' + (s.type||''))
+      });
+    });
+  });
+
+  if (allStops.length === 0) { showToast('No stops to optimize', true); return; }
+
+  // Build prompt
+  const dayLabels = (APP_CONFIG.dayLabels || []).slice(0, numDays).map((l,i) => l || ('Day '+(i+1)));
+  const hotelStr = hotel ? `Hotel (start/end each day): ${hotel.name}, lat ${hotel.lat}, lng ${hotel.lng}` : 'No hotel data.';
+
+  const stopsJson = allStops.map((s, i) => ({
+    id: i,
+    name: s.name, currentDay: s.di, time: s.time, duration: s.duration,
+    lat: s.lat, lng: s.lng, type: s.type,
+    fixed: s.booked,
+    meal: s.meal, museum: s.museum
+  }));
+
+  const prompt = `You are an expert travel itinerary optimizer for ${city}.
+
+${hotelStr}
+
+Days: ${dayLabels.map((l,i) => `Day ${i} = ${l}`).join(', ')}
+
+Current stops (${allStops.length} total):
+${JSON.stringify(stopsJson, null, 2)}
+
+Optimize the assignment of stops across days. Rules:
+1. FIXED stops (fixed:true) MUST stay on their current day — do NOT move them.
+2. Each day starts and ends at the hotel. Cluster stops geographically so each day's stops are close together.
+3. Max 2 museums per day (museum:true). Spread museums across days.
+4. Meals must be at appropriate times: breakfast 8-10am, lunch 12-2pm, dinner 6-9pm. Assign meal stops to days and times that fit naturally.
+5. Balance the number of stops per day — avoid overloading one day while another is empty.
+6. Minimize total travel distance each day (geographic clustering beats visiting far-apart places).
+
+Return ONLY a JSON array of assignments. No preamble, no markdown:
+[{"id": 0, "day": 0, "time": "9:00 AM"}, {"id": 1, "day": 1, "time": "10:30 AM"}, ...]
+
+Include every stop id. Use the same time format as input. day is 0-indexed (0 = ${dayLabels[0]}).`;
+
+  // Show loading overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'optimize-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:30000;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML = '<div style="background:#fff;border-radius:16px;padding:28px 32px;text-align:center;max-width:320px;">'
+    + '<div style="font-size:28px;margin-bottom:12px;">✨</div>'
+    + '<div style="font-size:15px;font-weight:800;margin-bottom:6px;">Optimizing your itinerary…</div>'
+    + '<div style="font-size:12px;color:#888;">Clustering by location, balancing museums,<br>fixing meals and booked slots. ~30 sec.</div>'
+    + '</div>';
+  document.body.appendChild(overlay);
+
+  try {
+    const text = await callAnthropic({ prompt, maxTokens: 4000 });
+    const clean = text.replace(/```json|```/g, '').trim();
+    const assignments = JSON.parse(clean);
+
+    if (!Array.isArray(assignments) || !assignments.length) throw new Error('Empty response from AI');
+
+    // Apply assignments: rebuild days[] stops arrays
+    const newDays = days.map(d => ({ ...d, stops: [] }));
+
+    // Place fixed stops first (they must stay)
+    allStops.filter(s => s.booked).forEach(s => {
+      newDays[s.di].stops.push(days[s.di].stops[s.si]);
+    });
+
+    // Place non-fixed stops according to AI assignments
+    assignments.forEach(a => {
+      const orig = allStops[a.id];
+      if (!orig || orig.booked) return; // fixed handled above
+      const stop = { ...days[orig.di].stops[orig.si], time: a.time || orig.time };
+      const di = Math.max(0, Math.min(numDays - 1, a.day || 0));
+      newDays[di].stops.push(stop);
+    });
+
+    // Sort each day by time
+    newDays.forEach(d => {
+      d.stops.sort((a, b) => timeStrToMins(a.time) - timeStrToMins(b.time));
+    });
+
+    // Apply and save
+    days.forEach((d, i) => { d.stops = newDays[i].stops; });
+    saveToStorage();
+    await schedulePush();
+    renderStopList();
+    overlay.remove();
+    renderAllMap(); // refresh the all-day map
+    showToast('✅ Itinerary optimized across ' + numDays + ' days — re-clustered by location');
+  } catch(e) {
+    overlay.remove();
+    showToast('Optimize failed: ' + (e.message || 'unknown'), true);
+    console.error('Multi-day optimize error:', e);
+  }
+}
+
 function showAllMap() {
   document.querySelectorAll('.day-tab').forEach(t => t.classList.remove('active'));
   document.getElementById('dtabAll').classList.add('active');
@@ -10774,9 +10886,10 @@ function renderAllMap() {
     <div class="all-map-header">
       <h2>All ${APP_CONFIG.numDays || 4} Days &mdash; ${(APP_CONFIG.title || 'Trip').replace(/[<>&]/g,'')}</h2>
       <div class="map-legend">${legend}</div>
-      <div style="display:flex;gap:8px;">
+      <div style="display:flex;gap:8px;margin-bottom:6px;">
         ${dayColors.map((c,i)=>`<button onclick="switchDay(${i})" style="flex:1;padding:8px;border-radius:8px;border:2px solid ${c};background:#fff;color:${c};font-size:12px;font-weight:700;cursor:pointer;">${dayNames[i]}</button>`).join('')}
       </div>
+      <button onclick="runMultiDayOptimize()" style="width:100%;padding:11px;border-radius:10px;border:none;background:#5c4db1;color:#fff;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">✨ Optimize across all days — cluster by location, balance museums, fix meals</button>
     </div>
     <div id="allMapDiv"></div>
   `;
