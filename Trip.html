@@ -1238,6 +1238,15 @@ body.viewer-mode .stop-row[draggable] { -webkit-user-drag: none; }
   .suggest-panel.has-results .suggest-map { flex-basis:180px; }
   .suggest-panel.has-results .suggest-chips { display:none; }
 }
+
+/* Day map marker scroll-spy: highlight marker matching the currently-visible stop row */
+.day-marker.active .day-marker-inner {
+  transform: scale(1.45);
+  box-shadow: 0 0 0 4px rgba(26,115,232,0.4), 0 4px 16px rgba(0,0,0,0.5);
+  z-index: 1000;
+}
+.day-marker.active { z-index: 1000 !important; }
+.stop-row.spy-visible { background: rgba(26,115,232,0.04); }
 </style>
 </head>
 <body>
@@ -4692,6 +4701,52 @@ function renderStopList() {
 
   // Restore scroll position after re-render
   if (area && scrollY) requestAnimationFrame(() => { area.scrollTop = scrollY; });
+
+  // Scroll-spy: highlight day map marker matching the most-visible stop row
+  setTimeout(_initDayMapScrollSpy, 80);
+}
+
+let _scrollSpyObserver = null;
+function _initDayMapScrollSpy() {
+  if (_scrollSpyObserver) { _scrollSpyObserver.disconnect(); _scrollSpyObserver = null; }
+  // Only when the day map is visible
+  const dayMapEl = document.getElementById('routeMapDiv');
+  if (!dayMapEl || dayMapEl.offsetParent === null) return;
+
+  const rows = document.querySelectorAll('#stopList .stop-row[id^="srow"]');
+  if (!rows.length) return;
+
+  let mostVisible = { idx: -1, ratio: 0 };
+  const visibilityMap = new Map();
+
+  const setActive = (idx) => {
+    document.querySelectorAll('.day-marker.active').forEach(m => m.classList.remove('active'));
+    document.querySelectorAll('.stop-row.spy-visible').forEach(r => r.classList.remove('spy-visible'));
+    if (idx < 0) return;
+    const marker = document.querySelector('.day-marker-' + idx);
+    if (marker) marker.classList.add('active');
+    const row = document.getElementById('srow' + idx);
+    if (row) row.classList.add('spy-visible');
+  };
+
+  _scrollSpyObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      const idx = +e.target.id.replace('srow', '');
+      if (e.isIntersecting) visibilityMap.set(idx, e.intersectionRatio);
+      else visibilityMap.delete(idx);
+    });
+    // Find row with highest intersection ratio (most visible)
+    let bestIdx = -1, bestRatio = 0;
+    visibilityMap.forEach((ratio, idx) => {
+      if (ratio > bestRatio) { bestRatio = ratio; bestIdx = idx; }
+    });
+    if (bestIdx !== mostVisible.idx) {
+      mostVisible = { idx: bestIdx, ratio: bestRatio };
+      setActive(bestIdx);
+    }
+  }, { threshold: [0, 0.25, 0.5, 0.75, 1.0], rootMargin: '-15% 0px -50% 0px' });
+
+  rows.forEach(r => _scrollSpyObserver.observe(r));
 }
 
 function selectStop(i) {
@@ -10872,7 +10927,7 @@ function buildRouteMapIframe(stops, color) {
   stops.forEach(function(s, i) {
     var sz = i===0 ? 32 : 26;
     var resInfo = s.reservation ? '<br><span style="color:#28a745;font-size:11px;font-weight:700;">✓ ' + (s.reservation.confirmed ? 'Confirmed' : 'Reserved') + (s.reservation.notes ? ' · ' + s.reservation.notes : '') + '</span>' : '';
-    var icon = L.divIcon({className:'', html:'<div style="background:'+(s.reservation&&s.reservation.confirmed?'#28a745':s.color)+';color:#fff;width:'+sz+'px;height:'+sz+'px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:'+(i===0?13:11)+'px;font-weight:900;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);">'+(i+1)+'</div>', iconSize:[sz,sz], iconAnchor:[sz/2,sz/2], popupAnchor:[0,-(sz/2+4)]});
+    var icon = L.divIcon({className:'day-marker day-marker-'+i, html:'<div class="day-marker-inner" style="background:'+(s.reservation&&s.reservation.confirmed?'#28a745':s.color)+';color:#fff;width:'+sz+'px;height:'+sz+'px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:'+(i===0?13:11)+'px;font-weight:900;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.35);transition:transform 0.2s,box-shadow 0.2s;">'+(i+1)+'</div>', iconSize:[sz,sz], iconAnchor:[sz/2,sz/2], popupAnchor:[0,-(sz/2+4)]});
     var popup = '<div style="min-width:180px"><b style="color:'+s.color+';font-size:13px;">Stop '+(i+1)+'</b><br><b style="font-size:14px;">'+s.name+'</b><br><span style="color:#666;font-size:12px;">'+s.time+' · '+s.duration+'</span><br><span style="font-size:11px;color:#888;">'+s.address+'</span>'+resInfo+(s.prebook&&!s.reservation?'<br><span style="color:#c0392b;font-size:11px;font-weight:700;">⚠ Pre-book needed</span>':'')+(s.free?'<br><span style="color:#1a7a3a;font-size:11px;font-weight:700;">✓ Free</span>':'')+'</div>';
     L.marker([s.lat, s.lng], {icon:icon}).addTo(map).bindPopup(popup);
   });
