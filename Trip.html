@@ -10711,7 +10711,13 @@ Include EVERY stop id. day is 0-indexed. day: -1 means orphaned/unscheduled.`;
 
   try {
     const text = await callAnthropic({ prompt, maxTokens: 4000 });
-    const clean = text.replace(/```json|```/g, '').trim();
+    // Strip code fences AND extract the JSON array — handles AI preamble like "I'll analyze..."
+    let clean = text.replace(/```json|```/g, '').trim();
+    const firstBracket = clean.indexOf('[');
+    const lastBracket = clean.lastIndexOf(']');
+    if (firstBracket >= 0 && lastBracket > firstBracket) {
+      clean = clean.slice(firstBracket, lastBracket + 1);
+    }
     const assignments = JSON.parse(clean);
 
     if (!Array.isArray(assignments) || !assignments.length) throw new Error('Empty response from AI');
