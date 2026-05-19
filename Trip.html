@@ -10637,21 +10637,25 @@ ${hotelStr}
 
 Days: ${dayLabels.map((l,i) => `Day ${i} = ${l}`).join(', ')}
 
+DAY WINDOW: Each day runs 10:00 AM – 10:30 PM. The last stop should finish by 10:30 PM (account for its duration). If a stop cannot fit without pushing the day past 10:30 PM, mark it orphaned (day: -1) — do NOT cram it in.
+
 Current stops (${allStops.length} total):
 ${JSON.stringify(stopsJson, null, 2)}
 
-Optimize the assignment of stops across days. Rules:
-1. FIXED stops (fixed:true) MUST stay on their current day — do NOT move them.
-2. Each day starts and ends at the hotel. Cluster stops geographically so each day's stops are close together.
-3. Max 2 museums per day (museum:true). Spread museums across days.
-4. Meals must be at appropriate times: breakfast 8-10am, lunch 12-2pm, dinner 6-9pm. Assign meal stops to days and times that fit naturally.
-5. Balance the number of stops per day — avoid overloading one day while another is empty.
-6. Minimize total travel distance each day (geographic clustering beats visiting far-apart places).
+Optimization rules:
+1. FIXED stops (fixed:true) MUST stay on their current day — never move them.
+2. Day window: 10:00 AM start, 10:30 PM hard end. If a stop + its duration pushes past 10:30 PM, orphan it (day: -1).
+3. Each day starts and ends at the hotel. Cluster stops geographically — each day's stops should be close to each other on the map.
+4. Max 2 museums per day. Spread museums across different days.
+5. Meals at correct times: breakfast 9-10:30 AM, lunch 12-2 PM, dinner 7-9:30 PM.
+6. Balance days — no day overloaded, no day near-empty.
+7. Minimize daily travel distance (tight geographic cluster per day).
+8. Stops that truly do not fit any day (too many stops total): set day: -1 (orphan).
 
-Return ONLY a JSON array of assignments. No preamble, no markdown:
-[{"id": 0, "day": 0, "time": "9:00 AM"}, {"id": 1, "day": 1, "time": "10:30 AM"}, ...]
+Return ONLY a JSON array. No preamble, no markdown:
+[{"id": 0, "day": 0, "time": "10:00 AM"}, {"id": 1, "day": -1, "time": null}, ...]
 
-Include every stop id. Use the same time format as input. day is 0-indexed (0 = ${dayLabels[0]}).`;
+Include EVERY stop id. day is 0-indexed. day: -1 means orphaned/unscheduled.`;
 
   // Show loading overlay
   const overlay = document.createElement('div');
@@ -10673,6 +10677,7 @@ Include every stop id. Use the same time format as input. day is 0-indexed (0 = 
 
     // Apply assignments: rebuild days[] stops arrays
     const newDays = days.map(d => ({ ...d, stops: [] }));
+    const orphaned = [];
 
     // Place fixed stops first (they must stay)
     allStops.filter(s => s.booked).forEach(s => {
@@ -10684,6 +10689,9 @@ Include every stop id. Use the same time format as input. day is 0-indexed (0 = 
       const orig = allStops[a.id];
       if (!orig || orig.booked) return; // fixed handled above
       const stop = { ...days[orig.di].stops[orig.si], time: a.time || orig.time };
+      if (a.day === -1 || a.day === null) {
+        orphaned.push(stop); return;
+      }
       const di = Math.max(0, Math.min(numDays - 1, a.day || 0));
       newDays[di].stops.push(stop);
     });
@@ -10700,7 +10708,21 @@ Include every stop id. Use the same time format as input. day is 0-indexed (0 = 
     renderStopList();
     overlay.remove();
     renderAllMap(); // refresh the all-day map
-    showToast('✅ Itinerary optimized across ' + numDays + ' days — re-clustered by location');
+
+    if (orphaned.length) {
+      // Show orphaned stops in a dismissible overlay
+      const ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:30001;display:flex;align-items:center;justify-content:center;padding:20px;';
+      ov.innerHTML = '<div style="background:#fff;border-radius:16px;padding:20px;max-width:400px;width:100%;max-height:80vh;overflow-y:auto;">'
+        + '<div style="font-size:15px;font-weight:800;margin-bottom:4px;">⚠️ ' + orphaned.length + ' stop' + (orphaned.length>1?'s':'')+' didn\'t fit the 10 AM–10:30 PM window</div>'
+        + '<div style="font-size:12px;color:#888;margin-bottom:12px;">These were removed from the schedule. You can add them back manually on a different day or stretch the schedule.</div>'
+        + orphaned.map(s => '<div style="padding:8px 10px;border:1px solid #eee;border-radius:8px;margin-bottom:6px;font-size:13px;"><b>'+s.name+'</b>'+(s.time?' · '+s.time:'')+(s.duration?' · '+s.duration:'')+'</div>').join('')
+        + '<button onclick="this.closest(\'div[style*=fixed]\').remove()" style="width:100%;padding:10px;border-radius:10px;border:none;background:#1a1a1a;color:#fff;font-size:13px;font-weight:700;cursor:pointer;margin-top:10px;">Got it</button>'
+        + '</div>';
+      document.body.appendChild(ov);
+    } else {
+      showToast('✅ Itinerary optimized across ' + numDays + ' days — re-clustered by location');
+    }
   } catch(e) {
     overlay.remove();
     showToast('Optimize failed: ' + (e.message || 'unknown'), true);
