@@ -10942,6 +10942,11 @@ function buildRouteMapIframe(stops, color) {
 }
 
 
+function _goToStop(di, si) {
+  switchDay(di);
+  setTimeout(() => { selectStop(si); }, 100);
+}
+
 function renderAllMap() {
   const n = APP_CONFIG.numDays || days.length;
   const dayColors = Array.from({length: n}, (_, i) => `hsl(${Math.round(i * 360 / n)},70%,40%)`);
@@ -10986,13 +10991,13 @@ function renderAllMap() {
     L.marker([hd.lat, hd.lng], {icon:hotelIcon}).addTo(map).bindPopup('<b>🏨 ' + hd.name + '</b><br><span style="font-size:11px;">' + (hd.address||'Your hotel') + '</span>');
     allBounds.push([hd.lat, hd.lng]);
   }
-  stopsData.forEach(function(day) {
+  stopsData.forEach(function(day, di) {
     var coords = day.stops.map(function(s){return [s.lat, s.lng];});
     coords.forEach(function(c){allBounds.push(c);});
     L.polyline(coords, {color:day.color, weight:4, opacity:0.8, dashArray:'8,5'}).addTo(map);
     day.stops.forEach(function(s, i) {
       var icon = L.divIcon({className:'', html:'<div style="background:'+day.color+';color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);">'+(i+1)+'</div>', iconSize:[28,28], iconAnchor:[14,14], popupAnchor:[0,-18]});
-      var popup = '<b style="color:'+day.color+'">'+day.label+' · Stop '+(i+1)+'</b><br><b>'+s.name+'</b><br><span style="color:#666;font-size:12px;">'+s.time+' · '+s.duration+'</span><br><span style="font-size:11px;">'+s.address+'</span>'+(s.prebook?'<br><span style="color:#c0392b;font-size:11px;">⚠ Pre-book</span>':'')+(s.free?'<br><span style="color:#1a7a3a;font-size:11px;">Free</span>':'');
+      var popup = '<b style="color:'+day.color+'">'+day.label+' · Stop '+(i+1)+'</b><br><b>'+s.name+'</b><br><span style="color:#666;font-size:12px;">'+s.time+' · '+s.duration+'</span><br><span style="font-size:11px;">'+s.address+'</span>'+(s.prebook?'<br><span style="color:#c0392b;font-size:11px;">⚠ Pre-book</span>':'')+(s.free?'<br><span style="color:#1a7a3a;font-size:11px;">Free</span>':'')+'<br><button onclick="_goToStop('+di+','+i+')" style="margin-top:6px;width:100%;padding:6px 10px;border-radius:6px;border:none;background:'+day.color+';color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Open event ▶</button>';
       L.marker([s.lat, s.lng], {icon:icon}).addTo(map).bindPopup(popup);
     });
   });
