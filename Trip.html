@@ -826,7 +826,7 @@ html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMa
     position: fixed;
     top: var(--header-h);
     left: 0; right: 0;
-    height: 45vh;
+    height: 35vh;
     border-left: none;
     border-bottom: 2px solid var(--border);
     z-index: 100;
@@ -834,9 +834,16 @@ html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMa
   }
   .split-map-panel.hidden { display: none; }
   .split-layout.map-open .split-list {
-    margin-top: 45vh;
+    margin-top: 35vh;
   }
 }
+
+/* Side map scroll-spy: highlight marker matching the visible stop row */
+.inline-marker.active .inline-marker-inner {
+  transform: scale(1.5);
+  box-shadow: 0 0 0 4px rgba(26,115,232,0.5), 0 4px 16px rgba(0,0,0,0.5) !important;
+}
+.inline-marker.active { z-index: 1000 !important; }
 @media (min-width: 701px) {
   .split-map-toggle { display: none; }
   .split-map-panel { display: flex !important; }
@@ -10504,11 +10511,45 @@ function toggleInlineMap() {
     layout.classList.add('map-open');
     btn.textContent = '✕ Hide Map';
     buildInlineMap();
+    setTimeout(_initInlineMapScrollSpy, 250);
   } else {
     panel.classList.add('hidden');
     layout.classList.remove('map-open');
     btn.textContent = '🗺 Map';
+    if (_inlineScrollSpy) { _inlineScrollSpy.disconnect(); _inlineScrollSpy = null; }
+    document.querySelectorAll('.inline-marker.active').forEach(m => m.classList.remove('active'));
   }
+}
+
+let _inlineScrollSpy = null;
+function _initInlineMapScrollSpy() {
+  if (!_inlineMapOpen) return;
+  if (_inlineScrollSpy) { _inlineScrollSpy.disconnect(); _inlineScrollSpy = null; }
+
+  const rows = document.querySelectorAll('#stopList .stop-row[id^="srow"]');
+  if (!rows.length) return;
+  const visibilityMap = new Map();
+  let activeIdx = -1;
+
+  _inlineScrollSpy = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      const idx = +e.target.id.replace('srow', '');
+      if (e.isIntersecting) visibilityMap.set(idx, e.intersectionRatio);
+      else visibilityMap.delete(idx);
+    });
+    let bestIdx = -1, bestRatio = 0;
+    visibilityMap.forEach((r, i) => { if (r > bestRatio) { bestRatio = r; bestIdx = i; }});
+    if (bestIdx !== activeIdx) {
+      activeIdx = bestIdx;
+      document.querySelectorAll('.inline-marker.active').forEach(m => m.classList.remove('active'));
+      if (bestIdx >= 0) {
+        const marker = document.querySelector('.inline-marker-' + bestIdx);
+        if (marker) marker.classList.add('active');
+      }
+    }
+  }, { threshold: [0, 0.25, 0.5, 0.75, 1.0], rootMargin: '-10% 0px -40% 0px' });
+
+  rows.forEach(r => _inlineScrollSpy.observe(r));
 }
 
 function buildInlineMap() {
@@ -10566,7 +10607,7 @@ function buildInlineMap() {
   stops.forEach((s, i) => {
     const pinColor = s.reservation && s.reservation.confirmed ? '#28a745' : s.color;
     const sz = 26;
-    const icon = L.divIcon({ className:'', html:'<div style="background:'+pinColor+';color:#fff;width:'+sz+'px;height:'+sz+'px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);">'+(i+1)+'</div>', iconSize:[sz,sz], iconAnchor:[sz/2,sz/2], popupAnchor:[0,-sz/2] });
+    const icon = L.divIcon({ className:'inline-marker inline-marker-'+i, html:'<div class="inline-marker-inner" style="background:'+pinColor+';color:#fff;width:'+sz+'px;height:'+sz+'px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);transition:transform 0.2s,box-shadow 0.2s;">'+(i+1)+'</div>', iconSize:[sz,sz], iconAnchor:[sz/2,sz/2], popupAnchor:[0,-sz/2] });
     const resInfo = s.reservation ? '<br><span style="color:#28a745;font-size:11px;font-weight:700;">✓ ' + (s.reservation.confirmed ? 'Confirmed' : 'Reserved') + '</span>' : '';
     const popup = '<b style="font-size:13px;">' + s.name + '</b><br><span style="color:#666;font-size:12px;">' + s.time + ' · ' + s.duration + '</span>' + resInfo;
     L.marker([s.lat, s.lng], { icon }).addTo(map)
