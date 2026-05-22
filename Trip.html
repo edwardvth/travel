@@ -8228,7 +8228,7 @@ function showLandmarkAlert(lm, idx, dist, pageId, silent, manualOpen) {
     + '<button onclick="openWalkHistory()" style="flex:1;padding:12px;border-radius:12px;border:1.5px solid #888;background:#f5f5f5;color:#333;font-size:13px;font-weight:800;cursor:pointer;">📋 Log</button>'
     + '<button onclick="_addWalkPassedBy('+idx+')" id="walkAddBtn_'+idx+'" style="flex:2;padding:12px;border-radius:12px;border:1.5px solid #1a7a3a;background:#e8f5e9;color:#1a7a3a;font-size:13px;font-weight:800;cursor:pointer;">📍 Add to schedule</button>'
     + '</div>'
-    + '<button onclick="dismissLandmarkAlert()" style="width:100%;padding:12px;border-radius:12px;border:none;background:#1a1a1a;color:#fff;font-size:14px;font-weight:800;cursor:pointer;">✕ Dismiss · next search in 5s</button>'
+    + '<button onclick="dismissLandmarkAlert()" id="walkDismissBtn" style="width:100%;padding:12px;border-radius:12px;border:none;background:#1a1a1a;color:#fff;font-size:14px;font-weight:800;cursor:pointer;">✕ Dismiss · next search in 5s</button>'
     + '</div>';
 
   document.body.appendChild(el);
@@ -8311,7 +8311,7 @@ function showLandmarkAlert(lm, idx, dist, pageId, silent, manualOpen) {
       utt.lang = 'en-GB'; utt.rate = 0.95;
       // Dismiss when speech finishes naturally
       utt.onstart = function() { _startSpeechKeepAlive(); };
-      utt.onend = function() { _stopSpeechKeepAlive(); dismissLandmarkAlert(); };
+      utt.onend = function() { _stopSpeechKeepAlive(); _onWalkSpeechEnd(); };
       utt.onerror = function(e) { _stopSpeechKeepAlive(); console.warn('TTS error:', e.error); };
       if (!silent) window.speechSynthesis.speak(utt);
     }
@@ -8405,6 +8405,24 @@ function _reopenHistoryCard(h) {
       }
     } catch(e) { /* fresh data failed — stored data already showing, that's fine */ }
   })();
+}
+
+// Called when narration finishes. If nothing else is waiting, auto-dismiss (hands-free flow).
+// But if more landmarks are queued, KEEP the current card open so you can finish reading at
+// your own pace — in a packed area speech ends long before you've read everything. The card
+// then waits for you to tap "Next ›" instead of yanking itself away mid-read.
+function _onWalkSpeechEnd() {
+  if (_walkTourActive && _walkQueue.length > 0) {
+    var btn = document.getElementById('walkDismissBtn');
+    if (btn) {
+      var next = _walkQueue[0];
+      var more = _walkQueue.length > 1 ? ' (' + _walkQueue.length + ' waiting)' : '';
+      btn.innerHTML = '✓ Done reading · Next: ' + next.name + ' ›' + more;
+      btn.style.background = '#1a7a3a';
+    }
+    return; // do NOT dismiss — let the user read, then tap to advance
+  }
+  dismissLandmarkAlert();
 }
 
 function dismissLandmarkAlert() {
