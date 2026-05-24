@@ -4723,20 +4723,15 @@ function renderStopList() {
         <div class="stop-type-label">${s.type}${(s.free && !s.passedBy && !s.checkIn && !(s.reservation)) ? ' · <span style="color:#2e7d32;font-weight:700;font-size:11px;">Free</span>' : ''}</div>
         <div class="stop-tags">
           ${(s.prebook && !(s.reservation && (s.reservation.confirmed || s.reservation.time))) ? '<span class="tag-pill prebook">Pre-book</span>' : ''}
+          ${s.isHotel ? '' : `<button onclick="event.stopPropagation(); moveStopToDayPrompt(${i});" style="display:inline-flex;align-items:center;gap:3px;background:#eef3fb;border:1px solid #d3e2f7;color:#1a56c4;font-size:10px;font-weight:700;border-radius:8px;padding:2px 7px;cursor:pointer;" title="Move to another day">📅 Move to day</button>`}
         </div>
         ${stopPhotosHtml(i, currentDay)}
       </div>
       ${s.isHotel ? '<span style="font-size:16px;padding:4px 8px;color:#aaa;" title="Hotel anchor">🏨</span>' : `
-      <div style="display:flex;flex-direction:column;gap:2px;align-self:center;flex-shrink:0;">
-      <button onclick="event.stopPropagation(); moveStopToDayPrompt(${i});"
-        style="background:none;border:none;color:#bbb;font-size:15px;cursor:pointer;padding:2px 4px;transition:color 0.15s;"
-        onmouseenter="this.style.color='#1a73e8'" onmouseleave="this.style.color='#bbb'"
-        ontouchstart="this.style.color='#1a73e8'" title="Move to another day">📅</button>
       <button onclick="event.stopPropagation(); confirmDeleteStop(${i});"
-        style="background:none;border:none;color:#ddd;font-size:16px;cursor:pointer;padding:2px 4px;transition:color 0.15s;"
+        style="background:none;border:none;color:#ddd;font-size:16px;cursor:pointer;padding:2px 4px;flex-shrink:0;align-self:center;transition:color 0.15s;"
         onmouseenter="this.style.color='#c0392b'" onmouseleave="this.style.color='#ddd'"
-        ontouchstart="this.style.color='#c0392b'" title="Remove stop">🗑</button>
-      </div>`}
+        ontouchstart="this.style.color='#c0392b'" title="Remove stop">🗑</button>`}
     </div>`;
   }).join('');
 
