@@ -1604,7 +1604,7 @@ function reassignTimesForDay(di) {
   // Walk minutes: cached OSRM result if available, else haversine fallback.
   const stops = days[di] && days[di].stops;
   if (!stops || !stops.length) return;
-  const hasCoord = (p) => p && typeof p.lat === 'number' && typeof p.lng === 'number' && !isNaN(p.lat) && !isNaN(p.lng);
+  const hasCoord = (p) => p && Number.isFinite(Number(p.lat)) && Number.isFinite(Number(p.lng));
   // Sane anchor: if the first stop isn't pinned to a fixed/reserved time, yet it's
   // anchored implausibly late (≥ 8 PM) on a multi-stop day, that's almost certainly
   // stale/corrupt data — reset the day's start to 9:00 AM so the chain reads sensibly.
@@ -1623,8 +1623,9 @@ function reassignTimesForDay(di) {
       // coordinate-less stop must not break the whole optimize/reorder action.
       let walk = 10;
       if (hasCoord(prev) && hasCoord(s)) {
-        const key = prev.lat.toFixed(4)+','+prev.lng.toFixed(4)+'->'+s.lat.toFixed(4)+','+s.lng.toFixed(4);
-        walk = getTravelMinsForKey(key, prev.lat, prev.lng, s.lat, s.lng);
+        const pLat = Number(prev.lat), pLng = Number(prev.lng), sLat = Number(s.lat), sLng = Number(s.lng);
+        const key = pLat.toFixed(4)+','+pLng.toFixed(4)+'->'+sLat.toFixed(4)+','+sLng.toFixed(4);
+        walk = getTravelMinsForKey(key, pLat, pLng, sLat, sLng);
       }
       cursor += walk;
       if (s.fixed || (s.reservation && s.reservation.time)) {
@@ -2116,6 +2117,10 @@ function applyRemoteData(row) {
 
 function sanitizeStop(s) {
   if (!s) return s;
+  // Coerce coordinates that arrived as numeric strings ("40.7" → 40.7) so distance
+  // math and the route optimiser treat them as real numbers everywhere.
+  if (s.lat != null && typeof s.lat !== 'number') { const n = Number(s.lat); if (Number.isFinite(n)) s.lat = n; }
+  if (s.lng != null && typeof s.lng !== 'number') { const n = Number(s.lng); if (Number.isFinite(n)) s.lng = n; }
   // Fix numeric duration → string
   if (typeof s.duration === 'number') s.duration = s.duration + ' min';
   // Fix 24h time (HH:MM) → 12h (H:MM AM/PM)
@@ -3188,15 +3193,15 @@ function optimizeRouteForDay(di) {
 
   // haversine distance helper (metres)
   function dist(a, b) {
-    if (!a || !b || typeof a.lat !== 'number' || typeof a.lng !== 'number'
-        || typeof b.lat !== 'number' || typeof b.lng !== 'number'
-        || isNaN(a.lat) || isNaN(a.lng) || isNaN(b.lat) || isNaN(b.lng)) {
-      return 5000; // unknown coords — treat as a moderate fixed distance, never NaN
+    const aLat = a && Number(a.lat), aLng = a && Number(a.lng);
+    const bLat = b && Number(b.lat), bLng = b && Number(b.lng);
+    if (!(Number.isFinite(aLat) && Number.isFinite(aLng) && Number.isFinite(bLat) && Number.isFinite(bLng))) {
+      return 5000; // genuinely unknown coords — fixed fallback, never NaN
     }
     const R = 6371000;
-    const p1 = a.lat * Math.PI/180, p2 = b.lat * Math.PI/180;
-    const dp = (b.lat - a.lat) * Math.PI/180;
-    const dl = (b.lng - a.lng) * Math.PI/180;
+    const p1 = aLat * Math.PI/180, p2 = bLat * Math.PI/180;
+    const dp = (bLat - aLat) * Math.PI/180;
+    const dl = (bLng - aLng) * Math.PI/180;
     const x = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
     return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
   }
