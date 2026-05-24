@@ -1605,6 +1605,14 @@ function reassignTimesForDay(di) {
   const stops = days[di] && days[di].stops;
   if (!stops || !stops.length) return;
   const hasCoord = (p) => p && typeof p.lat === 'number' && typeof p.lng === 'number' && !isNaN(p.lat) && !isNaN(p.lng);
+  // Sane anchor: if the first stop isn't pinned to a fixed/reserved time, yet it's
+  // anchored implausibly late (≥ 8 PM) on a multi-stop day, that's almost certainly
+  // stale/corrupt data — reset the day's start to 9:00 AM so the chain reads sensibly.
+  const first = stops[0];
+  const firstPinned = first.fixed || first.fixedTime || (first.reservation && first.reservation.time);
+  if (!firstPinned && stops.length >= 2 && timeStrToMins(first.time || '9:00 AM') >= 1200) {
+    first.time = '9:00 AM';
+  }
   let cursor = timeStrToMins(stops[0].time || '9:00 AM');
   for (let i = 0; i < stops.length; i++) {
     const s = stops[i];
@@ -1717,6 +1725,14 @@ const TRIP_ID = (new URLSearchParams(location.search).get('trip') || 'london2026
 
 // Merge default trip config with anything we've got locally for this trip
 APP_CONFIG = Object.assign({}, DEFAULT_TRIP_CONFIG, APP_CONFIG);
+
+// The hardcoded `days` array above carries London-specific day notes
+// (e.g. "Friday — Borough Market, Globe Theatre…") as defaults. For any other
+// trip those notes are wrong, so clear them — saved trip data will repopulate
+// real notes/titles on load if it has them.
+if (TRIP_ID !== 'london2026') {
+  days.forEach(d => { d.note = ''; });
+}
 
 // ── Unit helpers — respects APP_CONFIG.units ('metric' | 'imperial') ──────
 function _fmtDist(metres) {
