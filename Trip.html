@@ -8790,6 +8790,31 @@ function getDayDate(dayIdx) {
   return new Date().getFullYear()+'-'+String(mo).padStart(2,'0')+'-'+String(parseInt(m[2])).padStart(2,'0');
 }
 
+// Build an always-accurate day subtitle ("Friday — Stop1, Stop2, …") from the
+// day's ACTUAL stops. The old hardcoded notes go stale when stops change (e.g. a
+// New York trip still showing London places), so we derive from reality instead.
+function _dayNoteFromStops(di) {
+  const d = days[di];
+  if (!d) return '';
+  const weekdays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  let weekday = '';
+  const ds = getDayDate(di);
+  if (ds) {
+    const [y, m, day] = ds.split('-').map(Number);
+    const dt = new Date(y, m - 1, day);
+    if (!isNaN(dt.getTime())) weekday = weekdays[dt.getDay()];
+  }
+  const names = (d.stops || [])
+    .filter(s => s && !s.isHotel && s.type !== 'hotel' && s.name)
+    .map(s => s.name.split('—')[0].split('·')[0].split(' - ')[0].trim())
+    .filter(Boolean);
+  const seen = new Set();
+  const uniq = names.filter(n => { const k = n.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; });
+  if (!uniq.length) return weekday; // empty day — just the weekday (or nothing)
+  const shown = uniq.slice(0, 5).join(', ') + (uniq.length > 5 ? '…' : '');
+  return weekday ? (weekday + ' — ' + shown) : shown;
+}
+
 function fireReminder(name, time) {
   // Browser notification
   if (Notification.permission === 'granted') {
@@ -10974,7 +10999,7 @@ function renderRouteMap() {
   document.getElementById('routeMapContent').innerHTML = `
     <div class="map-header">
       <h2>${d.title}</h2>
-      <p style="font-size:11px;color:#888;margin-bottom:8px;">${d.note || ''}</p>
+      <p style="font-size:11px;color:#888;margin-bottom:8px;">${_dayNoteFromStops(currentDay) || d.note || ''}</p>
       ${controls}
     </div>
     <div id="routeMapIframe" style="width:100%;height:200px;background:#e8f0e4;display:flex;align-items:center;justify-content:center;">
@@ -12100,7 +12125,8 @@ async function generateStory() {
   days.forEach((day, di) => {
     if (!day || !day.stops || !day.stops.length) return;
     daySummaries += `\n\nDay ${di+1}${day.title ? ' — ' + day.title : ''}:`;
-    if (day.note) daySummaries += `\n  (${day.note})`;
+    const _note = _dayNoteFromStops(di) || day.note;
+    if (_note) daySummaries += `\n  (${_note})`;
     day.stops.forEach((stop, si) => {
       if (!stop.name || stop.name === 'Hotel' || stop.name === 'Unknown stop') return;
       const photoCount = stop.userPhotos && stop.userPhotos.length ? ` [${stop.userPhotos.length} photo${stop.userPhotos.length>1?'s':''}]` : '';
