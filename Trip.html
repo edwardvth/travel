@@ -1604,13 +1604,20 @@ function reassignTimesForDay(di) {
   // Walk minutes: cached OSRM result if available, else haversine fallback.
   const stops = days[di] && days[di].stops;
   if (!stops || !stops.length) return;
+  const hasCoord = (p) => p && typeof p.lat === 'number' && typeof p.lng === 'number' && !isNaN(p.lat) && !isNaN(p.lng);
   let cursor = timeStrToMins(stops[0].time || '9:00 AM');
   for (let i = 0; i < stops.length; i++) {
     const s = stops[i];
     if (i > 0) {
       const prev = stops[i-1];
-      const key = prev.lat.toFixed(4)+','+prev.lng.toFixed(4)+'->'+s.lat.toFixed(4)+','+s.lng.toFixed(4);
-      const walk = getTravelMinsForKey(key, prev.lat, prev.lng, s.lat, s.lng);
+      // If either stop lacks valid coordinates, skip the walk-time lookup (use a
+      // small default) instead of throwing on .toFixed of undefined — a single
+      // coordinate-less stop must not break the whole optimize/reorder action.
+      let walk = 10;
+      if (hasCoord(prev) && hasCoord(s)) {
+        const key = prev.lat.toFixed(4)+','+prev.lng.toFixed(4)+'->'+s.lat.toFixed(4)+','+s.lng.toFixed(4);
+        walk = getTravelMinsForKey(key, prev.lat, prev.lng, s.lat, s.lng);
+      }
       cursor += walk;
       if (s.fixed || (s.reservation && s.reservation.time)) {
         cursor = timeStrToMins(s.time);
@@ -3165,6 +3172,11 @@ function optimizeRouteForDay(di) {
 
   // haversine distance helper (metres)
   function dist(a, b) {
+    if (!a || !b || typeof a.lat !== 'number' || typeof a.lng !== 'number'
+        || typeof b.lat !== 'number' || typeof b.lng !== 'number'
+        || isNaN(a.lat) || isNaN(a.lng) || isNaN(b.lat) || isNaN(b.lng)) {
+      return 5000; // unknown coords — treat as a moderate fixed distance, never NaN
+    }
     const R = 6371000;
     const p1 = a.lat * Math.PI/180, p2 = b.lat * Math.PI/180;
     const dp = (b.lat - a.lat) * Math.PI/180;
@@ -10502,11 +10514,21 @@ const TIME_SLOTS = ['9:00 AM','9:45 AM','10:30 AM','11:15 AM','12:00 PM','12:45 
 function reassignTimes() { reassignTimesForDay(currentDay); }
 
 function optimizeRoute() {
-  optimizeRouteForDay(currentDay);
-  currentStop = 0;
-  renderAll();
-  if (currentView === 'routemap') renderRouteMap();
-  showToast('Route optimised — shortest walking distance ✓');
+  try {
+    if (!days[currentDay] || !days[currentDay].stops || days[currentDay].stops.length < 3) {
+      showToast('Need at least 3 stops to optimise', true);
+      return;
+    }
+    optimizeRouteForDay(currentDay);
+    currentStop = 0;
+    saveToStorage();
+    renderAll();
+    if (currentView === 'routemap') renderRouteMap();
+    showToast('Route optimised — shortest walking distance ✓');
+  } catch (e) {
+    console.error('optimizeRoute failed:', e);
+    showToast('Could not optimise route: ' + (e.message || e), true);
+  }
 }
 
 // ── REMOVE STOP ───────────────────────────────────────────────────
