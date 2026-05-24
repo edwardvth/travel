@@ -2463,6 +2463,102 @@ let _syncBackoffTimer = null;
 let _syncAnimInterval = null;
 
 // ── PHOTO DRAG-REORDER ─────────────────────────────────────────────
+// Touch drag-to-reorder for the daily schedule. iOS ONLY — HTML5 draggable
+// (which Android/desktop use) does not fire on iOS touch, so we add long-press
+// drag just for iPhone/iPad. Android and desktop are deliberately left untouched.
+function _initStopDrag() {
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!isIOS) return;
+  if (document.body.classList.contains('viewer-mode')) return;
+
+  let ghost = null, dragSrc = null, dragActive = false;
+  let srcIdx = -1, startY = 0, srcTop = 0, srcLeft = 0, dragTimer = null;
+
+  const cleanup = () => {
+    clearTimeout(dragTimer); dragTimer = null; dragActive = false;
+    document.removeEventListener('touchmove', onDragMove);
+    if (ghost) { ghost.remove(); ghost = null; }
+    if (dragSrc) { dragSrc.style.opacity = ''; }
+    dragSrc = null;
+    document.querySelectorAll('.stop-row').forEach(x => { x.style.borderTop = ''; x.style.borderBottom = ''; });
+  };
+
+  const onDragMove = (e) => {
+    if (!dragActive || !ghost) return;
+    e.preventDefault(); // block page scroll only while actively dragging
+    const t = e.touches[0];
+    ghost.style.top = (srcTop + (t.clientY - startY)) + 'px';
+    ghost.style.left = srcLeft + 'px';
+    document.querySelectorAll('.stop-row').forEach(x => { x.style.borderTop = ''; x.style.borderBottom = ''; });
+    const over = document.elementFromPoint(t.clientX, t.clientY);
+    const row = over && over.closest('.stop-row');
+    if (row && row !== dragSrc) {
+      const ti = +row.id.replace('srow', '');
+      // show a line above or below depending on direction
+      if (ti > srcIdx) row.style.borderBottom = '2px solid #1a73e8';
+      else row.style.borderTop = '2px solid #1a73e8';
+    }
+  };
+
+  const beginDrag = (el) => {
+    dragActive = true; dragSrc = el;
+    const r = el.getBoundingClientRect();
+    srcTop = r.top; srcLeft = r.left;
+    ghost = el.cloneNode(true);
+    ghost.style.cssText = 'position:fixed;z-index:9999;width:' + r.width + 'px;left:' + r.left + 'px;top:' + r.top
+      + 'px;opacity:0.92;pointer-events:none;background:#fff;border-radius:12px;box-shadow:0 10px 28px rgba(0,0,0,0.35);transform:scale(1.02);';
+    document.body.appendChild(ghost);
+    el.style.opacity = '0.3';
+    if (navigator.vibrate) { try { navigator.vibrate(15); } catch (e) {} }
+    document.addEventListener('touchmove', onDragMove, { passive: false });
+  };
+
+  document.querySelectorAll('.stop-row').forEach(el => {
+    if (!el.id || el.id.indexOf('srow') !== 0) return;
+    let sx = 0, sy = 0;
+    el.addEventListener('touchstart', e => {
+      // Ignore long-press that begins on an interactive control (arrows, check, trash, buttons, links)
+      if (e.target.closest('button, a, input, .reorder-arrows, .stop-check')) return;
+      const t = e.touches[0];
+      sx = t.clientX; sy = startY = t.clientY;
+      srcIdx = +el.id.replace('srow', '');
+      dragTimer = setTimeout(() => beginDrag(el), 350);
+    }, { passive: true });
+
+    el.addEventListener('touchmove', e => {
+      if (dragActive) return; // onDragMove handles active drag
+      // If finger moves before long-press fires, treat as scroll → cancel pickup
+      if (Math.abs(e.touches[0].clientX - sx) > 8 || Math.abs(e.touches[0].clientY - sy) > 8) {
+        clearTimeout(dragTimer); dragTimer = null;
+      }
+    }, { passive: true });
+
+    el.addEventListener('touchend', e => {
+      clearTimeout(dragTimer); dragTimer = null;
+      if (!dragActive) return;
+      const t = e.changedTouches[0];
+      const over = document.elementFromPoint(t.clientX, t.clientY);
+      const row = over && over.closest('.stop-row');
+      const toIdx = row ? +row.id.replace('srow', '') : -1;
+      const from = srcIdx;
+      cleanup();
+      if (toIdx < 0 || toIdx === from) return;
+      const stops = days[currentDay].stops;
+      if (from < 0 || from >= stops.length || toIdx >= stops.length) return;
+      const [moved] = stops.splice(from, 1);
+      stops.splice(toIdx, 0, moved);
+      try { reassignTimes(); } catch (err) {}
+      currentStop = toIdx;
+      saveToStorage();
+      renderAll();
+      if (currentView === 'routemap') renderRouteMap();
+    }, { passive: true });
+
+    el.addEventListener('touchcancel', cleanup, { passive: true });
+  });
+}
+
 function _initPhotoDrag() {
   if (!EDITOR_MODE) return;
   let ghost = null, dragSrc = null, dragActive = false;
@@ -4781,6 +4877,7 @@ function renderStopList() {
 
   // Restore scroll position after re-render
   if (area && scrollY) requestAnimationFrame(() => { area.scrollTop = scrollY; });
+  setTimeout(_initStopDrag, 50); // iOS touch drag-to-reorder (no-op on Android/desktop)
 }
 
 function selectStop(i) {
