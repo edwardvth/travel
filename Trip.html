@@ -4432,9 +4432,8 @@ function showHotelDetail() {
       </div>
       ${addr ? `<div style="font-size:13px;color:#888;margin-bottom:16px;">📍 ${addr}</div>` : ''}
       ${!hd ? '<p style="color:#888;font-size:14px;margin-bottom:16px;">No hotel set — tap below to add your hotel.</p>' : ''}
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <div style="margin-bottom:14px;">
         <a href="${gmUrl}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;background:#1a73e8;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;">📍 Open in Maps</a>
-        <a href="${gmDir}" target="_blank" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;background:#1a7a3a;color:#fff;border-radius:10px;font-size:13px;font-weight:700;text-decoration:none;">🚶 Directions</a>
       </div>
       <button onclick="document.getElementById('hotel-detail-overlay').remove();showView('hotel');"
         style="width:100%;padding:12px;border-radius:10px;border:1px solid #ddd;background:#f5f4f0;font-size:13px;font-weight:700;cursor:pointer;color:#555;">
