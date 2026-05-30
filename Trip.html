@@ -1478,9 +1478,12 @@ body.ios-touch-reorder .stop-row.dragging-src { opacity: 0.3; }
       <!-- ── HOTEL & TIMING ── -->
       <div style="background:#fff;border-radius:12px;overflow:hidden;margin-bottom:12px;">
         <div style="padding:8px 14px 4px;font-size:11px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid #f0f0f0;">🏨 Hotel & Times</div>
-        <div style="display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid #f0f0f0;">
+        <div style="position:relative;border-bottom:1px solid #f0f0f0;">
+        <div style="display:flex;align-items:center;padding:10px 14px;">
           <span style="font-size:12px;color:#888;width:100px;flex-shrink:0;">Hotel name</span>
-          <input class="form-input" id="hotelName" type="text" placeholder="e.g. Hotel Edison" oninput="updateHotelPreview()" style="margin:0;border:none;padding:0;font-size:14px;flex:1;background:transparent;outline:none;">
+          <input class="form-input" id="hotelName" type="text" placeholder="Search a hotel (e.g. Hotel Edison NYC)" autocomplete="off" oninput="updateHotelPreview(); _hotelSearchInput(this.value);" onfocus="if(this.value)_hotelSearchInput(this.value);" onblur="setTimeout(()=>{const r=document.getElementById('hotelSearchResults');if(r)r.style.display='none';},250);" style="margin:0;border:none;padding:0;font-size:14px;flex:1;background:transparent;outline:none;">
+        </div>
+        <div id="hotelSearchResults" style="display:none;position:absolute;left:0;right:0;top:100%;background:#fff;border:1px solid #e0e0e0;border-radius:0 0 10px 10px;box-shadow:0 4px 14px rgba(0,0,0,0.08);z-index:50;max-height:260px;overflow-y:auto;"></div>
         </div>
         <div style="display:flex;align-items:center;padding:10px 14px;border-bottom:1px solid #f0f0f0;">
           <span style="font-size:12px;color:#888;width:100px;flex-shrink:0;">Address</span>
@@ -11982,6 +11985,20 @@ async function geocodeAddress(address, targetLatId, targetLngId, statusElId) {
 
   if (statusEl) statusEl.innerHTML = '<span style="color:#5c4db1;">⏳ Looking up coordinates…</span>';
 
+  // First try Nominatim (OpenStreetMap) — free, no API key, reliable for addresses.
+  try {
+    const nomHits = await _nominatimSearch(address, { limit: 1 });
+    if (nomHits && nomHits.length) {
+      const h = nomHits[0];
+      latEl.value = h.lat.toFixed(5);
+      lngEl.value = h.lng.toFixed(5);
+      window[cacheKey] = address;
+      if (statusEl) statusEl.innerHTML = '<span style="color:#1a7a3a;">✓ Found: ' + h.lat.toFixed(4) + ', ' + h.lng.toFixed(4) + ' (saved automatically)</span>';
+      return;
+    }
+  } catch (e) { /* fall through to LLM */ }
+
+  // LLM fallback — requires the user's API key; useful when Nominatim returns nothing.
   const prompt = `Return the latitude and longitude for this address: "${address}"
 
 CRITICAL: Respond with ONLY a JSON object — no introduction, no markdown, no commentary. Start with { and end with }.
@@ -12011,6 +12028,85 @@ Use accurate coordinates (4+ decimal places). If the address is ambiguous or unr
     console.warn('Geocode error:', e);
     if (statusEl) statusEl.innerHTML = '<span style="color:#c0392b;">⚠ Lookup failed — ' + (e.message || 'unknown') + '. Set coordinates manually below.</span>';
   }
+}
+
+// Forward-geocode an address with Nominatim (OpenStreetMap) — free, no API key.
+// Returns {lat, lng, display_name} or null. Respect Nominatim usage policy: throttled,
+// includes a descriptive User-Agent via Accept-Language header.
+async function _nominatimSearch(query, opts) {
+  opts = opts || {};
+  const limit = opts.limit || 5;
+  const url = 'https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&limit=' + limit + '&q=' + encodeURIComponent(query);
+  try {
+    const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!Array.isArray(data) || !data.length) return null;
+    return data.map(h => ({
+      lat: parseFloat(h.lat),
+      lng: parseFloat(h.lon),
+      display_name: h.display_name,
+      name: (h.namedetails && h.namedetails.name) || (h.address && (h.address.tourism || h.address.amenity || h.address.shop)) || (h.display_name || '').split(',')[0],
+      category: h.class + (h.type ? ' · ' + h.type : ''),
+      address: h.display_name
+    })).filter(h => Number.isFinite(h.lat) && Number.isFinite(h.lng));
+  } catch (e) { return null; }
+}
+
+// Debounced live search as the user types a hotel name.
+let _hotelSearchTimer = null;
+let _hotelSearchSeq = 0;
+function _hotelSearchInput(raw) {
+  const q = (raw || '').trim();
+  const resultsEl = document.getElementById('hotelSearchResults');
+  if (!resultsEl) return;
+  if (_hotelSearchTimer) clearTimeout(_hotelSearchTimer);
+  if (q.length < 3) { resultsEl.style.display = 'none'; resultsEl.innerHTML = ''; return; }
+  _hotelSearchTimer = setTimeout(async () => {
+    const seq = ++_hotelSearchSeq;
+    resultsEl.style.display = 'block';
+    resultsEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#888;">⏳ Searching…</div>';
+    // Bias the query toward the trip's city/country if known.
+    let q2 = q;
+    try {
+      const city = (typeof getTripCity === 'function') ? getTripCity() : '';
+      if (city && !q.toLowerCase().includes(city.toLowerCase())) q2 = q + ' ' + city;
+    } catch (e) {}
+    const hits = await _nominatimSearch(q2, { limit: 6 });
+    if (seq !== _hotelSearchSeq) return; // a newer search has started
+    if (!hits || !hits.length) {
+      resultsEl.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#888;">No matches. Try adding the city, or type the address manually below.</div>';
+      return;
+    }
+    resultsEl.innerHTML = hits.map((h, i) => {
+      const title = (h.name || (h.display_name || '').split(',')[0] || '').replace(/[<>&]/g, '');
+      const sub = (h.display_name || '').replace(/[<>&]/g, '');
+      return '<div onclick="_pickHotelHit(' + i + ')" style="padding:10px 14px;border-bottom:1px solid #f5f5f5;cursor:pointer;font-size:13px;">'
+        + '<div style="font-weight:700;color:#1a1a1a;">🏨 ' + title + '</div>'
+        + '<div style="font-size:11px;color:#888;margin-top:2px;line-height:1.35;">' + sub + '</div>'
+        + '</div>';
+    }).join('');
+    window._lastHotelHits = hits;
+  }, 350);
+}
+
+function _pickHotelHit(i) {
+  const h = (window._lastHotelHits || [])[i];
+  if (!h) return;
+  const nameEl = document.getElementById('hotelName');
+  const addrEl = document.getElementById('hotelAddress');
+  const latEl = document.getElementById('hotelLat');
+  const lngEl = document.getElementById('hotelLng');
+  const statusEl = document.getElementById('hotelGeocodeStatus');
+  if (nameEl) nameEl.value = h.name || nameEl.value;
+  if (addrEl) addrEl.value = h.address || h.display_name || addrEl.value;
+  if (latEl) latEl.value = h.lat.toFixed(5);
+  if (lngEl) lngEl.value = h.lng.toFixed(5);
+  // Mark this address as already resolved so geocodeAddress doesn't redo it on blur
+  window['_lastGeo_hotelLat'] = (addrEl ? addrEl.value : '');
+  const r = document.getElementById('hotelSearchResults'); if (r) { r.style.display = 'none'; r.innerHTML = ''; }
+  if (statusEl) { statusEl.style.display = 'block'; statusEl.innerHTML = '<span style="color:#1a7a3a;">✓ Hotel selected — coordinates set automatically.</span>'; }
+  if (typeof updateHotelPreview === 'function') try { updateHotelPreview(); } catch(e) {}
 }
 
 function geocodeHotelAddress() {
