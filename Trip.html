@@ -684,11 +684,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <style>
 #routeMapDiv, #allMapDiv { width:100%; height:200px; z-index:1; }
 .all-day-pin { transition: transform 0.2s, box-shadow 0.2s; }
-.all-day-pin.swap-source {
+.all-day-pin.swap-source,
+.inline-marker.swap-source .inline-marker-inner {
   animation: swap-pulse 1.2s ease-in-out infinite;
   box-shadow: 0 0 0 6px rgba(26,115,232,0.35), 0 4px 16px rgba(0,0,0,0.45) !important;
   z-index: 1000;
 }
+.inline-marker.swap-source { z-index: 1000 !important; }
 @keyframes swap-pulse {
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.25); }
@@ -10901,11 +10903,25 @@ function buildInlineMap() {
     const pinColor = s.reservation && s.reservation.confirmed ? '#28a745' : s.color;
     const sz = 26;
     const icon = L.divIcon({ className:'inline-marker inline-marker-'+i, html:'<div class="inline-marker-inner" style="background:'+pinColor+';color:#fff;width:'+sz+'px;height:'+sz+'px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:900;border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.3);transition:transform 0.2s,box-shadow 0.2s;">'+(i+1)+'</div>', iconSize:[sz,sz], iconAnchor:[sz/2,sz/2], popupAnchor:[0,-sz/2] });
+    const popupColor = s.color || '#1a73e8';
     const resInfo = s.reservation ? '<br><span style="color:#28a745;font-size:11px;font-weight:700;">✓ ' + (s.reservation.confirmed ? 'Confirmed' : 'Reserved') + '</span>' : '';
-    const popup = '<b style="font-size:13px;">' + s.name + '</b><br><span style="color:#666;font-size:12px;">' + s.time + ' · ' + s.duration + '</span>' + resInfo;
-    L.marker([s.lat, s.lng], { icon }).addTo(map)
-      .bindPopup(popup)
-      .on('click', () => selectStop(i));
+    const prebookInfo = (s.prebook && !(s.reservation && (s.reservation.confirmed || s.reservation.time))) ? '<br><span style="color:#c0392b;font-size:11px;font-weight:700;">⚠ Pre-book</span>' : '';
+    const freeInfo = (s.free && !s.passedBy && !s.checkIn && !(s.reservation)) ? '<br><span style="color:#1a7a3a;font-size:11px;font-weight:700;">Free</span>' : '';
+    const addrHtml = s.address ? '<br><span style="font-size:11px;color:#888;">' + String(s.address).replace(/[<>&]/g,'') + '</span>' : '';
+    const popup = '<b style="color:'+popupColor+';font-size:13px;">Stop ' + (i+1) + '</b><br>'
+      + '<b style="font-size:14px;">' + String(s.name || ('Stop ' + (i+1))).replace(/[<>&]/g,'') + '</b><br>'
+      + '<span style="color:#666;font-size:12px;">' + s.time + ' · ' + s.duration + '</span>'
+      + addrHtml + resInfo + prebookInfo + freeInfo
+      + '<div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">'
+      + '<button onclick="(function(){if(_inlineMap)try{_inlineMap.closePopup();}catch(e){}selectStop('+i+');})()" style="flex:1;min-width:80px;padding:7px 8px;border-radius:6px;border:none;background:'+popupColor+';color:#fff;font-size:11px;font-weight:700;cursor:pointer;">Open ▶</button>'
+      + '<button onclick="(function(){if(_inlineMap)try{_inlineMap.closePopup();}catch(e){}moveStopToDayPrompt('+i+');})()" style="flex:1;min-width:90px;padding:7px 8px;border-radius:6px;border:1.5px solid '+popupColor+';background:#fff;color:'+popupColor+';font-size:11px;font-weight:700;cursor:pointer;">📅 Move to day</button>'
+      + '<button onclick="_startSwap('+currentDay+','+i+')" style="flex:1;min-width:80px;padding:7px 8px;border-radius:6px;border:1.5px dashed '+popupColor+';background:#fff;color:'+popupColor+';font-size:11px;font-weight:700;cursor:pointer;">🔀 Swap</button>'
+      + '</div>';
+    const marker = L.marker([s.lat, s.lng], { icon }).addTo(map).bindPopup(popup);
+    // Intercept popup-open in swap mode → complete the swap.
+    marker.on('popupopen', function() {
+      if (window._swapPick) { marker.closePopup(); _completeSwap(currentDay, i); }
+    });
   });
 
   // Fit all points including hotel
@@ -11310,28 +11326,40 @@ function _initRouteMapScrollSpy() {
 // on every affected day so neither schedule breaks.
 function _startSwap(fromDay, fromIdx) {
   if (window._allMap) try { window._allMap.closePopup(); } catch(e) {}
+  if (window._inlineMap) try { window._inlineMap.closePopup(); } catch(e) {}
   const stop = days[fromDay] && days[fromDay].stops && days[fromDay].stops[fromIdx];
   if (!stop || stop.isHotel) { showToast('Cannot swap that stop', true); return; }
   window._swapPick = { fromDay, fromIdx, name: stop.name || ('Stop ' + (fromIdx + 1)) };
-  // Highlight the source pin (pulse).
-  document.querySelectorAll('.all-day-pin.swap-source').forEach(el => el.classList.remove('swap-source'));
-  const src = document.querySelector('.all-day-pin-' + fromDay + '-' + fromIdx);
-  if (src) src.classList.add('swap-source');
-  // Show banner.
-  const banner = document.getElementById('swapBanner');
-  const nameSpan = document.getElementById('swapBannerName');
-  if (banner && nameSpan) {
-    const dayLbl = ((APP_CONFIG.dayLabels || [])[fromDay] || (days[fromDay] && days[fromDay].title) || ('Day ' + (fromDay + 1))).split('—')[0].trim();
-    nameSpan.textContent = '"' + (window._swapPick.name) + '" (' + dayLbl + ' · Stop ' + (fromIdx + 1) + ')';
-    banner.style.display = 'flex';
+  // Highlight source pin on whichever map is showing.
+  document.querySelectorAll('.all-day-pin.swap-source, .inline-marker.swap-source').forEach(el => el.classList.remove('swap-source'));
+  const srcAll = document.querySelector('.all-day-pin-' + fromDay + '-' + fromIdx);
+  if (srcAll) srcAll.classList.add('swap-source');
+  // Inline markers: the class is on the OUTER wrapper (.inline-marker-N). Only the
+  // current day is shown in the inline map, so the class match is by index alone.
+  if (fromDay === currentDay) {
+    const srcInline = document.querySelector('.inline-marker.inline-marker-' + fromIdx);
+    if (srcInline) srcInline.classList.add('swap-source');
   }
+  // Show a floating banner that works regardless of which map is showing.
+  let banner = document.getElementById('swapBanner');
+  if (!banner) {
+    banner = document.createElement('div');
+    banner.id = 'swapBanner';
+    banner.style.cssText = 'position:fixed;top:8px;left:8px;right:8px;z-index:30000;background:#1a73e8;color:#fff;padding:10px 12px;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,0.25);font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px;';
+    document.body.appendChild(banner);
+  }
+  banner.style.display = 'flex';
+  const dayLbl = ((APP_CONFIG.dayLabels || [])[fromDay] || (days[fromDay] && days[fromDay].title) || ('Day ' + (fromDay + 1))).split('—')[0].trim();
+  const safeName = (window._swapPick.name || '').replace(/[<>&]/g, '');
+  banner.innerHTML = '<span style="flex:1;">🔀 Tap another stop to swap with "' + safeName + '" (' + dayLbl + ' · Stop ' + (fromIdx + 1) + ')</span>'
+    + '<button onclick="_cancelSwap()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:12px;font-weight:700;padding:6px 10px;border-radius:6px;cursor:pointer;">Cancel</button>';
 }
 
 function _cancelSwap() {
   window._swapPick = null;
   const banner = document.getElementById('swapBanner');
-  if (banner) banner.style.display = 'none';
-  document.querySelectorAll('.all-day-pin.swap-source').forEach(el => el.classList.remove('swap-source'));
+  if (banner) banner.remove();
+  document.querySelectorAll('.all-day-pin.swap-source, .inline-marker.swap-source').forEach(el => el.classList.remove('swap-source'));
 }
 
 function _completeSwap(toDay, toIdx) {
@@ -11355,7 +11383,8 @@ function _completeSwap(toDay, toIdx) {
   showToast('🔀 Swapped "' + aName + '" ↔ "' + bName + '"');
   window._swapPick = null;
   const banner = document.getElementById('swapBanner');
-  if (banner) banner.style.display = 'none';
+  if (banner) banner.remove();
+  document.querySelectorAll('.all-day-pin.swap-source, .inline-marker.swap-source').forEach(el => el.classList.remove('swap-source'));
 }
 
 function _movePromptFromAllDays(fromDay, stopIdx) {
@@ -11448,10 +11477,6 @@ function renderAllMap() {
       <button onclick="runMultiDayOptimize()" style="width:100%;padding:11px;border-radius:10px;border:none;background:#5c4db1;color:#fff;font-size:13px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">✨ Optimize across all days — cluster by location, balance museums, fix meals</button>
     </div>
     <div style="position:relative;">
-      <div id="swapBanner" style="display:none;position:absolute;top:8px;left:8px;right:8px;z-index:1000;background:#1a73e8;color:#fff;padding:10px 12px;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,0.25);font-size:13px;font-weight:700;display:none;align-items:center;gap:8px;">
-        <span style="flex:1;">🔀 Tap another stop to swap with <span id="swapBannerName">…</span></span>
-        <button onclick="_cancelSwap()" style="background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:12px;font-weight:700;padding:6px 10px;border-radius:6px;cursor:pointer;">Cancel</button>
-      </div>
       <div id="allMapDiv"></div>
     </div>
   `;
