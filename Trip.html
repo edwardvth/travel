@@ -10399,27 +10399,31 @@ async function createNewTrip() {
     config: { title, subtitle, numDays: nd, dayLabels, dayTitles },
     data: { days: emptyDays, completed: [], hotel: null, savedAt: new Date().toISOString() }
   };
-  const { error } = await supa.from('trips').insert(payload);
-  if (error) { showToast('Could not create trip: ' + error.message, true); return; }
-
-  // ── CREDIT ENFORCEMENT ── founders pass through, paid users spend 1.
-  // Trip is created first, then the credit is consumed atomically server-side;
-  // if consumption fails the trip is rolled back.
+  // ── SERVER-SIDE CREATION ── credit check + deduction + insert happen
+  // atomically in the create_trip() database function. Direct inserts to
+  // the trips table are blocked by RLS, so this is the only path.
+  let cr = null;
   try {
-    const { data: cr, error: crErr } = await supa.rpc('consume_trip_credit');
-    if (crErr || !cr || cr.ok !== true) {
-      await supa.from('trips').delete().eq('id', slug);
-      _showOutOfCredits(cr && cr.reason);
-      return;
-    }
-    if (USER_PROFILE && typeof cr.credits === 'number') {
-      USER_PROFILE.credits = cr.credits;
-      _renderAccountRow();
-    }
-  } catch(e) {
-    try { await supa.from('trips').delete().eq('id', slug); } catch(e2) {}
-    showToast('Could not verify trip credits — trip not created', true);
+    const { data, error } = await supa.rpc('create_trip', {
+      p_id: slug, p_title: title, p_subtitle: subtitle,
+      p_config: payload.config, p_data: payload.data
+    });
+    if (error) { showToast('Could not create trip: ' + error.message, true); return; }
+    cr = data;
+  } catch(e) { showToast('Could not create trip — network error', true); return; }
+
+  if (!cr || cr.ok !== true) {
+    const reason = cr && cr.reason;
+    if (reason === 'no_credits' || reason === 'no_profile') { _showOutOfCredits(reason); return; }
+    if (reason === 'slug_taken') { showToast('A trip with that slug already exists', true); return; }
+    if (reason === 'not_signed_in') { showToast('Please sign in first', true); return; }
+    showToast('Could not create trip', true);
     return;
+  }
+
+  if (USER_PROFILE && typeof cr.credits === 'number') {
+    USER_PROFILE.credits = cr.credits;
+    _renderAccountRow();
   }
 
   const ov = document.getElementById('newtrip-overlay');
