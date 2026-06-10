@@ -9160,25 +9160,55 @@ function showFeatureTour() {
         <span style="font-size:18px;">›</span>
       </button>
 
-      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#999;margin:0 0 4px;">Daily use</p>
-
+      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#999;margin:0 0 8px;">🗓 Planning your trip</p>
       ${[
         ['🪄','AI fills your day','Open "+ Add / Search" → "Fill empty slots with AI" for a complete itinerary in seconds.'],
-        ['✨','Add Here — magic button','See "✨ Add here" between any two stops? Tap it and type anything — "coffee shop", "pharmacy", "quiet park". AI finds places actually on your route between those two stops, not random results.'],
-        ['✏️','Edit anything','Tap any stop to change times, duration, notes. Drag ⠿ to reorder. Tap the time to cascade all following stops automatically.'],
-        ['🚶','Live walk guide','Tap 🚶 in the header — landmarks pop up as you approach within 40m. 🎧 Tip: wear earbuds on noisy streets so you can hear the audio descriptions without stopping to read.'],
-        ['📷','Identify landmarks','Tap 📷, point your camera at any building or monument — get its name, history and fun facts instantly. Zoom in for statues or details across the street.'],
-        ['📍','Check in anywhere','Tap 📍 to pin your current location (café, viewpoint, store) to the schedule at the exact time you\'re there.'],
-        ['📅','Add day to calendar','Tap the 📋 menu → "Add day to calendar" to export the whole day\'s stops to your phone calendar with times.'],
-        ['📖','Book list','Tap 📋 → "Book list" to see all stops that need pre-booking — restaurants, museums, tours — in one place with booking links.'],
-        ['✍️','Trip story','Tap 📋 → "Trip story" to generate a beautiful narrative of your whole trip — great for sharing or journaling.'],
-        ['📸','Add photos','Tap "Add photos" under any stop to keep memories attached to each location. View them in a gallery with next/prev navigation.'],
-        ['🔊','Listen to facts','Tap any stop → 🔊 to hear its history read aloud. 🎧 Works best with earbuds — reads the description first, then the fun fact.'],
-        ['💾','Auto-saves','Every change saves to your device instantly and syncs to cloud within 1 second. Share the trip URL with companions — all edits appear live.'],
+        ['✨','Add Here — smart insert','Tap "✨ Add here" between any two stops. Type "coffee shop", "pharmacy" or anything — AI finds places on your actual route, not random results.'],
+        ['✏️','Edit stop name','Tap a stop\'s name to open its full detail — description, history, photos, map, directions and audio.'],
+        ['⏱ ','Change time or duration','Tap the time or duration on any stop to edit it. All following stops cascade automatically to stay in order.'],
+        ['⠿','Reorder stops','Drag the ⠿ handle on any stop to move it. Times recalculate instantly.'],
       ].map(([icon,title,desc]) => `
-        <div style="display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f0f0f0;">
-          <span style="font-size:20px;width:28px;text-align:center;flex-shrink:0;">${icon}</span>
-          <div><div style="font-size:13px;font-weight:800;color:#1a1a1a;margin-bottom:2px;">${title}</div>
+        <div style="display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f0f0f0;">
+          <span style="font-size:18px;width:26px;text-align:center;flex-shrink:0;">${icon}</span>
+          <div><div style="font-size:13px;font-weight:800;color:#1a1a1a;margin-bottom:1px;">${title}</div>
+          <div style="font-size:12px;color:#555;line-height:1.4;">${desc}</div></div>
+        </div>`).join('')}
+
+      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#999;margin:14px 0 8px;">🔒 Bookings & times</p>
+      ${[
+        ['📅','Booked = locked time','When you mark a stop as Booked, its time is locked. Stops before it adjust freely; stops after it cascade from the booking time.'],
+        ['⏰','Pre-book reminders','Tap "Pre-book" on any stop — the app reminds you 10 minutes before the booking time.'],
+        ['📖','Book list','Tap the 📋 menu → "Book list" to see every stop that needs pre-booking in one place with links.'],
+        ['📅','Add day to calendar','Tap 📋 → "Add day to calendar" to send the whole day\'s stops (with times) to your phone calendar.'],
+      ].map(([icon,title,desc]) => `
+        <div style="display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f0f0f0;">
+          <span style="font-size:18px;width:26px;text-align:center;flex-shrink:0;">${icon}</span>
+          <div><div style="font-size:13px;font-weight:800;color:#1a1a1a;margin-bottom:1px;">${title}</div>
+          <div style="font-size:12px;color:#555;line-height:1.4;">${desc}</div></div>
+        </div>`).join('')}
+
+      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#999;margin:14px 0 8px;">🚶 On the ground</p>
+      ${[
+        ['🚶','Live walk guide','Tap 🚶 — landmarks pop up as you approach within 40m. 🎧 Wear earbuds on busy streets so you hear facts without stopping.'],
+        ['📷','Identify anything','Tap 📷, point at a building or monument — get its name, history and fun facts. Zoom in for statues across the street.'],
+        ['📍','Check in','Tap 📍 to pin your current location (café, shop, viewpoint) to the schedule at the exact time you\'re there.'],
+        ['🔊','Listen while walking','Tap any stop → 🔊. Reads the description, then the fun fact. 🎧 Earbuds recommended.'],
+      ].map(([icon,title,desc]) => `
+        <div style="display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f0f0f0;">
+          <span style="font-size:18px;width:26px;text-align:center;flex-shrink:0;">${icon}</span>
+          <div><div style="font-size:13px;font-weight:800;color:#1a1a1a;margin-bottom:1px;">${title}</div>
+          <div style="font-size:12px;color:#555;line-height:1.4;">${desc}</div></div>
+        </div>`).join('')}
+
+      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.8px;color:#999;margin:14px 0 8px;">📸 Memories & sharing</p>
+      ${[
+        ['📸','Add photos','Tap "Add photos" under any stop. View them in a full-screen gallery with swipe navigation. Delete by tapping 🗑 in the gallery.'],
+        ['✍️','Trip story','Tap 📋 → "Trip story" to generate a narrative of your whole trip — great for sharing or journaling.'],
+        ['💾','Real-time sync','Every change saves instantly and syncs to all devices. Share the trip URL + password for live co-editing.'],
+      ].map(([icon,title,desc]) => `
+        <div style="display:flex;gap:12px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #f0f0f0;">
+          <span style="font-size:18px;width:26px;text-align:center;flex-shrink:0;">${icon}</span>
+          <div><div style="font-size:13px;font-weight:800;color:#1a1a1a;margin-bottom:1px;">${title}</div>
           <div style="font-size:12px;color:#555;line-height:1.4;">${desc}</div></div>
         </div>`).join('')}
 
