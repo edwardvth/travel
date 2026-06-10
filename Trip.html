@@ -1279,6 +1279,7 @@ body.ios-touch-reorder .stop-row.dragging-src { opacity: 0.3; }
       <div>
         <h1 id="appTitleEl">Trip</h1>
         <div class="header-sub" id="appSubtitleEl">May 7–10 · hidden gems · rooftop dining</div>
+        <div id="userGreeting" style="display:none;font-size:11px;color:#88d8a0;font-weight:700;margin-top:2px;"></div>
       </div>
       <button id="lockBtn" onclick="showLockDialog()" title="Edit / Lock mode" style="background:none;border:none;cursor:pointer;padding:2px 3px;opacity:0.7;flex-shrink:0;line-height:1;display:flex;align-items:center;"></button>
     </div>
@@ -1971,6 +1972,7 @@ function _showAuthGate() {
     '<div style="background:#fff;border-radius:18px;box-shadow:0 6px 30px rgba(0,0,0,0.12);padding:28px 22px;width:100%;max-width:360px;">' +
       '<div style="font-size:22px;font-weight:800;margin-bottom:4px;">' + (APP_CONFIG.title || 'Trip Planner') + '</div>' +
       '<div style="font-size:13px;color:#888;margin-bottom:20px;">Sign in to view this trip</div>' +
+      '<input id="authName" type="text" placeholder="Your name (for new accounts)" autocomplete="name" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:10px;">' +
       '<input id="authEmail" type="email" placeholder="Email" autocomplete="email" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:10px;">' +
       '<input id="authPassword" type="password" placeholder="Password" autocomplete="current-password" style="width:100%;box-sizing:border-box;padding:12px;border:1px solid #ddd;border-radius:10px;font-size:15px;margin-bottom:14px;">' +
       '<button onclick="_authSignIn()" style="width:100%;padding:13px;background:#1a1a1a;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px;">Sign in</button>' +
@@ -2005,10 +2007,11 @@ async function _authSignUp() {
   const email = (document.getElementById('authEmail')||{}).value || '';
   const pw = (document.getElementById('authPassword')||{}).value || '';
   if (!email || !pw) { _authMsg('Enter email and a password (6+ characters)', true); return; }
+  const name = ((document.getElementById('authName')||{}).value || '').trim();
   _authMsg('Creating account…');
   const { data, error } = await supa.auth.signUp({
     email: email.trim(), password: pw,
-    options: { emailRedirectTo: _authRedirectUrl() }
+    options: { emailRedirectTo: _authRedirectUrl(), data: { name: name } }
   });
   if (error) { _authMsg(error.message, true); return; }
   if (data && data.session) return; // confirm-email off — signed in immediately
@@ -2033,7 +2036,30 @@ async function loadUserProfile(user) {
     const { data } = await supa.from('profiles').select('*').eq('id', user.id).maybeSingle();
     USER_PROFILE = data || null;
   } catch(e) { console.warn('loadUserProfile', e); }
+  // Self-heal: copy name from signup metadata into profile if missing
+  try {
+    const metaName = (user.user_metadata || {}).name;
+    if (USER_PROFILE && !USER_PROFILE.name && metaName) {
+      await supa.from('profiles').update({ name: metaName }).eq('id', user.id);
+      USER_PROFILE.name = metaName;
+    }
+  } catch(e) {}
+  _renderGreeting();
   _renderAccountRow();
+}
+
+function _displayName() {
+  if (USER_PROFILE && USER_PROFILE.name) return USER_PROFILE.name;
+  const meta = (CURRENT_USER && CURRENT_USER.user_metadata) || {};
+  if (meta.name) return meta.name;
+  return CURRENT_USER && CURRENT_USER.email ? CURRENT_USER.email.split('@')[0] : '';
+}
+
+function _renderGreeting() {
+  const el = document.getElementById('userGreeting');
+  if (!el || !CURRENT_USER) return;
+  const n = _displayName();
+  if (n) { el.textContent = '👋 ' + n; el.style.display = 'block'; }
 }
 
 function _renderAccountRow() {
@@ -2047,9 +2073,10 @@ function _renderAccountRow() {
   }
   const role = (USER_PROFILE && USER_PROFILE.role) || 'member';
   const credits = USER_PROFILE ? USER_PROFILE.credits : null;
+  const nm = _displayName();
   row.innerHTML =
     '<div style="margin:18px 12px;padding:14px;background:#f7f5f0;border-radius:12px;font-size:13px;color:#444;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">' +
-      '<span>👤 ' + (CURRENT_USER.email || '') +
+      '<span>👤 ' + (nm ? '<strong>' + nm + '</strong> · ' : '') + (CURRENT_USER.email || '') +
         ' · <strong>' + role + '</strong>' +
         (role !== 'founder' && credits !== null ? ' · ' + credits + ' trip credit' + (credits === 1 ? '' : 's') : '') +
       '</span>' +
