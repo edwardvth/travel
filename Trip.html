@@ -3459,14 +3459,47 @@ async function aiSearch() {
 
   const city = getTripCity();
   const center = getTripCenter();
-  const nearHint = center
-    ? ` near lat ${center.lat.toFixed(4)}, lng ${center.lng.toFixed(4)}`
-    : '';
 
   const btn = document.getElementById('searchBtn');
   btn.textContent = 'Searching…'; btn.disabled = true;
-  document.getElementById('searchResults').innerHTML = '<p style="color:#888;font-size:13px;text-align:center;padding:20px;">AI is finding the best matches in ' + city.replace(/[<>&"]/g,'') + '…</p>';
+  document.getElementById('searchResults').innerHTML = '<p style="color:#888;font-size:13px;text-align:center;padding:20px;">Searching for "' + query.replace(/[<>&"]/g,'') + '"…</p>';
 
+  // For short specific names (brands/stores), try Nominatim direct lookup first
+  const looksLikeBrand = /^[A-Z][a-zA-Z'&\s]{1,30}$/.test(query) && query.split(' ').length <= 4;
+  if (looksLikeBrand && center) {
+    try {
+      const nomUrl = 'https://nominatim.openstreetmap.org/search?q='
+        + encodeURIComponent(query + ' ' + city)
+        + '&format=json&limit=5&addressdetails=1&extratags=1';
+      const nomRes = await fetch(nomUrl, { headers: { 'Accept-Language': 'en' } });
+      const nomData = await nomRes.json();
+      if (nomData && nomData.length > 0) {
+        // Filter to results near the trip center (within ~20km)
+        const nearby = nomData.filter(r => {
+          const d = Math.hypot((parseFloat(r.lat)-center.lat)*111, (parseFloat(r.lon)-center.lng)*111*Math.cos(center.lat*Math.PI/180));
+          return d < 20;
+        });
+        if (nearby.length > 0) {
+          // Build result cards from Nominatim hits
+          const cards = nearby.slice(0, 4).map((r, i) => {
+            const addr = r.display_name.split(',').slice(0,3).join(', ');
+            const lat = parseFloat(r.lat), lng = parseFloat(r.lon);
+            const type = r.type || r.class || 'Place';
+            return { name: r.name || query, address: addr, lat, lng,
+              type_label: type.replace(/_/g,' '), color: '#1a73e8',
+              free: false, prebook: false,
+              description: addr,
+              tips: '', goodFor: '', hours: '', hoursNote: '', website: r.extratags?.website || '' };
+          });
+          btn.textContent = '🤖 Search / Add with AI →'; btn.disabled = false;
+          renderSearchResults(cards, dayIdx);
+          return;
+        }
+      }
+    } catch(e) { /* fall through to AI */ }
+  }
+
+  const nearHint = center ? ` near lat ${center.lat.toFixed(4)}, lng ${center.lng.toFixed(4)}` : '';
   const existing = days.flatMap(d => d.stops.map(s => s.name)).join(', ') || 'nothing yet';
 
   const prompt = `You are an expert tour guide for ${city}. A visitor is planning a trip and staying${center ? ' near the hotel at lat ' + center.lat.toFixed(4) + ', lng ' + center.lng.toFixed(4) : ' in ' + city}. They have already visited: ${existing}.
