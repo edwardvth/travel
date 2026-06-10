@@ -1279,7 +1279,6 @@ body.ios-touch-reorder .stop-row.dragging-src { opacity: 0.3; }
       <div>
         <h1 id="appTitleEl">Trip</h1>
         <div class="header-sub" id="appSubtitleEl">May 7–10 · hidden gems · rooftop dining</div>
-        <div id="userGreeting" style="display:none;font-size:11px;color:#88d8a0;font-weight:700;margin-top:2px;"></div>
       </div>
       <button id="lockBtn" onclick="showLockDialog()" title="Edit / Lock mode" style="background:none;border:none;cursor:pointer;padding:2px 3px;opacity:0.7;flex-shrink:0;line-height:1;display:flex;align-items:center;"></button>
     </div>
@@ -1292,6 +1291,10 @@ body.ios-touch-reorder .stop-row.dragging-src { opacity: 0.3; }
         <button onclick="_toggleContentMenu()" id="contentMenuBtn" class="prebook-pill" style="border-color:#c05621;color:#c05621;font-size:13px;padding:5px 10px;gap:4px;display:flex;align-items:center;">📋 ▾</button>
       </div>
       <button onclick="showView('settings')" id="dtabSettings" style="background:none;border:none;cursor:pointer;color:#888;font-size:18px;padding:4px 6px;flex-shrink:0;line-height:1;" title="Settings">⚙</button>
+    </div>
+    <div id="userGreeting" style="display:none;flex-shrink:0;margin-left:auto;text-align:right;line-height:1.35;padding-top:2px;">
+      <div id="userGreetingName" style="font-size:12px;font-weight:800;color:#88d8a0;white-space:nowrap;"></div>
+      <div id="userGreetingEmail" style="font-size:10px;color:#999;white-space:nowrap;"></div>
     </div>
   </div>
 
@@ -2059,7 +2062,11 @@ function _renderGreeting() {
   const el = document.getElementById('userGreeting');
   if (!el || !CURRENT_USER) return;
   const n = _displayName();
-  if (n) { el.textContent = '👋 ' + n; el.style.display = 'block'; }
+  const nameEl = document.getElementById('userGreetingName');
+  const emailEl = document.getElementById('userGreetingEmail');
+  if (nameEl) nameEl.textContent = n ? '👋 ' + n : '';
+  if (emailEl) emailEl.textContent = CURRENT_USER.email || '';
+  el.style.display = 'block';
 }
 
 function _renderAccountRow() {
