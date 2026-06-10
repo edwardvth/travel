@@ -1906,6 +1906,7 @@ let supa = null;
 let _realtimeChannel = null;
 let _suppressNextRealtime = false;  // set true before our own writes so we don't echo
 let TRIP_PW_HASH = null;            // loaded from trip row
+let TRIP_OWNER_ID = null;           // uuid of the user who created this trip
 let EDITOR_MODE = false;
 try { EDITOR_MODE = localStorage.getItem('trip_' + TRIP_ID + '_editor') === '1'; } catch(e) {}
 
@@ -2277,6 +2278,7 @@ function _mergePhotos(a, b) {
 function applyRemoteData(row) {
   if (!row) return;
   TRIP_PW_HASH = row.edit_password_hash || null;
+  if ('owner_id' in row) TRIP_OWNER_ID = row.owner_id || null;
   const cfg = row.config || {};
   if (cfg.anthropicKey) _remoteApiKey = cfg.anthropicKey; // preserve across devices
   APP_CONFIG = Object.assign({}, APP_CONFIG, cfg);
@@ -4885,6 +4887,14 @@ async function init() {
       '<p>No data found for trip <strong>' + TRIP_ID + '</strong>.</p>' +
       '<p style="font-size:13px;color:#666;margin-top:12px;">Unlock with 🔒 and add stops, or create a new trip in ⚙ Settings.</p>' +
       '</div>';
+  }
+
+  // Owner auto-unlock: the user who created this trip edits without a password
+  if (!EDITOR_MODE && TRIP_OWNER_ID && CURRENT_USER && CURRENT_USER.id === TRIP_OWNER_ID) {
+    EDITOR_MODE = true;
+    try { localStorage.setItem('trip_' + TRIP_ID + '_editor', '1'); } catch(e) {}
+    updateLockUI();
+    showToast('✏️ Your trip — editing unlocked');
   }
 
   // Clean invalid AND duplicate photos on every load
