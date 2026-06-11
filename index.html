@@ -315,13 +315,15 @@ async function fillAccountInvites() {
 
 async function menuInviteLink(tripId) {
   try {
-    const { data: r } = await supa.rpc('create_invite', { p_id: tripId });
-    if (!r || r.ok !== true || !r.token) { alert('Could not create invite link'); return; }
+    const { data: r, error } = await supa.rpc('create_invite', { p_id: tripId });
+    if (error) { alert('Invite link failed: ' + error.message); return; }
+    if (!r || r.ok !== true || !r.token) { alert('Invite link failed: ' + ((r && r.reason) || 'unknown error')); return; }
     const link = location.origin + '/Trip.html?trip=' + tripId + '&join=' + r.token;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(link).then(() => alert('🔗 Invite link copied!'));
-    } else { prompt('Copy this invite link:', link); }
-  } catch(e) { alert('Could not create invite link'); }
+    let copied = false;
+    try { await navigator.clipboard.writeText(link); copied = true; } catch(e) {}
+    if (copied) alert('🔗 Invite link copied to clipboard:\n\n' + link);
+    else prompt('Copy this invite link:', link);
+  } catch(e) { alert('Invite link failed — check your connection and try again.'); }
 }
 
 function isFounder() { return USER_PROFILE && USER_PROFILE.role === 'founder'; }

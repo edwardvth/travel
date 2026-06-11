@@ -1284,7 +1284,7 @@ body.ios-touch-reorder .stop-row.dragging-src { opacity: 0.3; }
   <div class="header-top" style="align-items:flex-start;">
     <div style="flex-shrink:0;display:flex;align-items:center;gap:8px;">
       <div>
-        <h1 id="appTitleEl">Trip</h1>
+        <div style="display:flex;align-items:center;gap:8px;"><button onclick="location.href='/'" id="homeBtn" title="My Trips" style="background:none;border:none;cursor:pointer;color:#999;font-size:18px;padding:0;line-height:1;">🏠</button><h1 id="appTitleEl" style="margin:0;">Trip</h1></div>
         <div class="header-sub" id="appSubtitleEl">May 7–10 · hidden gems · rooftop dining</div>
       </div>
       <button id="lockBtn" onclick="showLockDialog()" title="Edit / Lock mode" style="background:none;border:none;cursor:pointer;padding:2px 3px;opacity:0.7;flex-shrink:0;line-height:1;display:flex;align-items:center;"></button>
@@ -1297,7 +1297,7 @@ body.ios-touch-reorder .stop-row.dragging-src { opacity: 0.3; }
       <div style="position:relative;flex-shrink:0;">
         <button onclick="_toggleContentMenu()" id="contentMenuBtn" class="prebook-pill" style="border-color:#c05621;color:#c05621;font-size:13px;padding:5px 10px;gap:4px;display:flex;align-items:center;">📋 ▾</button>
       </div>
-      <button onclick="location.href='/'" id="homeBtn" title="My Trips" style="background:none;border:none;cursor:pointer;color:#888;font-size:17px;padding:4px 6px;flex-shrink:0;line-height:1;">🏠</button><button onclick="showView('settings')" id="dtabSettings" style="background:none;border:none;cursor:pointer;color:#888;font-size:18px;padding:4px 6px;flex-shrink:0;line-height:1;" title="Settings">⚙</button>
+      <button onclick="showView('settings')" id="dtabSettings" style="background:none;border:none;cursor:pointer;color:#888;font-size:18px;padding:4px 6px;flex-shrink:0;line-height:1;" title="Settings">⚙</button>
     </div>
     <div id="userGreeting" onclick="_showAccountMenu()" style="display:none;flex-shrink:0;margin-left:auto;text-align:right;line-height:1.35;padding-top:2px;cursor:pointer;">
       <div id="userGreetingName" style="font-size:12px;font-weight:800;color:#88d8a0;white-space:nowrap;"></div>
@@ -2252,13 +2252,15 @@ async function _fillAccountInvites() {
 
 async function _menuInviteLink(tripId) {
   try {
-    const { data: r } = await supa.rpc('create_invite', { p_id: tripId });
-    if (!r || r.ok !== true || !r.token) { showToast('Could not create invite link', true); return; }
+    const { data: r, error } = await supa.rpc('create_invite', { p_id: tripId });
+    if (error) { alert('Invite link failed: ' + error.message); return; }
+    if (!r || r.ok !== true || !r.token) { alert('Invite link failed: ' + ((r && r.reason) || 'unknown error')); return; }
     const link = location.origin + '/Trip.html?trip=' + tripId + '&join=' + r.token;
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(link).then(() => showToast('🔗 Invite link copied!'));
-    } else { prompt('Copy this invite link:', link); }
-  } catch(e) { showToast('Could not create invite link', true); }
+    let copied = false;
+    try { await navigator.clipboard.writeText(link); copied = true; } catch(e) {}
+    if (copied) alert('🔗 Invite link copied to clipboard:\n\n' + link);
+    else prompt('Copy this invite link:', link);
+  } catch(e) { alert('Invite link failed — check your connection and try again.'); }
 }
 
 async function signOutUser() {
