@@ -266,8 +266,13 @@ async function loadTrips() {
     data = r2.data; error = r2.error;
   }
   if (error) { document.getElementById('tripsContainer').innerHTML = '<div class="loading">Failed to load trips: ' + (error.message || 'unknown error') + '</div>'; return; }
-  // Founders see everything; everyone else sees the trips they own
-  allTrips = (data || []).filter(t => isFounder() || (t.owner_id && t.owner_id === user.id));
+  // Founders see everything; everyone else sees trips they own or are invited to
+  let memberIds = new Set();
+  try {
+    const { data: mems } = await supa.from('trip_members').select('trip_id');
+    (mems || []).forEach(m => memberIds.add(m.trip_id));
+  } catch(e) {}
+  allTrips = (data || []).filter(t => isFounder() || (t.owner_id && t.owner_id === user.id) || memberIds.has(t.id));
   renderTrips();
 }
 

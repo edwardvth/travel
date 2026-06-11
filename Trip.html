@@ -2080,6 +2080,7 @@ async function loadUserProfile(user) {
   } catch(e) {}
   _renderGreeting();
   _renderAccountRow();
+  setTimeout(() => { try { _renderMembersBox(); } catch(e) {} }, 500);
 }
 
 function _displayName() {
@@ -2125,6 +2126,64 @@ function _renderAccountRow() {
 async function signOutUser() {
   try { await supa.auth.signOut(); } catch(e) {}
   location.reload();
+}
+
+// ── TRIP MEMBERS (invite by email) ───────────────────────────────
+function _canManageMembers() {
+  return (USER_PROFILE && USER_PROFILE.role === 'founder') ||
+         (TRIP_OWNER_ID && CURRENT_USER && CURRENT_USER.id === TRIP_OWNER_ID);
+}
+
+async function _renderMembersBox() {
+  const panel = document.getElementById('panel-settings');
+  if (!panel || !CURRENT_USER) return;
+  let box = document.getElementById('membersBox');
+  if (!_canManageMembers()) { if (box) box.remove(); return; }
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'membersBox';
+    panel.appendChild(box);
+  }
+  let rows = [];
+  try {
+    const { data } = await supa.from('trip_members').select('email, role').eq('trip_id', TRIP_ID).order('added_at');
+    rows = data || [];
+  } catch(e) {}
+  const list = rows.map(r =>
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;">' +
+      '<span style="font-size:13px;color:#444;">✉️ ' + r.email + '</span>' +
+      '<button onclick="_removeMember(\'' + r.email.replace(/'/g, "\\'") + '\')" style="background:none;border:none;color:#c0392b;font-size:13px;cursor:pointer;">Remove</button>' +
+    '</div>').join('') || '<div style="font-size:13px;color:#999;padding:6px 0;">No members yet — invite someone below.</div>';
+  box.innerHTML =
+    '<div style="margin:0 12px 18px;padding:14px;background:#f7f5f0;border-radius:12px;">' +
+      '<div style="font-weight:800;font-size:14px;margin-bottom:8px;">👥 Trip members</div>' +
+      '<div style="font-size:12px;color:#888;margin-bottom:10px;">Invited people see this trip in My Trips and can edit it — no password needed. They\'ll use the email you enter to sign in.</div>' +
+      list +
+      '<div style="display:flex;gap:8px;margin-top:12px;">' +
+        '<input id="memberEmail" type="email" placeholder="email@example.com" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;">' +
+        '<button onclick="_addMember()" style="padding:10px 16px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;">Invite</button>' +
+      '</div>' +
+    '</div>';
+}
+
+async function _addMember() {
+  const email = ((document.getElementById('memberEmail')||{}).value || '').trim();
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showToast('Enter a valid email', true); return; }
+  try {
+    const { data: r, error } = await supa.rpc('add_trip_member', { p_id: TRIP_ID, p_email: email });
+    if (error || !r || r.ok !== true) { showToast((r && r.reason === 'not_owner') ? 'Only the trip owner can invite' : 'Invite failed', true); return; }
+    showToast('✉️ ' + email + ' invited! Share the trip link with them.');
+    _renderMembersBox();
+  } catch(e) { showToast('Invite failed', true); }
+}
+
+async function _removeMember(email) {
+  try {
+    const { data: r, error } = await supa.rpc('remove_trip_member', { p_id: TRIP_ID, p_email: email });
+    if (error || !r || r.ok !== true) { showToast('Remove failed', true); return; }
+    showToast('Removed ' + email);
+    _renderMembersBox();
+  } catch(e) { showToast('Remove failed', true); }
 }
 
 // ── SAVE / LOAD ───────────────────────────────────────────────────
@@ -4946,6 +5005,19 @@ async function init() {
     try { localStorage.setItem('trip_' + TRIP_ID + '_editor', '1'); } catch(e) {}
     updateLockUI();
     showToast('✏️ Your trip — editing unlocked');
+  }
+
+  // Member auto-unlock: invited members edit without a password too
+  if (!EDITOR_MODE && CURRENT_USER) {
+    try {
+      const { data: mem } = await supa.from('trip_members').select('role').eq('trip_id', TRIP_ID).limit(1);
+      if (mem && mem.length && mem[0].role !== 'viewer') {
+        EDITOR_MODE = true;
+        try { localStorage.setItem('trip_' + TRIP_ID + '_editor', '1'); } catch(e) {}
+        updateLockUI();
+        showToast('✏️ You\'re a trip member — editing unlocked');
+      }
+    } catch(e) {}
   }
 
   // Clean invalid AND duplicate photos on every load
