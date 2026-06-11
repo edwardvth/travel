@@ -77,6 +77,11 @@ if (location.hostname === 'magakh.github.io') {
     background: #1a73e8; color: #fff; font-size: 13px; font-weight: 700;
     cursor: pointer;
   }
+  .btn-share {
+    padding: 10px 14px; border-radius: 10px; border: 1px solid #2a4a7a;
+    background: #13233f; color: #9cc0ff; font-size: 13px; font-weight: 700;
+    cursor: pointer; white-space: nowrap;
+  }
   input[type="date"] { color-scheme: dark; cursor: pointer; }
 input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); cursor: pointer; padding: 6px; }
 .btn-delete {
@@ -150,6 +155,7 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const supa = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let allTrips = [];
+let ownerEmails = {};
 let CURRENT_USER = null;
 let USER_PROFILE = null;
 
@@ -306,13 +312,29 @@ function renderTrips() {
             <span class="trip-badge">📍 ${totalStops} stops</span>
           </div>
           ${updated ? `<div class="trip-stops">Last updated ${updated}</div>` : ''}
+          ${isFounder() && trip.owner_id && ownerEmails[trip.owner_id] ? `<div class="trip-stops" style="color:#5b9cff;">👤 ${ownerEmails[trip.owner_id]}</div>` : ''}
         </div>
         <div class="trip-actions" onclick="event.stopPropagation()">
           <button class="btn-open" onclick="openTrip('${trip.id}')">Open →</button>
+          ${canManage(trip) ? `<button class="btn-share" onclick="shareTrip('${trip.id}')">👥 Share</button>` : ''}
           ${canManage(trip) ? `<button class="btn-delete" onclick="confirmDelete('${trip.id}', '${(trip.title || trip.id).replace(/'/g, "\\'")}')">🗑</button>` : ''}
         </div>
       </div>`;
   }).join('') + '</div>';
+}
+
+async function shareTrip(id) {
+  const email = (prompt('Invite by email — they\'ll see this trip in their list after signing in:') || '').trim();
+  if (!email) return;
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('That doesn\'t look like a valid email.'); return; }
+  try {
+    const { data: r, error } = await supa.rpc('add_trip_member', { p_id: id, p_email: email });
+    if (error || !r || r.ok !== true) {
+      alert(r && r.reason === 'not_owner' ? 'Only the trip owner can share this trip.' : 'Share failed — try again.');
+      return;
+    }
+    alert('✉️ ' + email + ' now has access. Send them the trip link: ' + location.origin + '/' + id);
+  } catch(e) { alert('Share failed — try again.'); }
 }
 
 function openTrip(id) {
