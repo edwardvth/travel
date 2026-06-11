@@ -292,81 +292,77 @@ function showAccountMenu() {
 }
 
 async function shareTrip(id) {
-  const old = document.getElementById('share-overlay'); if (old) old.remove();
+  const old = document.getElementById('share-modal'); if (old) old.remove();
   const ov = document.createElement('div');
-  ov.className = 'confirm-overlay';
-  ov.id = 'share-overlay';
-  ov.innerHTML = `
-    <div class="confirm-box" style="text-align:left;max-width:380px;" onclick="event.stopPropagation()">
-      <h3 style="text-align:left;">👥 Share trip</h3>
-      <p style="margin-bottom:10px;text-align:left;">Invite by email — they'll see this trip in their list after signing in.</p>
-      <div style="display:flex;gap:8px;margin-bottom:16px;">
-        <input id="shareEmail" type="email" placeholder="email@example.com" autocomplete="email"
-          style="flex:1;min-width:0;padding:11px;border-radius:10px;border:1px solid #333;background:#0d0d0d;color:#fff;font-size:14px;">
-        <button onclick="sendShare('${id}')" id="shareSendBtn"
-          style="padding:11px 16px;border-radius:10px;border:none;background:#1a73e8;color:#fff;font-weight:700;cursor:pointer;">Send</button>
-      </div>
-      <div style="font-size:11px;font-weight:800;color:#777;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Invited</div>
-      <div id="shareList" style="font-size:13px;color:#999;min-height:20px;">Loading…</div>
-      <button onclick="this.closest('.confirm-overlay').remove()"
-        style="margin-top:16px;width:100%;padding:11px;background:#2a2a2a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">Close</button>
-    </div>`;
+  ov.id = 'share-modal';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100003;display:flex;align-items:center;justify-content:center;padding:20px;';
+  ov.innerHTML =
+    '<div style="background:#181818;border:1px solid #2a2a2a;color:#eee;border-radius:16px;width:100%;max-width:380px;padding:20px;" onclick="event.stopPropagation()">' +
+      '<div style="font-weight:800;font-size:16px;margin-bottom:4px;">👥 Share "' + id + '"</div>' +
+      '<div style="font-size:12.5px;color:#999;margin-bottom:12px;">They\'ll see this trip in their list after signing in.</div>' +
+      '<div style="display:flex;gap:8px;margin-bottom:6px;">' +
+        '<input id="shareEmail" type="email" placeholder="Email address" style="flex:1;box-sizing:border-box;padding:11px;border:1px solid #333;background:#0d0d0d;color:#fff;border-radius:10px;font-size:14px;">' +
+        '<button onclick="sendShare(\'' + id + '\')" style="padding:11px 16px;background:#1a73e8;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Invite</button>' +
+      '</div>' +
+      '<div id="shareMsg" style="font-size:12.5px;min-height:16px;color:#7fd29a;margin-bottom:10px;"></div>' +
+      '<div style="font-size:11px;font-weight:800;color:#777;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Invited</div>' +
+      '<div id="shareList" style="font-size:13px;color:#bbb;">Loading…</div>' +
+      '<button onclick="document.getElementById(\'share-modal\').remove()" style="margin-top:14px;width:100%;padding:11px;background:#2a2a2a;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Done</button>' +
+    '</div>';
   ov.onclick = () => ov.remove();
   document.body.appendChild(ov);
-  setTimeout(() => { const i = document.getElementById('shareEmail'); if (i) i.focus(); }, 60);
-  refreshShareList(id);
+  loadShareList(id);
 }
 
-async function refreshShareList(id) {
+async function loadShareList(id) {
   const box = document.getElementById('shareList');
   if (!box) return;
   try {
-    const { data: mems, error } = await supa.from('trip_members').select('email').eq('trip_id', id).order('added_at');
-    if (error) { box.textContent = 'Could not load invitations.'; return; }
-    if (!mems || mems.length === 0) { box.textContent = 'No invitations sent yet.'; return; }
+    const { data: mems } = await supa.from('trip_members').select('email').eq('trip_id', id).order('added_at');
+    if (!mems || mems.length === 0) { box.innerHTML = '<span style="color:#777;">No one invited yet.</span>'; return; }
     box.innerHTML = mems.map(m =>
-      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #2a2a2a;">' +
-        '<span style="color:#ddd;overflow:hidden;text-overflow:ellipsis;">' + m.email + '</span>' +
-        '<button onclick="removeShare(\'' + id + '\', \'' + m.email + '\')" title="Remove" ' +
-          'style="background:none;border:1px solid #5a2a2a;color:#ff7b6b;border-radius:8px;padding:3px 9px;font-size:12px;cursor:pointer;">✕</button>' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #242424;">' +
+        '<span>' + m.email + '</span>' +
+        '<a href="#" onclick="removeShare(\'' + id + '\',\'' + m.email + '\');return false;" style="color:#ff7b6b;text-decoration:none;font-size:15px;padding:0 6px;" title="Remove">✕</a>' +
       '</div>').join('');
   } catch(e) { box.textContent = 'Could not load invitations.'; }
 }
 
 async function sendShare(id) {
-  const input = document.getElementById('shareEmail');
-  const email = ((input && input.value) || '').trim();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('That doesn\'t look like a valid email.'); return; }
-  const btn = document.getElementById('shareSendBtn');
-  if (btn) { btn.textContent = '…'; btn.disabled = true; }
+  const inp = document.getElementById('shareEmail');
+  const msg = document.getElementById('shareMsg');
+  const email = ((inp && inp.value) || '').trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { if (msg) { msg.style.color = '#ff7b6b'; msg.textContent = 'Enter a valid email address.'; } return; }
+  if (msg) { msg.style.color = '#999'; msg.textContent = 'Inviting…'; }
   try {
     const { data: r, error } = await supa.rpc('add_trip_member', { p_id: id, p_email: email });
     if (error || !r || r.ok !== true) {
-      alert(r && r.reason === 'not_owner' ? 'Only the trip owner can share this trip.' : 'Share failed: ' + ((error && error.message) || (r && r.reason) || 'unknown'));
+      if (msg) { msg.style.color = '#ff7b6b'; msg.textContent = (r && r.reason === 'not_owner') ? 'Only the trip owner can share this trip.' : 'Share failed: ' + ((error && error.message) || (r && r.reason) || 'try again'); }
       return;
     }
+    let mailed = false;
     try {
       const { data: sess } = await supa.auth.getSession();
       const tok = sess && sess.session && sess.session.access_token;
-      await fetch(SUPABASE_URL.replace(/\/$/, '') + '/functions/v1/send-invite', {
+      const resp = await fetch(SUPABASE_URL.replace(/\/$/, '') + '/functions/v1/send-invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok, 'apikey': SUPABASE_KEY },
         body: JSON.stringify({ email: email, trip_id: id, link: location.origin + '/Trip.html?trip=' + id })
       });
+      mailed = resp.ok;
     } catch(e) {}
-    if (input) input.value = '';
-    refreshShareList(id);
-  } finally {
-    if (btn) { btn.textContent = 'Send'; btn.disabled = false; }
-  }
+    if (msg) { msg.style.color = '#7fd29a'; msg.textContent = '✅ Invited' + (mailed ? ' — email sent.' : ' — send them: ' + location.origin + '/' + id); }
+    if (inp) inp.value = '';
+    loadShareList(id);
+  } catch(e) { if (msg) { msg.style.color = '#ff7b6b'; msg.textContent = 'Share failed — try again.'; } }
 }
 
 async function removeShare(id, email) {
   try {
-    const { data: r, error } = await supa.rpc('remove_trip_member', { p_id: id, p_email: email });
-    if (error || !r || r.ok !== true) { alert('Remove failed.'); return; }
-    refreshShareList(id);
-  } catch(e) { alert('Remove failed.'); }
+    const { data: r } = await supa.rpc('remove_trip_member', { p_id: id, p_email: email });
+    if (!r || r.ok !== true) { alert('Could not remove — only the owner can.'); return; }
+    loadShareList(id);
+  } catch(e) { alert('Could not remove.'); }
 }
 
 function openTrip(id) {
