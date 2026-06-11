@@ -1297,9 +1297,9 @@ body.ios-touch-reorder .stop-row.dragging-src { opacity: 0.3; }
       <div style="position:relative;flex-shrink:0;">
         <button onclick="_toggleContentMenu()" id="contentMenuBtn" class="prebook-pill" style="border-color:#c05621;color:#c05621;font-size:13px;padding:5px 10px;gap:4px;display:flex;align-items:center;">📋 ▾</button>
       </div>
-      <button onclick="showView('settings')" id="dtabSettings" style="background:none;border:none;cursor:pointer;color:#888;font-size:18px;padding:4px 6px;flex-shrink:0;line-height:1;" title="Settings">⚙</button>
+      <button onclick="location.href='/'" id="homeBtn" title="My Trips" style="background:none;border:none;cursor:pointer;color:#888;font-size:17px;padding:4px 6px;flex-shrink:0;line-height:1;">🏠</button><button onclick="showView('settings')" id="dtabSettings" style="background:none;border:none;cursor:pointer;color:#888;font-size:18px;padding:4px 6px;flex-shrink:0;line-height:1;" title="Settings">⚙</button>
     </div>
-    <div id="userGreeting" style="display:none;flex-shrink:0;margin-left:auto;text-align:right;line-height:1.35;padding-top:2px;">
+    <div id="userGreeting" onclick="_showAccountMenu()" style="display:none;flex-shrink:0;margin-left:auto;text-align:right;line-height:1.35;padding-top:2px;cursor:pointer;">
       <div id="userGreetingName" style="font-size:12px;font-weight:800;color:#88d8a0;white-space:nowrap;"></div>
       <div id="userGreetingEmail" style="font-size:10px;color:#999;white-space:nowrap;"></div>
     </div>
@@ -2149,6 +2149,115 @@ async function inviteToTrip() {
     }
     try { await navigator.clipboard.writeText(link); showToast('🔗 Invite link copied — send it to your group!'); }
     catch(e) { prompt('Copy this invite link:', link); }
+  } catch(e) { showToast('Could not create invite link', true); }
+}
+
+function _renderAccountRow() {
+  const r = document.getElementById('accountRow');
+  if (r) r.remove();
+}
+
+const APP_VERSION = '1.1.0';
+
+// Account menu — profile, billing, invitations, help, sign out
+function _fmtTravelMins(m) {
+  m = Math.round(m || 0);
+  if (m >= 60) { const h = Math.floor(m / 60), r = m % 60; return r ? h + 'h ' + r + 'm' : h + 'h'; }
+  return m + ' min';
+}
+
+// Settings tabs: 1 Trip (days/hotel) · 2 Data (export/import/reset) · 3 AI
+function _initSettingsTabs() {
+  const host = document.querySelector('#panel-settings .add-view');
+  if (!host || host._tabbed) { _applySettingsTab(host && host._tab || 1); return; }
+  host._tabbed = true; host._tab = 1;
+  const kids = Array.from(host.children);
+  for (let i = 1; i < kids.length; i++) {
+    const t = (kids[i].textContent || '').toLowerCase();
+    let tab = 1;
+    if (/ai settings|api key|ai provider|claude|openai|perplexity|model/.test(t) && /key|provider|model/.test(t)) tab = 3;
+    else if (/export|import|reset|danger|repair|backup/.test(t)) tab = 2;
+    kids[i].setAttribute('data-settab', String(tab));
+  }
+  const bar = document.createElement('div');
+  bar.id = 'setTabBar';
+  bar.style.cssText = 'display:flex;gap:6px;margin:0 0 14px 0;position:sticky;top:0;background:inherit;z-index:5;';
+  bar.innerHTML = [['1','🗓 Trip & hotel'],['2','💾 Data'],['3','🤖 AI']].map(([n, label]) =>
+    '<button data-tabbtn="' + n + '" onclick="_applySettingsTab(' + n + ')" style="flex:1;padding:9px 6px;border-radius:10px;border:1px solid #ddd;background:#fff;font-size:12.5px;font-weight:700;cursor:pointer;">' + label + '</button>').join('');
+  host.insertBefore(bar, kids[1] || null);
+  _applySettingsTab(1);
+}
+
+function _applySettingsTab(n) {
+  const host = document.querySelector('#panel-settings .add-view');
+  if (!host) return;
+  host._tab = n;
+  host.querySelectorAll('[data-settab]').forEach(el => {
+    el.style.display = (el.getAttribute('data-settab') == String(n)) ? '' : 'none';
+  });
+  host.querySelectorAll('[data-tabbtn]').forEach(b => {
+    const on = b.getAttribute('data-tabbtn') == String(n);
+    b.style.background = on ? '#1a1a1a' : '#fff';
+    b.style.color = on ? '#fff' : '#333';
+  });
+}
+
+function _showAccountMenu() {
+  const old = document.getElementById('account-menu'); if (old) old.remove();
+  const nm = _displayName();
+  const role = (USER_PROFILE && USER_PROFILE.role) || 'free';
+  const credits = USER_PROFILE ? USER_PROFILE.credits : null;
+  const ov = document.createElement('div');
+  ov.id = 'account-menu';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100002;display:flex;align-items:flex-start;justify-content:flex-end;padding:14px;';
+  ov.innerHTML =
+    '<div style="background:#fff;border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,0.25);width:100%;max-width:340px;max-height:85vh;overflow-y:auto;padding:18px;" onclick="event.stopPropagation()">' +
+      '<div style="font-size:12px;font-weight:800;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Profile</div>' +
+      '<div style="font-size:16px;font-weight:800;">' + (nm || '—') + '</div>' +
+      '<div style="font-size:13px;color:#666;">' + ((CURRENT_USER && CURRENT_USER.email) || '') + '</div>' +
+      '<div style="font-size:12px;color:#999;margin-top:2px;">' + role + (credits !== null && role !== 'founder' ? ' · ' + credits + ' credits' : '') + ' · v' + APP_VERSION + '</div>' +
+      '<div style="height:1px;background:#eee;margin:14px 0;"></div>' +
+      '<div style="font-size:12px;font-weight:800;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Billing</div>' +
+      '<div style="font-size:13px;color:#888;">💳 Coming soon</div>' +
+      '<div style="height:1px;background:#eee;margin:14px 0;"></div>' +
+      '<div style="font-size:12px;font-weight:800;color:#999;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Invitations</div>' +
+      '<div id="acctInvites" style="font-size:13px;color:#666;">Loading…</div>' +
+      '<div style="height:1px;background:#eee;margin:14px 0;"></div>' +
+      '<button onclick="document.getElementById(&quot;account-menu&quot;).remove();showFeatureTour();" style="width:100%;padding:11px;background:#f5f5f5;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;margin-bottom:8px;">❓ Help & guide</button>' +
+      '<button onclick="signOutUser()" style="width:100%;padding:11px;background:#fff;color:#c0392b;border:1px solid #f0c0c0;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Sign out</button>' +
+    '</div>';
+  ov.onclick = () => ov.remove();
+  document.body.appendChild(ov);
+  _fillAccountInvites();
+}
+
+async function _fillAccountInvites() {
+  const box = document.getElementById('acctInvites');
+  if (!box || !CURRENT_USER) return;
+  try {
+    const { data: owned } = await supa.from('trips').select('id, title').eq('owner_id', CURRENT_USER.id);
+    if (!owned || owned.length === 0) { box.innerHTML = 'You don\'t own any trips yet.'; return; }
+    const ids = owned.map(t => t.id);
+    const { data: mems } = await supa.from('trip_members').select('trip_id, email').in('trip_id', ids);
+    const byTrip = {};
+    (mems || []).forEach(m => { (byTrip[m.trip_id] = byTrip[m.trip_id] || []).push(m.email); });
+    box.innerHTML = owned.map(t =>
+      '<div style="margin-bottom:10px;">' +
+        '<div style="font-weight:700;font-size:13px;">' + (t.title || t.id) +
+          ' <a href="#" onclick="_menuInviteLink(\'' + t.id + '\');return false;" style="font-size:12px;color:#1a73e8;text-decoration:none;font-weight:700;">🔗 new invite link</a></div>' +
+        '<div style="font-size:12px;color:#888;">' + ((byTrip[t.id] || []).join(', ') || 'No invitations sent yet') + '</div>' +
+      '</div>').join('');
+  } catch(e) { box.textContent = 'Could not load invitations.'; }
+}
+
+async function _menuInviteLink(tripId) {
+  try {
+    const { data: r } = await supa.rpc('create_invite', { p_id: tripId });
+    if (!r || r.ok !== true || !r.token) { showToast('Could not create invite link', true); return; }
+    const link = location.origin + '/Trip.html?trip=' + tripId + '&join=' + r.token;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(() => showToast('🔗 Invite link copied!'));
+    } else { prompt('Copy this invite link:', link); }
   } catch(e) { showToast('Could not create invite link', true); }
 }
 
@@ -3314,6 +3423,31 @@ function updateLockUI() {
 }
 
 function showLockDialog() {
+  const canEdit = !!(CURRENT_USER && (
+    (TRIP_OWNER_ID && TRIP_OWNER_ID === CURRENT_USER.id) ||
+    (typeof IS_TRIP_MEMBER !== 'undefined' && IS_TRIP_MEMBER) ||
+    (USER_PROFILE && USER_PROFILE.role === 'founder')
+  ));
+  if (canEdit) {
+    EDITOR_MODE = !EDITOR_MODE;
+    try { localStorage.setItem('trip_' + TRIP_ID + '_editor', EDITOR_MODE ? '1' : ''); } catch(e) {}
+    try { updateLockState(); } catch(e) {}
+    try { renderAll(); } catch(e) {}
+    showToast(EDITOR_MODE ? '✏️ Editing on' : '🔒 View-only mode');
+    return;
+  }
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;padding:20px;';
+  ov.innerHTML = '<div style="background:#fff;border-radius:16px;padding:24px;max-width:320px;text-align:center;" onclick="event.stopPropagation()">' +
+    '<div style="font-size:34px;margin-bottom:8px;">👀</div>' +
+    '<div style="font-weight:800;font-size:16px;margin-bottom:8px;">View-only</div>' +
+    '<div style="font-size:14px;color:#666;line-height:1.5;">Editing is by invitation now — ask the trip owner to share the trip with your email or send you an invite link.</div>' +
+    '<button onclick="this.closest(\'div\').parentElement.remove()" style="margin-top:16px;width:100%;padding:11px;background:#1a1a1a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">Got it</button></div>';
+  ov.onclick = () => ov.remove();
+  document.body.appendChild(ov);
+}
+
+function _legacyLockDialog() {
   if (EDITOR_MODE) {
     showConfirm('Lock editing? You will need the password to edit again.', () => {
       lockEditor();
@@ -5162,7 +5296,7 @@ function showView(v) {
   if (v === 'hotel') v = 'settings';
   // Stop reading if navigating away from story
   if (v !== 'story' && typeof _stopReadAloud === 'function') _stopReadAloud();
-  if (v === 'settings') setTimeout(function() { if (typeof _updateUnitsBtn === 'function') _updateUnitsBtn(); updateLockState(); }, 50);
+  if (v === 'settings') setTimeout(function() { if (typeof _updateUnitsBtn === 'function') _updateUnitsBtn(); updateLockState(); try { _initSettingsTabs(); } catch(e) {} }, 50);
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   const panelEl = document.getElementById('panel-' + v);
   if (!panelEl) { console.warn('No panel:', v); return; }
@@ -7312,7 +7446,7 @@ function renderTourCards(tour, fromStop, toStop, afterIdx, dayIdx, beforeIdx) {
     var walkDist = lm.distFromPrev ? (lm.distFromPrev>=1000?(lm.distFromPrev/1000).toFixed(1)+'km':lm.distFromPrev+'m') : '';
     html += '<div style="display:flex;gap:12px;">'
       +'<div style="display:flex;flex-direction:column;align-items:center;width:14px;flex-shrink:0;"><div style="width:2px;background:#ddd;flex:1;min-height:16px;"></div></div>'
-      +'<div style="font-size:11px;color:#5a7a8a;padding:3px 0;font-weight:600;">&#x1F6B6; '+walkMins+' min'+(walkDist?' · '+walkDist:'')+'</div></div>';
+      +'<div style="font-size:11px;color:#5a7a8a;padding:3px 0;font-weight:600;">&#x1F6B6; '+_fmtTravelMins(walkMins)+(walkDist?' · '+walkDist:'')+'</div></div>';
 
     var imgBit = lm.image
       ? '<div style="overflow:hidden;"><img src="'+lm.image+'" style="width:100%;height:110px;display:block;object-fit:cover;background:#f5f5f5;" loading="lazy" onerror="this.parentElement.style.display=\'none\'"></div>'
@@ -7344,7 +7478,7 @@ function renderTourCards(tour, fromStop, toStop, afterIdx, dayIdx, beforeIdx) {
 
   if (toStop.walkMinsFromPrev) {
     html += '<div style="display:flex;gap:12px;"><div style="display:flex;flex-direction:column;align-items:center;width:14px;flex-shrink:0;"><div style="width:2px;background:#ddd;flex:1;min-height:16px;"></div></div>'
-      +'<div style="font-size:11px;color:#5a7a8a;padding:3px 0;font-weight:600;">&#x1F6B6; '+toStop.walkMinsFromPrev+' min</div></div>';
+      +'<div style="font-size:11px;color:#5a7a8a;padding:3px 0;font-weight:600;">&#x1F6B6; '+_fmtTravelMins(toStop.walkMinsFromPrev)+'</div></div>';
   }
   html += '<div style="display:flex;align-items:center;gap:12px;padding:6px 0 20px;">'
     +'<div style="width:14px;height:14px;background:#c0392b;border-radius:50%;flex-shrink:0;box-shadow:0 0 0 3px rgba(192,57,43,0.2);"></div>'
@@ -9688,8 +9822,8 @@ function showGettingStarted() {
         },
         {
           n:'3', color:'#e67e22', bg:'#fef3e2',
-          title:'Set an edit password',
-          body:`Tap <b>🔒 View</b> in the top bar → enter a password to unlock editing. Share the same password with travel companions so everyone can edit the same trip in real time. Without a password anyone with the link can view but not edit.`,
+          title:'Invite your travel companions',
+          body:`Tap your <b>name</b> (top right) → <b>Invitations</b> → copy the invite link for this trip, or use <b>👥 Share</b> on the trip tile in My Trips to invite by email. Invited people sign in with their own account and can view and edit this trip with you in real time — no passwords needed.`,
         },
         {
           n:'4', color:'#1a73e8', bg:'#e8f0fd',
@@ -9873,7 +10007,9 @@ function suggestBetween(afterIdx, beforeIdx, dayIdx) {
     if (!a || !b) return null;
     const m = _haversineMetres(a.lat, a.lng, b.lat, b.lng);
     const mins = Math.round(m / 83);
-    return mins < 1 ? '< 1 min' : mins + ' min';
+    if (mins < 1) return '< 1 min';
+    if (mins >= 60) { const h = Math.floor(mins/60), r = Math.round(mins%60); return r ? h + 'h ' + r + 'm' : h + 'h'; }
+    return Math.round(mins) + ' min';
   };
   const totalWalk = _walkMinsEst(_hdrFrom, _hdrTo);
   const totalDist = _hdrFrom && _hdrTo ? Math.round(_haversineMetres(_hdrFrom.lat, _hdrFrom.lng, _hdrTo.lat, _hdrTo.lng)) : null;
@@ -10099,7 +10235,9 @@ function renderSuggestResults(results, afterIdx, dayIdx) {
     if (!a || !b || !a.lat || !b.lat) return null;
     const m = _haversineMetres(a.lat, a.lng, b.lat, b.lng);
     const mins = Math.round(m / 83);
-    return mins < 1 ? '< 1 min' : mins + ' min';
+    if (mins < 1) return '< 1 min';
+    if (mins >= 60) { const h = Math.floor(mins/60), r = Math.round(mins%60); return r ? h + 'h ' + r + 'm' : h + 'h'; }
+    return Math.round(mins) + ' min';
   };
   results.forEach(function(r, i) {
     const fromMins = fSt ? _minsTo(fSt, r) : null;

@@ -142,7 +142,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.8); cur
   <div>
     <h1>✈️ My Trips</h1>
     <p id="tripCount">Loading...</p>
-    <p id="acctRow" style="font-size:12px;color:#888;margin:4px 0 0;"></p>
+    <div id="acctRow" onclick="showAccountMenu()" style="position:absolute;top:60px;right:20px;text-align:right;font-size:13px;color:#ccc;cursor:pointer;line-height:1.4;z-index:10;"></div>
   </div>
   <button class="new-btn" onclick="showNewTripModal()">+ New trip</button>
 </div>
@@ -261,6 +261,66 @@ async function authMagicLink() {
 
 async function signOutUser() { try { await supa.auth.signOut(); } catch(e) {} location.reload(); }
 
+const APP_VERSION = '1.1.0';
+
+function showAccountMenu() {
+  const old = document.getElementById('account-menu'); if (old) old.remove();
+  const nm = (USER_PROFILE && USER_PROFILE.name) || (CURRENT_USER && CURRENT_USER.email || '').split('@')[0];
+  const role = (USER_PROFILE && USER_PROFILE.role) || 'free';
+  const credits = USER_PROFILE ? USER_PROFILE.credits : null;
+  const ov = document.createElement('div');
+  ov.id = 'account-menu';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:100002;display:flex;align-items:flex-start;justify-content:flex-end;padding:14px;';
+  ov.innerHTML =
+    '<div style="background:#181818;border:1px solid #2a2a2a;color:#eee;border-radius:16px;width:100%;max-width:340px;max-height:85vh;overflow-y:auto;padding:18px;" onclick="event.stopPropagation()">' +
+      '<div style="font-size:11px;font-weight:800;color:#777;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Profile</div>' +
+      '<div style="font-size:16px;font-weight:800;">' + (nm || '—') + '</div>' +
+      '<div style="font-size:13px;color:#999;">' + ((CURRENT_USER && CURRENT_USER.email) || '') + '</div>' +
+      '<div style="font-size:12px;color:#777;margin-top:2px;">' + role + (credits !== null && role !== 'founder' ? ' · ' + credits + ' credits' : '') + ' · v' + APP_VERSION + '</div>' +
+      '<div style="height:1px;background:#2a2a2a;margin:14px 0;"></div>' +
+      '<div style="font-size:11px;font-weight:800;color:#777;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Billing</div>' +
+      '<div style="font-size:13px;color:#888;">💳 Coming soon</div>' +
+      '<div style="height:1px;background:#2a2a2a;margin:14px 0;"></div>' +
+      '<div style="font-size:11px;font-weight:800;color:#777;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Invitations</div>' +
+      '<div id="acctInvites" style="font-size:13px;color:#999;">Loading…</div>' +
+      '<div style="height:1px;background:#2a2a2a;margin:14px 0;"></div>' +
+      '<button onclick="signOutUser()" style="width:100%;padding:11px;background:transparent;color:#ff7b6b;border:1px solid #5a2a2a;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Sign out</button>' +
+    '</div>';
+  ov.onclick = () => ov.remove();
+  document.body.appendChild(ov);
+  fillAccountInvites();
+}
+
+async function fillAccountInvites() {
+  const box = document.getElementById('acctInvites');
+  if (!box || !CURRENT_USER) return;
+  try {
+    const { data: owned } = await supa.from('trips').select('id, title').eq('owner_id', CURRENT_USER.id);
+    if (!owned || owned.length === 0) { box.textContent = 'You don\'t own any trips yet.'; return; }
+    const ids = owned.map(t => t.id);
+    const { data: mems } = await supa.from('trip_members').select('trip_id, email').in('trip_id', ids);
+    const byTrip = {};
+    (mems || []).forEach(m => { (byTrip[m.trip_id] = byTrip[m.trip_id] || []).push(m.email); });
+    box.innerHTML = owned.map(t =>
+      '<div style="margin-bottom:10px;">' +
+        '<div style="font-weight:700;font-size:13px;color:#ddd;">' + (t.title || t.id) +
+          ' <a href="#" onclick="menuInviteLink(\'' + t.id + '\');return false;" style="font-size:12px;color:#5b9cff;text-decoration:none;font-weight:700;">🔗 new invite link</a></div>' +
+        '<div style="font-size:12px;color:#777;">' + ((byTrip[t.id] || []).join(', ') || 'No invitations sent yet') + '</div>' +
+      '</div>').join('');
+  } catch(e) { box.textContent = 'Could not load invitations.'; }
+}
+
+async function menuInviteLink(tripId) {
+  try {
+    const { data: r } = await supa.rpc('create_invite', { p_id: tripId });
+    if (!r || r.ok !== true || !r.token) { alert('Could not create invite link'); return; }
+    const link = location.origin + '/Trip.html?trip=' + tripId + '&join=' + r.token;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(link).then(() => alert('🔗 Invite link copied!'));
+    } else { prompt('Copy this invite link:', link); }
+  } catch(e) { alert('Could not create invite link'); }
+}
+
 function isFounder() { return USER_PROFILE && USER_PROFILE.role === 'founder'; }
 function canManage(trip) { return isFounder() || (trip.owner_id && CURRENT_USER && trip.owner_id === CURRENT_USER.id); }
 
@@ -271,8 +331,11 @@ async function loadTrips() {
     USER_PROFILE = prof || null;
   } catch(e) {}
   const acct = document.getElementById('acctRow');
-  if (acct) acct.innerHTML = '👤 ' + (user.email || '') + (isFounder() ? ' · founder' : (USER_PROFILE ? ' · ' + (USER_PROFILE.credits||0) + ' credits' : '')) +
-    ' &nbsp;<a href="#" onclick="signOutUser();return false;" style="color:#5b9cff;text-decoration:none;">Sign out</a>';
+  if (acct) {
+    const nm = (USER_PROFILE && USER_PROFILE.name) || (user.user_metadata && (user.user_metadata.name || user.user_metadata.full_name)) || (user.email || '').split('@')[0];
+    acct.innerHTML = '<div style="font-weight:800;color:#7fd29a;font-size:14px;">👋 ' + nm + ' ▾</div>' +
+      '<div style="font-size:11px;color:#888;">' + (user.email || '') + (isFounder() ? ' · founder' : '') + '</div>';
+  }
 
   let { data, error } = await supa.from('trips').select('id, owner_id, title, subtitle, config, data, updated_at').order('updated_at', { ascending: false });
   if (error && /owner_id|updated_at/.test(error.message || '')) {
@@ -300,7 +363,22 @@ function renderTrips() {
     return;
   }
 
-  container.innerHTML = '<div class="trips-grid">' + allTrips.map(trip => {
+  if (isFounder()) {
+    const groups = {};
+    allTrips.forEach(t => {
+      const who = (t.owner_id && ownerEmails[t.owner_id]) || 'unassigned';
+      (groups[who] = groups[who] || []).push(t);
+    });
+    container.innerHTML = Object.keys(groups).sort().map(who =>
+      '<div style="margin:18px 0 8px;font-size:13px;font-weight:800;color:#5b9cff;text-transform:lowercase;">👤 ' + who + ' · ' + groups[who].length + ' trip' + (groups[who].length !== 1 ? 's' : '') + '</div>' +
+      '<div class="trips-grid">' + groups[who].map(trip => tripCardHtml(trip)).join('') + '</div>'
+    ).join('');
+    return;
+  }
+  container.innerHTML = '<div class="trips-grid">' + allTrips.map(trip => tripCardHtml(trip)).join('') + '</div>';
+}
+
+function tripCardHtml(trip) {
     const cfg = trip.config || {};
     const data = trip.data || {};
     const days = data.days || [];
@@ -329,7 +407,6 @@ function renderTrips() {
           ${canManage(trip) ? `<button class="btn-delete" onclick="confirmDelete('${trip.id}', '${(trip.title || trip.id).replace(/'/g, "\\'")}')">🗑</button>` : ''}
         </div>
       </div>`;
-  }).join('') + '</div>';
 }
 
 async function shareTrip(id) {
@@ -342,7 +419,18 @@ async function shareTrip(id) {
       alert(r && r.reason === 'not_owner' ? 'Only the trip owner can share this trip.' : 'Share failed — try again.');
       return;
     }
-    alert('✉️ ' + email + ' now has access. Send them the trip link: ' + location.origin + '/' + id);
+    let mailed = false;
+    try {
+      const { data: sess } = await supa.auth.getSession();
+      const tok = sess && sess.session && sess.session.access_token;
+      const resp = await fetch(SUPABASE_URL.replace(/\/$/, '') + '/functions/v1/send-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok, 'apikey': SUPABASE_KEY },
+        body: JSON.stringify({ email: email, trip_id: id, link: location.origin + '/Trip.html?trip=' + id })
+      });
+      mailed = resp.ok;
+    } catch(e) {}
+    alert('✅ ' + email + ' now has access.' + (mailed ? ' An invitation email is on its way.' : ' Send them this link to sign in: ' + location.origin + '/' + id));
   } catch(e) { alert('Share failed — try again.'); }
 }
 
