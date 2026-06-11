@@ -4705,6 +4705,7 @@ function moveStopToDay(targetDay, stopIdx) {
   const stop = days[currentDay].stops[idx];
   if (stop.isHotel) { showToast('Cannot move hotel stop', true); return; }
   const doMove = () => {
+    if (trialBlocked(targetDay, 0)) return;
     days[currentDay].stops.splice(idx, 1);
     days[targetDay].stops.push(stop);
     try { reassignTimesForDay(currentDay); reassignTimesForDay(targetDay); } catch(e) {}
@@ -4760,6 +4761,7 @@ function moveStopFromMapToDay(stopIdx, targetDay) {
   if (targetDay === undefined || targetDay === currentDay) return;
   const idx = parseInt(stopIdx);
   if (isNaN(idx)) return;
+  if (trialBlocked(targetDay, 0)) return;
   const stop = days[currentDay].stops.splice(idx, 1)[0];
   days[targetDay].stops.push(stop);
   autoSave();
@@ -6590,7 +6592,7 @@ function _addIdentifyPassedBy() {
     const sMins24 = (sap === 'PM' ? (sh === 12 ? 12 : sh + 12) : (sh === 12 ? 0 : sh)) * 60 + (sm2 || 0);
     if (sMins24 > nowMins) { insertAt = i; break; }
   }
-  if (trialLimitHit(1)) return;
+  if (trialBlocked(days.indexOf(targetDay), 1)) return;
   targetDay.stops.splice(insertAt, 0, stop);
 
   saveToStorage();
@@ -6627,7 +6629,7 @@ function _addIdentifiedToSchedule() {
     badges: []
   };
   if (days && days[currentDay]) {
-    if (trialLimitHit(1)) return;
+    if (trialBlocked(currentDay, 1)) return;
     days[currentDay].stops.push(stop);
     saveToStorage();
     renderAll();
@@ -7897,7 +7899,7 @@ way["building"~"parliament|government|cathedral|palace"](around:${r2},${lat},${l
     const snapH12 = snapHr % 12 || 12;
     const snapTimeStr = snapH12 + ':' + String(snapMin).padStart(2,'0') + ' ' + snapAmPm;
     if (typeof days !== 'undefined' && days && days[currentDay]) {
-      if (trialLimitHit(1)) return;
+      if (trialBlocked(currentDay, 1)) return;
       days[currentDay].stops.push({
         name: wTitle,
         type: identified.type || 'landmark',
@@ -9150,7 +9152,7 @@ function _addWalkPassedBy(idx) {
     const sMins24 = (sap === 'PM' ? (sh === 12 ? 12 : sh + 12) : (sh === 12 ? 0 : sh)) * 60 + (sm2 || 0);
     if (sMins24 > nowMins) { insertAt = i; break; }
   }
-  if (trialLimitHit(1)) return;
+  if (trialBlocked(days.indexOf(targetDay), 1)) return;
   targetDay.stops.splice(insertAt, 0, stop);
 
   saveToStorage();
@@ -9445,7 +9447,7 @@ async function checkInHere() {
       const sMins = (sap==='PM' ? (sh===12?12:sh+12) : (sh===12?0:sh)) * 60 + (sm2||0);
       if (sMins > nowMins) { insertAt = i; break; }
     }
-    if (trialLimitHit(1)) return;
+    if (trialBlocked(days.indexOf(targetDay), 1)) return;
     targetDay.stops.splice(insertAt, 0, stop);
     saveToStorage();
     cloudSave('check-in: ' + confirmedName);
@@ -10154,7 +10156,7 @@ function insertSuggestedStop(resultIdx, afterIdx, dayIdx) {
 
   // Insert after afterIdx
   const insertAt = afterIdx + 1;
-  if (trialLimitHit(1)) return;
+  if (trialBlocked(dayIdx, 1)) return;
   days[dayIdx].stops.splice(insertAt, 0, stop);
 
   // Cascade times from afterIdx
@@ -10532,14 +10534,16 @@ const TRIAL_MAX_STOPS = 5;
 
 function isTrialTrip() { return !!(APP_CONFIG && APP_CONFIG.trial); }
 
-function trialLimitHit(adding) {
+function trialBlocked(dayIdx, adding) {
   if (!isTrialTrip()) return false;
+  if ((dayIdx || 0) > 0) { _showUpgradePrompt('days'); return true; }
+  if (adding === 0) return false; // moving within allowed day — no count change
   const total = (typeof days !== 'undefined' && days ? days : []).reduce((n, d) => n + ((d.stops || []).length), 0);
-  if (total + (adding || 1) > TRIAL_MAX_STOPS) { _showUpgradePrompt(); return true; }
+  if (total + (adding || 1) > TRIAL_MAX_STOPS) { _showUpgradePrompt('stops'); return true; }
   return false;
 }
 
-function _showUpgradePrompt() {
+function _showUpgradePrompt(kind) {
   const old = document.getElementById('upgrade-overlay');
   if (old) old.remove();
   const hasCredit = USER_PROFILE && (USER_PROFILE.role === 'founder' || (USER_PROFILE.credits || 0) > 0);
@@ -10549,8 +10553,8 @@ function _showUpgradePrompt() {
   overlay.innerHTML =
     '<div style="background:#fff;border-radius:18px;box-shadow:0 6px 30px rgba(0,0,0,0.2);padding:26px 22px;width:100%;max-width:340px;text-align:center;">' +
       '<div style="font-size:40px;margin-bottom:10px;">✨</div>' +
-      '<div style="font-size:18px;font-weight:800;margin-bottom:8px;">You\'ve filled your free day!</div>' +
-      '<div style="font-size:14px;color:#666;line-height:1.5;margin-bottom:18px;">The free teaser includes 1 day with up to ' + TRIAL_MAX_STOPS + ' stops. Unlock the full trip for unlimited days, stops, and AI planning.</div>' +
+      '<div style="font-size:18px;font-weight:800;margin-bottom:8px;">' + (kind === 'days' ? 'This day is locked in the free teaser' : 'You\'ve filled your free day!') + '</div>' +
+      '<div style="font-size:14px;color:#666;line-height:1.5;margin-bottom:18px;">The free teaser lets you plan your whole trip but fill Day 1 (up to ' + TRIAL_MAX_STOPS + ' stops). Unlock the full trip for unlimited days, stops, and AI planning.</div>' +
       (hasCredit
         ? '<button onclick="_upgradeTrip()" style="width:100%;padding:13px;background:#1a73e8;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px;">Unlock full trip (1 credit)</button>'
         : '<button onclick="_buyCredits()" style="width:100%;padding:13px;background:#1a73e8;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px;">Unlock full trip</button>') +
@@ -10579,8 +10583,9 @@ async function _upgradeTrip() {
 // on day 1, and flight departure on last day.
 function runFillItinerary() {
   if (isTrialTrip()) {
+    if (currentDay > 0) { _showUpgradePrompt('days'); return; }
     const total = (days || []).reduce((n, d) => n + ((d.stops || []).length), 0);
-    if (total >= TRIAL_MAX_STOPS) { _showUpgradePrompt(); return; }
+    if (total >= TRIAL_MAX_STOPS) { _showUpgradePrompt('stops'); return; }
   }
   if (!EDITOR_MODE) { showToast('Unlock to edit (🔒)', true); return; }
   if (!supabaseReady()) { showToast('Supabase not available', true); return; }
@@ -12047,6 +12052,7 @@ function _movePromptFromAllDays(fromDay, stopIdx) {
 function _doMoveBetweenDays(fromDay, stopIdx, targetDay) {
   const stop = days[fromDay] && days[fromDay].stops && days[fromDay].stops[stopIdx];
   if (!stop) return;
+  if (trialBlocked(targetDay, 0)) return;
   days[fromDay].stops.splice(stopIdx, 1);
   days[targetDay].stops.push(stop);
   try { reassignTimesForDay(fromDay); reassignTimesForDay(targetDay); } catch (e) {}

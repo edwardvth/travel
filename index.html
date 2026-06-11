@@ -359,7 +359,7 @@ function showNewTripModal() {
       <input class="form-input" id="nt-title" placeholder="e.g. Paris Spring 2026">
       <label class="form-label">Subtitle (optional)</label>
       <input class="form-input" id="nt-subtitle" placeholder="e.g. museums & bistros">
-      <div id="nt-teaser-note" style="display:none;background:#13233f;border:1px solid #2563eb55;color:#9cc0ff;font-size:12.5px;border-radius:10px;padding:10px 12px;margin-bottom:14px;line-height:1.45;">✨ Your first trip is a <b>free teaser</b>: 1 day, up to 5 stops, hotel included. Unlock the full planner anytime.</div>
+      <div id="nt-teaser-note" style="display:none;background:#13233f;border:1px solid #2563eb55;color:#9cc0ff;font-size:12.5px;border-radius:10px;padding:10px 12px;margin-bottom:14px;line-height:1.45;">✨ Your first trip is a <b>free teaser</b>: plan all your days and hotel, and fill <b>Day 1</b> with up to 5 stops. Unlock the full planner anytime.</div>
             <label class="form-label">Start date</label>
       <input class="form-input" id="nt-start" type="date" onclick="try{this.showPicker()}catch(e){}">
       <label class="form-label">End date</label>
@@ -407,12 +407,6 @@ async function createTrip(btn) {
     }
   } else {
     for (let i = 0; i < numDays; i++) { dayLabels.push('Day '+(i+1)); dayTitles.push('Day '+(i+1)); }
-  }
-
-  if (isTeaser && numDays > 1) {
-    numDays = 1;
-    dayLabels = dayLabels.slice(0, 1);
-    dayTitles = dayTitles.slice(0, 1);
   }
 
   btn.textContent = 'Creating...';
