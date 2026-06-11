@@ -283,160 +283,90 @@ function showAccountMenu() {
       '<div style="height:1px;background:#2a2a2a;margin:14px 0;"></div>' +
       '<div style="font-size:11px;font-weight:800;color:#777;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Billing</div>' +
       '<div style="font-size:13px;color:#888;">💳 Coming soon</div>' +
-      '<div style="height:1px;background:#2a2a2a;margin:14px 0;"></div>' +
-      '<div style="font-size:11px;font-weight:800;color:#777;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Invitations</div>' +
-      '<div id="acctInvites" style="font-size:13px;color:#999;">Loading…</div>' +
+
       '<div style="height:1px;background:#2a2a2a;margin:14px 0;"></div>' +
       '<button onclick="signOutUser()" style="width:100%;padding:11px;background:transparent;color:#ff7b6b;border:1px solid #5a2a2a;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Sign out</button>' +
     '</div>';
   ov.onclick = () => ov.remove();
   document.body.appendChild(ov);
-  fillAccountInvites();
 }
 
-async function fillAccountInvites() {
-  const box = document.getElementById('acctInvites');
-  if (!box || !CURRENT_USER) return;
+async function shareTrip(id) {
+  const old = document.getElementById('share-overlay'); if (old) old.remove();
+  const ov = document.createElement('div');
+  ov.className = 'confirm-overlay';
+  ov.id = 'share-overlay';
+  ov.innerHTML = `
+    <div class="confirm-box" style="text-align:left;max-width:380px;" onclick="event.stopPropagation()">
+      <h3 style="text-align:left;">👥 Share trip</h3>
+      <p style="margin-bottom:10px;text-align:left;">Invite by email — they'll see this trip in their list after signing in.</p>
+      <div style="display:flex;gap:8px;margin-bottom:16px;">
+        <input id="shareEmail" type="email" placeholder="email@example.com" autocomplete="email"
+          style="flex:1;min-width:0;padding:11px;border-radius:10px;border:1px solid #333;background:#0d0d0d;color:#fff;font-size:14px;">
+        <button onclick="sendShare('${id}')" id="shareSendBtn"
+          style="padding:11px 16px;border-radius:10px;border:none;background:#1a73e8;color:#fff;font-weight:700;cursor:pointer;">Send</button>
+      </div>
+      <div style="font-size:11px;font-weight:800;color:#777;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Invited</div>
+      <div id="shareList" style="font-size:13px;color:#999;min-height:20px;">Loading…</div>
+      <button onclick="this.closest('.confirm-overlay').remove()"
+        style="margin-top:16px;width:100%;padding:11px;background:#2a2a2a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">Close</button>
+    </div>`;
+  ov.onclick = () => ov.remove();
+  document.body.appendChild(ov);
+  setTimeout(() => { const i = document.getElementById('shareEmail'); if (i) i.focus(); }, 60);
+  refreshShareList(id);
+}
+
+async function refreshShareList(id) {
+  const box = document.getElementById('shareList');
+  if (!box) return;
   try {
-    const { data: owned } = await supa.from('trips').select('id, title').eq('owner_id', CURRENT_USER.id);
-    if (!owned || owned.length === 0) { box.textContent = 'You don\'t own any trips yet.'; return; }
-    const ids = owned.map(t => t.id);
-    const { data: mems } = await supa.from('trip_members').select('trip_id, email').in('trip_id', ids);
-    const byTrip = {};
-    (mems || []).forEach(m => { (byTrip[m.trip_id] = byTrip[m.trip_id] || []).push(m.email); });
-    box.innerHTML = owned.map(t =>
-      '<div style="margin-bottom:10px;">' +
-        '<div style="font-weight:700;font-size:13px;color:#ddd;">' + (t.title || t.id) +
-          ' <a href="#" onclick="menuInviteLink(\'' + t.id + '\');return false;" style="font-size:12px;color:#5b9cff;text-decoration:none;font-weight:700;">🔗 new invite link</a></div>' +
-        '<div style="font-size:12px;color:#777;">' + ((byTrip[t.id] || []).join(', ') || 'No invitations sent yet') + '</div>' +
+    const { data: mems, error } = await supa.from('trip_members').select('email').eq('trip_id', id).order('added_at');
+    if (error) { box.textContent = 'Could not load invitations.'; return; }
+    if (!mems || mems.length === 0) { box.textContent = 'No invitations sent yet.'; return; }
+    box.innerHTML = mems.map(m =>
+      '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px solid #2a2a2a;">' +
+        '<span style="color:#ddd;overflow:hidden;text-overflow:ellipsis;">' + m.email + '</span>' +
+        '<button onclick="removeShare(\'' + id + '\', \'' + m.email + '\')" title="Remove" ' +
+          'style="background:none;border:1px solid #5a2a2a;color:#ff7b6b;border-radius:8px;padding:3px 9px;font-size:12px;cursor:pointer;">✕</button>' +
       '</div>').join('');
   } catch(e) { box.textContent = 'Could not load invitations.'; }
 }
 
-async function menuInviteLink(tripId) {
-  try {
-    const { data: r, error } = await supa.rpc('create_invite', { p_id: tripId });
-    if (error) { alert('Invite link failed: ' + error.message); return; }
-    if (!r || r.ok !== true || !r.token) { alert('Invite link failed: ' + ((r && r.reason) || 'unknown error')); return; }
-    const link = location.origin + '/Trip.html?trip=' + tripId + '&join=' + r.token;
-    let copied = false;
-    try { await navigator.clipboard.writeText(link); copied = true; } catch(e) {}
-    if (copied) alert('🔗 Invite link copied to clipboard:\n\n' + link);
-    else prompt('Copy this invite link:', link);
-  } catch(e) { alert('Invite link failed — check your connection and try again.'); }
-}
-
-function isFounder() { return USER_PROFILE && USER_PROFILE.role === 'founder'; }
-function canManage(trip) { return isFounder() || (trip.owner_id && CURRENT_USER && trip.owner_id === CURRENT_USER.id); }
-
-async function loadTrips() {
-  const user = await requireAuth();
-  try {
-    const { data: prof } = await supa.from('profiles').select('*').eq('id', user.id).maybeSingle();
-    USER_PROFILE = prof || null;
-  } catch(e) {}
-  const acct = document.getElementById('acctRow');
-  if (acct) {
-    const nm = (USER_PROFILE && USER_PROFILE.name) || (user.user_metadata && (user.user_metadata.name || user.user_metadata.full_name)) || (user.email || '').split('@')[0];
-    acct.innerHTML = '<div style="font-weight:800;color:#7fd29a;font-size:14px;">👋 ' + nm + ' ▾</div>' +
-      '<div style="font-size:11px;color:#888;">' + (user.email || '') + (isFounder() ? ' · founder' : '') + '</div>';
-  }
-
-  let { data, error } = await supa.from('trips').select('id, owner_id, title, subtitle, config, data, updated_at').order('updated_at', { ascending: false });
-  if (error && /owner_id|updated_at/.test(error.message || '')) {
-    // DB migration not run yet — fall back to base columns
-    const r2 = await supa.from('trips').select('id, title, subtitle, config, data');
-    data = r2.data; error = r2.error;
-  }
-  if (error) { document.getElementById('tripsContainer').innerHTML = '<div class="loading">Failed to load trips: ' + (error.message || 'unknown error') + '</div>'; return; }
-  // Founders see everything; everyone else sees trips they own or are invited to
-  let memberIds = new Set();
-  try {
-    const { data: mems } = await supa.from('trip_members').select('trip_id');
-    (mems || []).forEach(m => memberIds.add(m.trip_id));
-  } catch(e) {}
-  allTrips = (data || []).filter(t => isFounder() || (t.owner_id && t.owner_id === user.id) || memberIds.has(t.id));
-  renderTrips();
-}
-
-function renderTrips() {
-  const container = document.getElementById('tripsContainer');
-  document.getElementById('tripCount').textContent = allTrips.length + ' trip' + (allTrips.length !== 1 ? 's' : '');
-
-  if (allTrips.length === 0) {
-    container.innerHTML = '<div class="empty"><p>No trips yet. Create your first one!</p></div>';
-    return;
-  }
-
-  if (isFounder()) {
-    const groups = {};
-    allTrips.forEach(t => {
-      const who = (t.owner_id && ownerEmails[t.owner_id]) || 'unassigned';
-      (groups[who] = groups[who] || []).push(t);
-    });
-    container.innerHTML = Object.keys(groups).sort().map(who =>
-      '<div style="margin:18px 0 8px;font-size:13px;font-weight:800;color:#5b9cff;text-transform:lowercase;">👤 ' + who + ' · ' + groups[who].length + ' trip' + (groups[who].length !== 1 ? 's' : '') + '</div>' +
-      '<div class="trips-grid">' + groups[who].map(trip => tripCardHtml(trip)).join('') + '</div>'
-    ).join('');
-    return;
-  }
-  container.innerHTML = '<div class="trips-grid">' + allTrips.map(trip => tripCardHtml(trip)).join('') + '</div>';
-}
-
-function tripCardHtml(trip) {
-    const cfg = trip.config || {};
-    const data = trip.data || {};
-    const days = data.days || [];
-    const numDays = cfg.numDays || days.length || 0;
-    const totalStops = days.reduce((sum, d) => sum + (d.stops || []).length, 0);
-    const labels = cfg.dayLabels || [];
-    const dateRange = labels.length >= 2 ? labels[0] + ' – ' + labels[labels.length - 1] : (numDays + ' days');
-    const updated = trip.updated_at ? new Date(trip.updated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '';
-
-    return `
-      <div class="trip-card" onclick="openTrip('${trip.id}')">
-        <div class="trip-card-body">
-          <div class="trip-slug">${trip.id}</div>
-          <div class="trip-title">${trip.title || trip.id}</div>
-          <div class="trip-subtitle">${trip.subtitle || cfg.subtitle || ''}</div>
-          <div class="trip-meta">
-            <span class="trip-badge">📅 ${dateRange}</span>
-            <span class="trip-badge">📍 ${totalStops} stops</span>
-          </div>
-          ${updated ? `<div class="trip-stops">Last updated ${updated}</div>` : ''}
-          ${isFounder() && trip.owner_id && ownerEmails[trip.owner_id] ? `<div class="trip-stops" style="color:#5b9cff;">👤 ${ownerEmails[trip.owner_id]}</div>` : ''}
-        </div>
-        <div class="trip-actions" onclick="event.stopPropagation()">
-          <button class="btn-open" onclick="openTrip('${trip.id}')">Open →</button>
-          ${canManage(trip) ? `<button class="btn-share" onclick="shareTrip('${trip.id}')">👥 Share</button>` : ''}
-          ${canManage(trip) ? `<button class="btn-delete" onclick="confirmDelete('${trip.id}', '${(trip.title || trip.id).replace(/'/g, "\\'")}')">🗑</button>` : ''}
-        </div>
-      </div>`;
-}
-
-async function shareTrip(id) {
-  const email = (prompt('Invite by email — they\'ll see this trip in their list after signing in:') || '').trim();
-  if (!email) return;
+async function sendShare(id) {
+  const input = document.getElementById('shareEmail');
+  const email = ((input && input.value) || '').trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { alert('That doesn\'t look like a valid email.'); return; }
+  const btn = document.getElementById('shareSendBtn');
+  if (btn) { btn.textContent = '…'; btn.disabled = true; }
   try {
     const { data: r, error } = await supa.rpc('add_trip_member', { p_id: id, p_email: email });
     if (error || !r || r.ok !== true) {
-      alert(r && r.reason === 'not_owner' ? 'Only the trip owner can share this trip.' : 'Share failed — try again.');
+      alert(r && r.reason === 'not_owner' ? 'Only the trip owner can share this trip.' : 'Share failed: ' + ((error && error.message) || (r && r.reason) || 'unknown'));
       return;
     }
-    let mailed = false;
     try {
       const { data: sess } = await supa.auth.getSession();
       const tok = sess && sess.session && sess.session.access_token;
-      const resp = await fetch(SUPABASE_URL.replace(/\/$/, '') + '/functions/v1/send-invite', {
+      await fetch(SUPABASE_URL.replace(/\/$/, '') + '/functions/v1/send-invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + tok, 'apikey': SUPABASE_KEY },
         body: JSON.stringify({ email: email, trip_id: id, link: location.origin + '/Trip.html?trip=' + id })
       });
-      mailed = resp.ok;
     } catch(e) {}
-    alert('✅ ' + email + ' now has access.' + (mailed ? ' An invitation email is on its way.' : ' Send them this link to sign in: ' + location.origin + '/' + id));
-  } catch(e) { alert('Share failed — try again.'); }
+    if (input) input.value = '';
+    refreshShareList(id);
+  } finally {
+    if (btn) { btn.textContent = 'Send'; btn.disabled = false; }
+  }
+}
+
+async function removeShare(id, email) {
+  try {
+    const { data: r, error } = await supa.rpc('remove_trip_member', { p_id: id, p_email: email });
+    if (error || !r || r.ok !== true) { alert('Remove failed.'); return; }
+    refreshShareList(id);
+  } catch(e) { alert('Remove failed.'); }
 }
 
 function openTrip(id) {
