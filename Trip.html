@@ -6131,7 +6131,7 @@ async function _callVision(base64, prompt) {
   const url = (APP_CONFIG.supabaseUrl||'').replace(/\/$/, '') + '/functions/v1/ai-proxy';
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + APP_CONFIG.supabaseKey },
+    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + (await _aiAuthToken()), 'apikey': APP_CONFIG.supabaseKey },
     body: JSON.stringify({ messages: body.messages, model: body.model, max_tokens: body.max_tokens })
   });
   const d = await res.json();
@@ -12674,6 +12674,14 @@ function onProviderChange() {
   if (inp) inp.placeholder = ph[p] || 'Paste key here';
 }
 
+async function _aiAuthToken() {
+  try {
+    const { data } = await supa.auth.getSession();
+    if (data && data.session && data.session.access_token) return data.session.access_token;
+  } catch(e) {}
+  return APP_CONFIG.supabaseKey;
+}
+
 async function callAI({ prompt, maxTokens, model }) {
   const provider = getAiProvider();
   const key = getApiKey();
@@ -12745,12 +12753,12 @@ async function _callClaude({ prompt, maxTokens, model }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer ' + APP_CONFIG.supabaseKey,
+          'Authorization': 'Bearer ' + (await _aiAuthToken()),
           'apikey': APP_CONFIG.supabaseKey
         },
         body: JSON.stringify({ model, max_tokens: maxTokens, messages })
       });
-      if (res.status === 429) throw new Error('Rate limit reached — try again in an hour');
+      if (res.status === 429) throw new Error('Daily AI limit reached — resets tomorrow. Unlock the full trip for a higher limit!');
       if (!res.ok) {
         const txt = await res.text();
         throw new Error('AI error: ' + res.status + ' ' + txt.slice(0, 200));
