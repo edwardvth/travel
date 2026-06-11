@@ -4929,6 +4929,15 @@ async function init() {
       '</div>';
   }
 
+  // Trial trips: open the guided setup the first time (empty trip)
+  try {
+    const _totalStops = (days || []).reduce((n, d) => n + ((d.stops || []).length), 0);
+    if (isTrialTrip() && _totalStops === 0 && !localStorage.getItem('trip_' + TRIP_ID + '_setupSeen')) {
+      localStorage.setItem('trip_' + TRIP_ID + '_setupSeen', '1');
+      setTimeout(() => { try { showGettingStarted(); } catch(e) {} }, 900);
+    }
+  } catch(e) {}
+
   // Owner auto-unlock: the user who created this trip edits without a password
   if (!EDITOR_MODE && TRIP_OWNER_ID && CURRENT_USER && CURRENT_USER.id === TRIP_OWNER_ID) {
     EDITOR_MODE = true;
@@ -6581,6 +6590,7 @@ function _addIdentifyPassedBy() {
     const sMins24 = (sap === 'PM' ? (sh === 12 ? 12 : sh + 12) : (sh === 12 ? 0 : sh)) * 60 + (sm2 || 0);
     if (sMins24 > nowMins) { insertAt = i; break; }
   }
+  if (trialLimitHit(1)) return;
   targetDay.stops.splice(insertAt, 0, stop);
 
   saveToStorage();
@@ -6617,6 +6627,7 @@ function _addIdentifiedToSchedule() {
     badges: []
   };
   if (days && days[currentDay]) {
+    if (trialLimitHit(1)) return;
     days[currentDay].stops.push(stop);
     saveToStorage();
     renderAll();
@@ -7886,6 +7897,7 @@ way["building"~"parliament|government|cathedral|palace"](around:${r2},${lat},${l
     const snapH12 = snapHr % 12 || 12;
     const snapTimeStr = snapH12 + ':' + String(snapMin).padStart(2,'0') + ' ' + snapAmPm;
     if (typeof days !== 'undefined' && days && days[currentDay]) {
+      if (trialLimitHit(1)) return;
       days[currentDay].stops.push({
         name: wTitle,
         type: identified.type || 'landmark',
@@ -9138,6 +9150,7 @@ function _addWalkPassedBy(idx) {
     const sMins24 = (sap === 'PM' ? (sh === 12 ? 12 : sh + 12) : (sh === 12 ? 0 : sh)) * 60 + (sm2 || 0);
     if (sMins24 > nowMins) { insertAt = i; break; }
   }
+  if (trialLimitHit(1)) return;
   targetDay.stops.splice(insertAt, 0, stop);
 
   saveToStorage();
@@ -9432,6 +9445,7 @@ async function checkInHere() {
       const sMins = (sap==='PM' ? (sh===12?12:sh+12) : (sh===12?0:sh)) * 60 + (sm2||0);
       if (sMins > nowMins) { insertAt = i; break; }
     }
+    if (trialLimitHit(1)) return;
     targetDay.stops.splice(insertAt, 0, stop);
     saveToStorage();
     cloudSave('check-in: ' + confirmedName);
@@ -10140,6 +10154,7 @@ function insertSuggestedStop(resultIdx, afterIdx, dayIdx) {
 
   // Insert after afterIdx
   const insertAt = afterIdx + 1;
+  if (trialLimitHit(1)) return;
   days[dayIdx].stops.splice(insertAt, 0, stop);
 
   // Cascade times from afterIdx
@@ -10512,10 +10527,61 @@ function _buyCredits() {
   showToast('💳 Purchases are coming soon — credit packs will be available shortly!');
 }
 
+// ── TRIAL (teaser) LIMITS ── 1 day, 5 stops, hotel included ──────
+const TRIAL_MAX_STOPS = 5;
+
+function isTrialTrip() { return !!(APP_CONFIG && APP_CONFIG.trial); }
+
+function trialLimitHit(adding) {
+  if (!isTrialTrip()) return false;
+  const total = (typeof days !== 'undefined' && days ? days : []).reduce((n, d) => n + ((d.stops || []).length), 0);
+  if (total + (adding || 1) > TRIAL_MAX_STOPS) { _showUpgradePrompt(); return true; }
+  return false;
+}
+
+function _showUpgradePrompt() {
+  const old = document.getElementById('upgrade-overlay');
+  if (old) old.remove();
+  const hasCredit = USER_PROFILE && (USER_PROFILE.role === 'founder' || (USER_PROFILE.credits || 0) > 0);
+  const overlay = document.createElement('div');
+  overlay.id = 'upgrade-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100001;display:flex;align-items:center;justify-content:center;padding:20px;';
+  overlay.innerHTML =
+    '<div style="background:#fff;border-radius:18px;box-shadow:0 6px 30px rgba(0,0,0,0.2);padding:26px 22px;width:100%;max-width:340px;text-align:center;">' +
+      '<div style="font-size:40px;margin-bottom:10px;">✨</div>' +
+      '<div style="font-size:18px;font-weight:800;margin-bottom:8px;">You\'ve filled your free day!</div>' +
+      '<div style="font-size:14px;color:#666;line-height:1.5;margin-bottom:18px;">The free teaser includes 1 day with up to ' + TRIAL_MAX_STOPS + ' stops. Unlock the full trip for unlimited days, stops, and AI planning.</div>' +
+      (hasCredit
+        ? '<button onclick="_upgradeTrip()" style="width:100%;padding:13px;background:#1a73e8;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px;">Unlock full trip (1 credit)</button>'
+        : '<button onclick="_buyCredits()" style="width:100%;padding:13px;background:#1a73e8;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:15px;cursor:pointer;margin-bottom:8px;">Unlock full trip</button>') +
+      '<button onclick="document.getElementById(&quot;upgrade-overlay&quot;).remove()" style="width:100%;padding:12px;background:#fff;color:#444;border:1px solid #ddd;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Keep exploring</button>' +
+    '</div>';
+  document.body.appendChild(overlay);
+  overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+}
+
+async function _upgradeTrip() {
+  try {
+    const { data: r, error } = await supa.rpc('upgrade_trip', { p_id: TRIP_ID });
+    if (error || !r || r.ok !== true) {
+      showToast(r && r.reason === 'no_credits' ? 'No credits available' : 'Upgrade failed', true);
+      return;
+    }
+    APP_CONFIG.trial = false;
+    if (USER_PROFILE && typeof r.credits === 'number') { USER_PROFILE.credits = r.credits; _renderAccountRow(); }
+    const ov = document.getElementById('upgrade-overlay'); if (ov) ov.remove();
+    showToast('🎉 Full trip unlocked!');
+  } catch(e) { showToast('Upgrade failed', true); }
+}
+
 // ── AI FILL ITINERARY (fills empty slots in current trip) ───────
 // Only works on the CURRENT trip. Respects existing stops, arrival time
 // on day 1, and flight departure on last day.
 function runFillItinerary() {
+  if (isTrialTrip()) {
+    const total = (days || []).reduce((n, d) => n + ((d.stops || []).length), 0);
+    if (total >= TRIAL_MAX_STOPS) { _showUpgradePrompt(); return; }
+  }
   if (!EDITOR_MODE) { showToast('Unlock to edit (🔒)', true); return; }
   if (!supabaseReady()) { showToast('Supabase not available', true); return; }
 
