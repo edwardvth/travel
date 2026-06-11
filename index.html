@@ -185,9 +185,20 @@ function showAuthGate() {
       '<div style="font-size:12px;color:#666;margin-top:14px;text-align:center;">New here? Enter your details and tap Create account, or just continue with Google.</div>' +
     '</div>';
   document.body.appendChild(div);
+  const ue = authUrlError();
+  if (ue) authMsg(ue, true);
 }
 
 function authMsg(t, isErr) { const el = document.getElementById('authMsg'); if (el) { el.textContent = t; el.style.color = isErr ? '#ff6b5b' : '#4ade80'; } }
+
+
+function authUrlError() {
+  const p = new URLSearchParams(location.search + '&' + location.hash.replace(/^#/, ''));
+  const desc = p.get('error_description');
+  if (!desc) return null;
+  if (/state not found|expired/i.test(desc)) return 'That link expired or was opened in a different browser. Your account is likely confirmed — just sign in below.';
+  return desc.replace(/\+/g, ' ');
+}
 
 async function authSignIn() {
   const email = (document.getElementById('authEmail')||{}).value || '';

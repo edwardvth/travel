@@ -1994,6 +1994,8 @@ function _showAuthGate() {
       '<div id="authMsg" style="font-size:13px;margin-top:12px;text-align:center;min-height:18px;color:#666;"></div>' +
     '</div>';
   document.body.appendChild(div);
+  const ue = _authUrlError();
+  if (ue) _authMsg(ue, true);
 }
 
 function _hideAuthGate() {
@@ -2004,6 +2006,15 @@ function _hideAuthGate() {
 function _authMsg(text, isErr) {
   const el = document.getElementById('authMsg');
   if (el) { el.textContent = text; el.style.color = isErr ? '#c0392b' : '#1a7a3a'; }
+}
+
+
+function _authUrlError() {
+  const p = new URLSearchParams(location.search + '&' + location.hash.replace(/^#/, ''));
+  const desc = p.get('error_description');
+  if (!desc) return null;
+  if (/state not found|expired/i.test(desc)) return 'That link expired or was opened in a different browser. Your account is likely confirmed — just sign in below.';
+  return desc.replace(/\+/g, ' ');
 }
 
 async function _authSignIn() {
