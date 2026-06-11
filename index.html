@@ -212,8 +212,13 @@ async function loadTrips() {
   if (acct) acct.innerHTML = '👤 ' + (user.email || '') + (isFounder() ? ' · founder' : (USER_PROFILE ? ' · ' + (USER_PROFILE.credits||0) + ' credits' : '')) +
     ' &nbsp;<a href="#" onclick="signOutUser();return false;" style="color:#5b9cff;text-decoration:none;">Sign out</a>';
 
-  const { data, error } = await supa.from('trips').select('id, owner_id, title, subtitle, config, data, updated_at').order('updated_at', { ascending: false });
-  if (error) { document.getElementById('tripsContainer').innerHTML = '<div class="loading">Failed to load trips.</div>'; return; }
+  let { data, error } = await supa.from('trips').select('id, owner_id, title, subtitle, config, data, updated_at').order('updated_at', { ascending: false });
+  if (error && /owner_id|updated_at/.test(error.message || '')) {
+    // DB migration not run yet — fall back to base columns
+    const r2 = await supa.from('trips').select('id, title, subtitle, config, data');
+    data = r2.data; error = r2.error;
+  }
+  if (error) { document.getElementById('tripsContainer').innerHTML = '<div class="loading">Failed to load trips: ' + (error.message || 'unknown error') + '</div>'; return; }
   // Founders see everything; everyone else sees the trips they own
   allTrips = (data || []).filter(t => isFounder() || (t.owner_id && t.owner_id === user.id));
   renderTrips();
