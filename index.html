@@ -399,8 +399,14 @@ async function loadTrips() {
   const acct = document.getElementById('acctRow');
   if (acct) {
     const nm = (USER_PROFILE && USER_PROFILE.name) || (user.user_metadata && (user.user_metadata.name || user.user_metadata.full_name)) || (user.email || '').split('@')[0];
-    acct.innerHTML = '<div style="font-weight:800;color:#7fd29a;font-size:14px;">👋 ' + nm + ' ▾</div>' +
-      '<div style="font-size:11px;color:#888;">' + (user.email || '') + (isFounder() ? ' · founder' : '') + '</div>';
+    const first = nm.split(/\s+/)[0];
+    const meta = user.user_metadata || {};
+    const av = meta.avatar_url || meta.picture || '';
+    const avatar = av
+      ? '<img src="' + av + '" referrerpolicy="no-referrer" style="width:28px;height:28px;border-radius:50%;object-fit:cover;" onerror="this.style.display=\'none\'">'
+      : '<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#1a73e8;color:#fff;font-size:14px;font-weight:800;">' + first.charAt(0).toUpperCase() + '</span>';
+    acct.innerHTML = '<div style="display:inline-flex;align-items:center;gap:7px;">' + avatar +
+      '<span style="font-weight:800;color:#7fd29a;font-size:14px;">' + first + ' ▾</span></div>';
   }
 
   let data, error;

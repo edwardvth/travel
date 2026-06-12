@@ -2095,6 +2095,23 @@ async function loadUserProfile(user) {
   setTimeout(() => { try { _renderMembersBox(); } catch(e) {} }, 500);
 }
 
+function _firstName() {
+  const n = _displayName();
+  return n ? n.split(/\s+/)[0] : '';
+}
+
+function _avatarUrl() {
+  const meta = (CURRENT_USER && CURRENT_USER.user_metadata) || {};
+  return meta.avatar_url || meta.picture || '';
+}
+
+function _avatarHtml(size) {
+  const url = _avatarUrl();
+  if (url) return '<img src="' + url + '" referrerpolicy="no-referrer" style="width:' + size + 'px;height:' + size + 'px;border-radius:50%;object-fit:cover;vertical-align:middle;" onerror="this.style.display=\'none\'">';
+  const init = (_firstName() || '?').charAt(0).toUpperCase();
+  return '<span style="display:inline-flex;align-items:center;justify-content:center;width:' + size + 'px;height:' + size + 'px;border-radius:50%;background:#1a73e8;color:#fff;font-size:' + Math.round(size*0.5) + 'px;font-weight:800;vertical-align:middle;">' + init + '</span>';
+}
+
 function _displayName() {
   if (USER_PROFILE && USER_PROFILE.name) return USER_PROFILE.name;
   const meta = (CURRENT_USER && CURRENT_USER.user_metadata) || {};
@@ -2105,11 +2122,8 @@ function _displayName() {
 function _renderGreeting() {
   const el = document.getElementById('userGreeting');
   if (!el || !CURRENT_USER) return;
-  const n = _displayName();
-  const nameEl = document.getElementById('userGreetingName');
-  const emailEl = document.getElementById('userGreetingEmail');
-  if (nameEl) nameEl.textContent = n ? '👋 ' + n : '';
-  if (emailEl) emailEl.textContent = CURRENT_USER.email || '';
+  el.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;">' + _avatarHtml(26) +
+    '<span style="font-size:13px;font-weight:800;color:#88d8a0;white-space:nowrap;">' + (_firstName() || '') + ' ▾</span></span>';
   el.style.display = 'block';
 }
 
