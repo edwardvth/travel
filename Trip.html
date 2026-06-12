@@ -2236,7 +2236,14 @@ async function _fillAccountInvites() {
   if (!box || !CURRENT_USER) return;
   const isOwner = TRIP_OWNER_ID && TRIP_OWNER_ID === CURRENT_USER.id;
   const isFndr = USER_PROFILE && USER_PROFILE.role === 'founder';
-  if (!isOwner && !isFndr) { box.innerHTML = '<span style="color:#999;">Only the trip owner can invite people to this trip.</span>'; return; }
+  if (!isOwner && !isFndr) {
+    box.innerHTML = '<span style="color:#999;">Only the trip owner can share this trip.</span>';
+    supa.rpc('trip_owner_emails', { p_ids: [TRIP_ID] }).then(({ data }) => {
+      const em = data && data[0] && data[0].owner_email;
+      if (em) box.innerHTML = '<span style="color:#666;">👤 Owner: <b>' + em + '</b><br>Only the owner can share this trip — ask them for an invite.</span>';
+    }).catch(() => {});
+    return;
+  }
   try {
     const { data: mems } = await supa.from('trip_members').select('email').eq('trip_id', TRIP_ID).order('added_at');
     box.innerHTML =
