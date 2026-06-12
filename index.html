@@ -307,20 +307,34 @@ async function shareTrip(id) {
   ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:100003;display:flex;align-items:center;justify-content:center;padding:20px;';
   ov.innerHTML =
     '<div style="background:#181818;border:1px solid #2a2a2a;color:#eee;border-radius:16px;width:100%;max-width:380px;padding:20px;" onclick="event.stopPropagation()">' +
-      '<div style="font-weight:800;font-size:16px;margin-bottom:4px;">👥 Share "' + id + '"</div>' +
-      '<div style="font-size:12.5px;color:#999;margin-bottom:12px;">They\'ll see this trip in their list after signing in.</div>' +
+      '<div style="font-weight:800;font-size:16px;margin-bottom:12px;">👥 Share "' + id + '"</div>' +
+      '<button onclick="copyShareLink(\'' + id + '\')" style="width:100%;padding:12px;background:#13233f;color:#9cc0ff;border:1px solid #2a4a7a;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">🔗 Copy invite link</button>' +
+      '<div style="display:flex;align-items:center;gap:10px;margin:14px 0;"><div style="flex:1;height:1px;background:#2a2a2a;"></div><span style="font-size:12px;color:#666;">or invite by email</span><div style="flex:1;height:1px;background:#2a2a2a;"></div></div>' +
       '<div style="display:flex;gap:8px;margin-bottom:6px;">' +
         '<input id="shareEmail" type="email" placeholder="Email address" style="flex:1;box-sizing:border-box;padding:11px;border:1px solid #333;background:#0d0d0d;color:#fff;border-radius:10px;font-size:14px;">' +
-        '<button onclick="sendShare(\'' + id + '\')" style="padding:11px 16px;background:#1a73e8;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Invite</button>' +
+        '<button onclick="sendShare(\'' + id + '\')" style="padding:11px 16px;background:#1a73e8;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Send</button>' +
       '</div>' +
-      '<div id="shareMsg" style="font-size:12.5px;min-height:16px;color:#7fd29a;margin-bottom:10px;"></div>' +
-      '<div style="font-size:11px;font-weight:800;color:#777;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Invited</div>' +
-      '<div id="shareList" style="font-size:13px;color:#bbb;">Loading…</div>' +
+      '<div id="shareMsg" style="font-size:12.5px;min-height:16px;color:#7fd29a;margin-bottom:8px;">They\'ll get an email with a link to sign in and see the trip.</div>' +
+      '<details style="margin-top:4px;"><summary onclick="loadShareList(\'' + id + '\')" style="cursor:pointer;font-size:12.5px;color:#888;font-weight:700;">Manage invited people</summary>' +
+        '<div id="shareList" style="font-size:13px;color:#bbb;margin-top:8px;">Loading…</div>' +
+      '</details>' +
       '<button onclick="document.getElementById(\'share-modal\').remove()" style="margin-top:14px;width:100%;padding:11px;background:#2a2a2a;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:14px;cursor:pointer;">Done</button>' +
     '</div>';
   ov.onclick = () => ov.remove();
   document.body.appendChild(ov);
-  loadShareList(id);
+}
+
+async function copyShareLink(id) {
+  try {
+    const { data: r, error } = await supa.rpc('create_invite', { p_id: id });
+    if (error || !r || r.ok !== true || !r.token) { alert('Invite link failed: ' + ((error && error.message) || (r && r.reason) || 'unknown')); return; }
+    const link = location.origin + '/Trip.html?trip=' + id + '&join=' + r.token;
+    let copied = false;
+    try { await navigator.clipboard.writeText(link); copied = true; } catch(e) {}
+    const msg = document.getElementById('shareMsg');
+    if (copied && msg) { msg.style.color = '#7fd29a'; msg.textContent = '🔗 Link copied — anyone who opens it joins the trip.'; }
+    else prompt('Copy this invite link:', link);
+  } catch(e) { alert('Invite link failed.'); }
 }
 
 async function loadShareList(id) {
@@ -333,7 +347,7 @@ async function loadShareList(id) {
     box.innerHTML = mems.map(m =>
       '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid #242424;">' +
         '<span>' + m.email + '</span>' +
-        '<a href="#" onclick="removeShare(\'' + id + '\',\'' + m.email + '\');return false;" style="color:#ff7b6b;text-decoration:none;font-size:15px;padding:0 6px;" title="Remove">✕</a>' +
+        '<a href="#" onclick="removeShare(\'' + id + '\',\'' + m.email + '\');return false;" style="color:#ff7b6b;text-decoration:none;font-size:12px;padding:2px 8px;border:1px solid #5a2a2a;border-radius:8px;" title="Uninvite">Uninvite</a>' +
       '</div>').join('');
   } catch(e) { box.textContent = 'Could not load invitations.'; }
 }

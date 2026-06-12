@@ -2245,14 +2245,28 @@ async function _fillAccountInvites() {
     return;
   }
   try {
-    const { data: mems } = await supa.from('trip_members').select('email').eq('trip_id', TRIP_ID).order('added_at');
+    const { data: mems, error } = await supa.from('trip_members').select('email').eq('trip_id', TRIP_ID);
+    if (error) { box.innerHTML = '<span style="color:#c0392b;">Could not load: ' + error.message + '</span>'; return; }
     box.innerHTML =
-      '<div style="margin-bottom:10px;">' +
-        '<div style="font-weight:700;font-size:13px;">' + (APP_CONFIG.title || TRIP_ID) +
-          ' <a href="#" onclick="_menuInviteLink(\'' + TRIP_ID + '\');return false;" style="font-size:12px;color:#1a73e8;text-decoration:none;font-weight:700;">🔗 new invite link</a></div>' +
-        '<div style="font-size:12px;color:#888;">' + ((mems || []).map(m => m.email).join(', ') || 'No invitations sent yet') + '</div>' +
-      '</div>';
+      '<div style="font-weight:700;font-size:13px;margin-bottom:6px;">' + (APP_CONFIG.title || TRIP_ID) +
+        ' <a href="#" onclick="_menuInviteLink(\'' + TRIP_ID + '\');return false;" style="font-size:12px;color:#1a73e8;text-decoration:none;font-weight:700;">🔗 new invite link</a></div>' +
+      (((mems || []).length === 0)
+        ? '<div style="font-size:12px;color:#888;">No invitations sent yet</div>'
+        : (mems || []).map(m =>
+            '<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0f0f0;font-size:12.5px;color:#555;">' +
+              '<span>' + m.email + '</span>' +
+              '<a href="#" onclick="_uninvite(\'' + m.email.replace(/'/g, "\\'") + '\');return false;" style="color:#c0392b;text-decoration:none;font-size:11.5px;padding:2px 8px;border:1px solid #f0c0c0;border-radius:8px;">Uninvite</a>' +
+            '</div>').join(''));
   } catch(e) { box.textContent = 'Could not load invitations.'; }
+}
+
+async function _uninvite(email) {
+  try {
+    const { data: r } = await supa.rpc('remove_trip_member', { p_id: TRIP_ID, p_email: email });
+    if (!r || r.ok !== true) { showToast('Could not uninvite', true); return; }
+    showToast('Removed ' + email);
+    _fillAccountInvites();
+  } catch(e) { showToast('Could not uninvite', true); }
 }
 
 async function _menuInviteLink(tripId) {
