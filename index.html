@@ -489,7 +489,7 @@ function renderTrips() {
   const past = allTrips.filter(isPastTrip);
   const upcoming = allTrips.filter(t => !isPastTrip(t));
   const tabBar =
-    '<div style="display:flex;gap:6px;margin:10px 12px 4px;">' +
+    '<div style="display:flex;gap:6px;margin:10px auto 4px;max-width:420px;padding:0 12px;">' +
       ['upcoming', 'past'].map(tab => {
         const on = currentTab === tab;
         const label = tab === 'upcoming' ? '🛫 Upcoming (' + upcoming.length + ')' : '🕰 Past trips (' + past.length + ')';
@@ -503,19 +503,14 @@ function renderTrips() {
   }
 
   if (isFounder()) {
-    const myEmail = (CURRENT_USER && CURRENT_USER.email) || '';
-    const groups = {};
     shown.forEach(t => {
-      const who = (t.owner_id && ownerEmails[t.owner_id]) || 'unassigned';
-      (groups[who] = groups[who] || []).push(t);
+      if (t.owner_id && CURRENT_USER && t.owner_id !== CURRENT_USER.id) {
+        t._shared = true;
+        if (!t._ownerEmail) t._ownerEmail = ownerEmails[t.owner_id] || null;
+      }
     });
-    container.innerHTML = tabBar + Object.keys(groups)
-      .sort((a, b) => (a === myEmail ? -1 : b === myEmail ? 1 : a.localeCompare(b)))
-      .map(who => _section('👤 ' + who, groups[who].sort(byTripDate), who === myEmail))
-      .join('');
-    return;
   }
-  container.innerHTML = tabBar + '<div class="trips-grid">' + shown.map(t => tripCardHtml(t)).join('') + '</div>';
+  container.innerHTML = tabBar + '<div class="trips-grid">' + shown.sort(byTripDate).map(t => tripCardHtml(t)).join('') + '</div>';
 }
 
 function tripCardHtml(trip) {
