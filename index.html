@@ -403,10 +403,9 @@ async function loadTrips() {
     const meta = user.user_metadata || {};
     const av = meta.avatar_url || meta.picture || '';
     const avatar = av
-      ? '<img src="' + av + '" referrerpolicy="no-referrer" style="width:28px;height:28px;border-radius:50%;object-fit:cover;" onerror="this.style.display=\'none\'">'
-      : '<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#1a73e8;color:#fff;font-size:14px;font-weight:800;">' + first.charAt(0).toUpperCase() + '</span>';
-    acct.innerHTML = '<div style="display:inline-flex;align-items:center;gap:7px;">' + avatar +
-      '<span style="font-weight:800;color:#7fd29a;font-size:14px;">' + first + ' ▾</span></div>';
+      ? '<img src="' + av + '" referrerpolicy="no-referrer" style="width:32px;height:32px;border-radius:50%;object-fit:cover;" onerror="this.style.display=\'none\'">'
+      : '<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:#1a73e8;color:#fff;font-size:14px;font-weight:800;">' + first.charAt(0).toUpperCase() + '</span>';
+    acct.innerHTML = '<div style="display:inline-flex;align-items:center;">' + avatar + '</div>';
   }
 
   let data, error;

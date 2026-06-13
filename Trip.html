@@ -2122,8 +2122,7 @@ function _displayName() {
 function _renderGreeting() {
   const el = document.getElementById('userGreeting');
   if (!el || !CURRENT_USER) return;
-  el.innerHTML = '<span style="display:inline-flex;align-items:center;gap:6px;">' + _avatarHtml(26) +
-    '<span style="font-size:13px;font-weight:800;color:#88d8a0;white-space:nowrap;">' + (_firstName() || '') + ' ▾</span></span>';
+  el.innerHTML = '<span style="display:inline-flex;align-items:center;">' + _avatarHtml(32) + '</span>';
   el.style.display = 'block';
 }
 
