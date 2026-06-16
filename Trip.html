@@ -1287,7 +1287,6 @@ body.ios-touch-reorder .stop-row.dragging-src { opacity: 0.3; }
         <div style="display:flex;align-items:center;gap:8px;"><button onclick="location.href='/'" id="homeBtn" title="My Trips" style="background:none;border:none;cursor:pointer;color:#999;font-size:18px;padding:0;line-height:1;">🏠</button><h1 id="appTitleEl" style="margin:0;">Trip</h1></div>
         <div class="header-sub" id="appSubtitleEl">May 7–10 · hidden gems · rooftop dining</div>
       </div>
-      <button id="lockBtn" onclick="showLockDialog()" title="Edit / Lock mode" style="background:none;border:none;cursor:pointer;padding:2px 3px;opacity:0.7;flex-shrink:0;line-height:1;display:flex;align-items:center;"></button>
     </div>
     <div style="display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;flex:1 1 0;min-width:90px;align-self:flex-start;padding-top:2px;">
       <button class="prebook-pill" id="saveBtn" onclick="_autoPushInFlight=false;_forceSave();" title="Save to cloud" style="border-color:#88d8a0;color:#88d8a0;pointer-events:auto !important;">💾</button>
@@ -2165,42 +2164,6 @@ function _fmtTravelMins(m) {
   return m + ' min';
 }
 
-// Settings tabs: 1 Trip (days/hotel) · 2 Data (export/import/reset) · 3 AI
-function _initSettingsTabs() {
-  const host = document.querySelector('#panel-settings .add-view');
-  if (!host || host._tabbed) { _applySettingsTab(host && host._tab || 1); return; }
-  host._tabbed = true; host._tab = 1;
-  const kids = Array.from(host.children);
-  for (let i = 1; i < kids.length; i++) {
-    const t = (kids[i].textContent || '').toLowerCase();
-    let tab = 1;
-    if (/ai settings|api key|ai provider|claude|openai|perplexity|model/.test(t) && /key|provider|model/.test(t)) tab = 3;
-    else if (/export|import|reset|danger|repair|backup/.test(t)) tab = 2;
-    kids[i].setAttribute('data-settab', String(tab));
-  }
-  const bar = document.createElement('div');
-  bar.id = 'setTabBar';
-  bar.style.cssText = 'display:flex;gap:6px;margin:0 0 14px 0;position:sticky;top:0;background:inherit;z-index:5;';
-  bar.innerHTML = [['1','🗓 Trip & hotel'],['2','💾 Data'],['3','🤖 AI']].map(([n, label]) =>
-    '<button data-tabbtn="' + n + '" onclick="_applySettingsTab(' + n + ')" style="flex:1;padding:9px 6px;border-radius:10px;border:1px solid #ddd;background:#fff;font-size:12.5px;font-weight:700;cursor:pointer;">' + label + '</button>').join('');
-  host.insertBefore(bar, kids[1] || null);
-  _applySettingsTab(1);
-}
-
-function _applySettingsTab(n) {
-  const host = document.querySelector('#panel-settings .add-view');
-  if (!host) return;
-  host._tab = n;
-  host.querySelectorAll('[data-settab]').forEach(el => {
-    el.style.display = (el.getAttribute('data-settab') == String(n)) ? '' : 'none';
-  });
-  host.querySelectorAll('[data-tabbtn]').forEach(b => {
-    const on = b.getAttribute('data-tabbtn') == String(n);
-    b.style.background = on ? '#1a1a1a' : '#fff';
-    b.style.color = on ? '#fff' : '#333';
-  });
-}
-
 function _showAccountMenu() {
   const old = document.getElementById('account-menu'); if (old) old.remove();
   const nm = _displayName();
@@ -2294,14 +2257,14 @@ function _canManageMembers() {
 }
 
 async function _renderMembersBox() {
-  const panel = document.getElementById('panel-settings');
-  if (!panel || !CURRENT_USER) return;
+  const host = document.getElementById('settab-trip') || document.getElementById('panel-settings');
+  if (!host || !CURRENT_USER) return;
   let box = document.getElementById('membersBox');
   if (!_canManageMembers()) { if (box) box.remove(); return; }
   if (!box) {
     box = document.createElement('div');
     box.id = 'membersBox';
-    panel.appendChild(box);
+    host.appendChild(box);
   }
   let rows = [];
   try {
@@ -5277,7 +5240,7 @@ function showView(v) {
   if (v === 'hotel') v = 'settings';
   // Stop reading if navigating away from story
   if (v !== 'story' && typeof _stopReadAloud === 'function') _stopReadAloud();
-  if (v === 'settings') setTimeout(function() { if (typeof _updateUnitsBtn === 'function') _updateUnitsBtn(); updateLockState(); try { _initSettingsTabs(); } catch(e) {} }, 50);
+  if (v === 'settings') setTimeout(function() { if (typeof _updateUnitsBtn === 'function') _updateUnitsBtn(); updateLockState(); try { showSettingsTab('trip'); } catch(e) {} }, 50);
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   const panelEl = document.getElementById('panel-' + v);
   if (!panelEl) { console.warn('No panel:', v); return; }
