@@ -2267,15 +2267,20 @@ async function _renderMembersBox() {
     host.appendChild(box);
   }
   let rows = [];
+  let _memErr = null;
   try {
-    const { data } = await supa.from('trip_members').select('email, role').eq('trip_id', TRIP_ID).order('added_at');
+    const { data, error } = await supa.from('trip_members').select('email, added_at').eq('trip_id', TRIP_ID).order('added_at');
+    if (error) _memErr = error;
     rows = data || [];
-  } catch(e) {}
+  } catch(e) { _memErr = e; }
+  const empty = _memErr
+    ? '<div style="font-size:13px;color:#c0392b;padding:6px 0;">Couldn\'t load members — try reloading the trip.</div>'
+    : '<div style="font-size:13px;color:#999;padding:6px 0;">No members yet — invite someone below.</div>';
   const list = rows.map(r =>
     '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #eee;">' +
       '<span style="font-size:13px;color:#444;">✉️ ' + r.email + '</span>' +
       '<button onclick="_removeMember(\'' + r.email.replace(/'/g, "\\'") + '\')" style="background:none;border:none;color:#c0392b;font-size:13px;cursor:pointer;">Remove</button>' +
-    '</div>').join('') || '<div style="font-size:13px;color:#999;padding:6px 0;">No members yet — invite someone below.</div>';
+    '</div>').join('') || empty;
   box.innerHTML =
     '<div style="margin:0 12px 18px;padding:14px;background:#f7f5f0;border-radius:12px;">' +
       '<div style="font-weight:800;font-size:14px;margin-bottom:8px;">👥 Trip members</div>' +
