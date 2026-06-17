@@ -2960,7 +2960,7 @@ function _initStopDrag() {
     let sx = 0, sy = 0;
     el.addEventListener('touchstart', e => {
       // Ignore long-press that begins on an interactive control (arrows, check, trash, buttons, links)
-      if (e.target.closest('button, a, input, .reorder-arrows, .stop-check')) return;
+      if (e.target.closest('button, a, input, .reorder-arrows, .stop-check, .stop-name-label, .stop-type-label')) return;
       const t = e.touches[0];
       sx = t.clientX; sy = startY = t.clientY;
       srcIdx = +el.id.replace('srow', '');
@@ -5465,19 +5465,21 @@ function renderStopList() {
 
 function selectStop(i) {
   currentStop = i;
-  renderStopList();
-  renderDetail();
+  try { renderStopList(); } catch(e) { console.error('renderStopList', e); }
+  try { renderDetail(); } catch(e) { console.error('renderDetail', e); }
   showView('detail');
-  document.getElementById('mainArea').scrollTop = 0;
-  // Auto-generate details for stops that have none yet (e.g. passed-by / check-in)
-  const s = days[currentDay] && days[currentDay].stops[i];
-  if (s && !s.history && (s.lat || s.name) && !s._enriching) {
-    s._enriching = true;
-    Promise.resolve()
-      .then(() => enrichStopContent(i, currentDay))
-      .catch(() => {})
-      .finally(() => { try { delete s._enriching; } catch(e) {} });
-  }
+  const ma = document.getElementById('mainArea'); if (ma) ma.scrollTop = 0;
+  // Auto-generate details for stops that have none yet (passed-by / check-in)
+  try {
+    const s = days[currentDay] && days[currentDay].stops[i];
+    if (s && !s.history && (s.lat || s.name) && !s._enriching) {
+      s._enriching = true;
+      Promise.resolve()
+        .then(() => enrichStopContent(i, currentDay))
+        .catch((e) => console.error('enrich', e))
+        .finally(() => { try { delete s._enriching; } catch(e) {} });
+    }
+  } catch(e) { console.error('auto-enrich', e); }
 }
 
 function goBackToList() {
