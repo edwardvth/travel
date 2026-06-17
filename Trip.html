@@ -6548,6 +6548,7 @@ async function _processLandmarkPhoto(file) {
       funFact: '',
       suggestion: '',
       wikiUrl: wUrl,
+      wikiTitle: wTitle,
       gmapsUrl: gmapsUrl,
       isBusiness: isBusiness,
       confidence: confidence,
@@ -6804,9 +6805,10 @@ function _addIdentifyPassedBy() {
     note: lm.tldr || '',
     history: lm.wikiExtract || lm.tldr || '',
     todo: lm.funFact ? '<p>' + lm.funFact + '</p>' : (lm.suggestion ? '<p>' + lm.suggestion + '</p>' : ''),
-    facts: lm.funFact || '',
+    facts: lm.funFact ? [lm.funFact] : [],
     image: lm.image || null,
     wikiUrl: lm.wikiUrl || '',
+    wikiTitle: lm.wikiTitle || lm.name || '',
     lat: lm.lmLat || _currentGpsLat || 0,
     lng: lm.lmLng || _currentGpsLng || 0,
     time: timeStr,
@@ -6865,6 +6867,7 @@ function _addIdentifiedToSchedule() {
     duration: '30 min',
     history: lm.tldr || '',
     wikiUrl: lm.wikiUrl || '',
+    wikiTitle: lm.wikiTitle || lm.name || '',
     color: '#5c4db1',
     tags: [],
     badges: []
@@ -12423,7 +12426,9 @@ async function enrichStopContent(stopIdx, dayIdx) {
   if (!s) return;
   const city = getTripCity();
   const fromHint = window.HOTEL_DATA?.name ? 'from ' + window.HOTEL_DATA.name : 'from the hotel area';
-  const prompt = `You are an expert tour guide for ${city}. Write rich, engaging content for "${s.name}" at "${s.address || s.name}, ${city}".
+  const placeRef = [s.name, s.address].filter(Boolean).join(', ') || s.name;
+  const coordHint = (s.lat && s.lng) ? ` The exact location is GPS ${(+s.lat).toFixed(5)}, ${(+s.lng).toFixed(5)} — describe the specific building at these coordinates, not a similarly named place elsewhere.` : '';
+  const prompt = `You are an expert tour guide for ${city}. Write rich, engaging content for "${placeRef}".${coordHint}
 
 CRITICAL: Respond with ONLY valid JSON starting with { and ending with }. No markdown, no preamble.
 
@@ -12433,10 +12438,12 @@ CRITICAL: Respond with ONLY valid JSON starting with { and ending with }. No mar
   if (btn) { btn.textContent = '⏳ Enriching…'; btn.disabled = true; }
 
   try {
+    // Prefer the verified Wikipedia title captured at identify time; fall back to name
+    const wikiLookup = s.wikiTitle || s.name;
     // Run AI content + Wikipedia image fetch in parallel
     const [text, imgUrl] = await Promise.all([
       callAI({ prompt, maxTokens: 2500 }),
-      fetchWikipediaImage(s.name)
+      fetchWikipediaImage(wikiLookup)
     ]);
 
     let raw = (text || '{}').replace(/```json|```/g, '').trim();
@@ -12449,7 +12456,7 @@ CRITICAL: Respond with ONLY valid JSON starting with { and ending with }. No mar
     if (info.todo)    s.todo    = info.todo;
     if (info.travel)  s.travel  = info.travel;
     if (info.type_label) s.type = info.type_label;
-    if (imgUrl) s.image = imgUrl;
+    if (imgUrl && !s.image) s.image = imgUrl;
 
     autoSave();
     if (currentView === 'detail' && currentStop === stopIdx && currentDay === dayIdx) renderDetail();
