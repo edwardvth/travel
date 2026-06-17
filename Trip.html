@@ -5912,17 +5912,22 @@ function renderDetail() {
     _renderDetailInner(s);
   } catch (err) {
     console.error('renderDetail failed for', s && s.name, err);
-    // Fail safe: never leave the previous stop's detail on screen
     const el = document.getElementById('detailContent');
     if (el) el.innerHTML =
       '<div class="detail-hero"><div class="detail-title">' + (s.name || 'Stop') + '</div>' +
       '<div class="detail-subtitle">' + (s.type || '') + '</div>' +
       '<div style="display:flex;gap:6px;margin-top:8px;">' +
-        '<button onclick="enrichStopContent(currentStop,currentDay)" style="background:none;border:1px solid #d8d0f8;color:#5c4db1;font-size:12px;font-weight:700;padding:4px 10px;border-radius:8px;cursor:pointer;">✨ Generate details</button>' +
+        '<button onclick="_forceEnrich()" style="background:none;border:1px solid #d8d0f8;color:#5c4db1;font-size:12px;font-weight:700;padding:4px 10px;border-radius:8px;cursor:pointer;">✨ Generate details</button>' +
         '<button onclick="goBackToList()" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:700;padding:4px 10px;border-radius:8px;cursor:pointer;">← List</button>' +
       '</div></div>' +
-      '<div class="detail-section" style="padding:12px 16px;color:#888;font-size:13px;">Tap ✨ Generate details to load history, tips, and directions for this place.</div>';
+      '<div class="detail-section" style="padding:12px 16px;color:#888;font-size:13px;">Tap ✨ Generate details to load history, tips, and directions for this place.</div>' +
+      '<div class="detail-section" style="padding:8px 16px;color:#c0392b;font-size:11px;">debug: ' + ((err && err.message) || err) + '</div>';
   }
+}
+
+function _forceEnrich() {
+  try { enrichStopContent(currentStop, currentDay); }
+  catch(e) { showToast('Generate failed: ' + (e.message||e), true); console.error(e); }
 }
 
 function _renderDetailInner(s) {
