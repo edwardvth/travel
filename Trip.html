@@ -6476,8 +6476,11 @@ async function _processLandmarkPhoto(file) {
 
     // Classify as business (restaurant/cafe/pub/bar/hotel/shop)
     const BIZ_TYPES = ['restaurant','cafe','pub','bar','hotel','shop','store'];
-    const isBusiness = !!identified.is_business ||
-      BIZ_TYPES.some(function(t){ return (identified.type||'').toLowerCase().includes(t); });
+    const LANDMARK_TYPES = ['museum','church','temple','monument','memorial','theatre','theater','cathedral','palace','castle','library','government','building','landmark'];
+    const typeLC = (identified.type||'').toLowerCase();
+    const isLandmarkType = LANDMARK_TYPES.some(t => typeLC.includes(t));
+    const isBusiness = !isLandmarkType && (!!identified.is_business ||
+      BIZ_TYPES.some(function(t){ return typeLC.includes(t); }));
 
     // Build Google Maps link — always useful, especially for businesses
     const gmapsQuery = identified.google_query || (identified.name + ' ' + identified.location);
@@ -6721,6 +6724,7 @@ function _showIdentifyCard(lm) {
     + '<button onclick="_speakIdentified()" style="padding:10px 14px;background:#f5f5f5;border:none;border-radius:12px;font-size:16px;cursor:pointer;">🔊</button>'
     + '</div>'
     + '<button id="identifyPassedByBtn" onclick="_addIdentifyPassedBy()" style="width:100%;padding:12px;border-radius:12px;border:1.5px solid #1a7a3a;background:#e8f5e9;color:#1a7a3a;font-size:13px;font-weight:800;cursor:pointer;margin-bottom:8px;">📍 Passed by — Add to schedule</button>'
+    + '<button onclick="_correctIdentification()" style="width:100%;padding:9px;border-radius:10px;border:none;background:none;color:#888;font-size:12px;font-weight:600;cursor:pointer;text-decoration:underline;">Not the right place? Pick or type the correct one</button>'
     + '</div>';
 
   document.body.appendChild(el);
@@ -6785,6 +6789,83 @@ function _closeIdentifyCard() {
   // Discard photo if user didn't tap "Passed by"
   window._identifyBase64 = null;
   window._identifyBase64Raw = null;
+}
+
+async function _correctIdentification() {
+  const lm = window._identifiedLandmark || {};
+  const lat = lm.userLat || lm.lmLat;
+  const lng = lm.userLng || lm.lmLng;
+  let nearby = [];
+  if (lat && lng) {
+    try {
+      const q = `[out:json][timeout:8];(nwr(around:80,${lat},${lng})[name];);out center 25;`;
+      const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: q });
+      const data = await res.json();
+      const seen = new Set();
+      nearby = (data.elements || [])
+        .map(e => {
+          const elat = e.lat || (e.center && e.center.lat);
+          const elng = e.lon || (e.center && e.center.lon);
+          const name = e.tags && e.tags.name;
+          if (!name || !elat) return null;
+          const d = Math.round(_haversineM(lat, lng, elat, elng));
+          const kind = (e.tags.amenity || e.tags.tourism || e.tags.shop || e.tags.building || e.tags.historic || '').replace(/_/g, ' ');
+          return { name, kind, d, lat: elat, lng: elng };
+        })
+        .filter(x => x && !seen.has(x.name) && seen.add(x.name))
+        .sort((a, b) => a.d - b.d)
+        .slice(0, 12);
+    } catch(e) {}
+  }
+  const ov = document.createElement('div');
+  ov.id = 'correctOv';
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:33000;display:flex;align-items:flex-end;justify-content:center;';
+  ov.innerHTML =
+    '<div style="background:#fff;border-radius:18px 18px 0 0;width:100%;max-width:520px;max-height:80vh;overflow-y:auto;padding:18px;">' +
+      '<div style="font-size:16px;font-weight:800;margin-bottom:4px;">Which place is it?</div>' +
+      '<div style="font-size:12px;color:#888;margin-bottom:14px;">Closest places to where you are standing:</div>' +
+      (nearby.length
+        ? nearby.map(p => '<button onclick="_useCorrectedPlace(this.dataset.p)" data-p="' + JSON.stringify(p).replace(/"/g, '&quot;') + '" style="display:block;width:100%;text-align:left;padding:11px 12px;margin-bottom:6px;background:#f7f7f9;border:1px solid #eee;border-radius:10px;font-size:14px;cursor:pointer;"><strong>' + p.name + '</strong>' + (p.kind ? ' <span style="color:#999;font-size:12px;">· ' + p.kind + '</span>' : '') + ' <span style="color:#bbb;font-size:11px;float:right;">' + p.d + 'm</span></button>').join('')
+        : '<div style="font-size:13px;color:#999;margin-bottom:10px;">No nearby places found — type the name below.</div>') +
+      '<div style="display:flex;gap:8px;margin-top:10px;">' +
+        '<input id="correctName" placeholder="Type the correct name" style="flex:1;padding:11px;border:1px solid #ddd;border-radius:10px;font-size:14px;">' +
+        '<button onclick="_useTypedName()" style="padding:11px 16px;background:#1a1a1a;color:#fff;border:none;border-radius:10px;font-weight:700;cursor:pointer;">Use</button>' +
+      '</div>' +
+      '<button onclick="document.getElementById(&quot;correctOv&quot;).remove()" style="width:100%;margin-top:12px;padding:10px;background:none;border:none;color:#888;font-size:13px;cursor:pointer;">Cancel</button>' +
+    '</div>';
+  document.body.appendChild(ov);
+  ov.onclick = e => { if (e.target === ov) ov.remove(); };
+}
+
+function _haversineM(la1, lo1, la2, lo2) {
+  const R = 6371000, t = x => x * Math.PI / 180;
+  const dLa = t(la2 - la1), dLo = t(lo2 - lo1);
+  const a = Math.sin(dLa/2)**2 + Math.cos(t(la1))*Math.cos(t(la2))*Math.sin(dLo/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function _applyCorrection(name, lat, lng) {
+  const lm = window._identifiedLandmark || (window._identifiedLandmark = {});
+  lm.name = name;
+  lm.wikiTitle = name;
+  if (lat && lng) { lm.lmLat = lat; lm.lmLng = lng; }
+  lm.tldr = ''; lm.funFact = ''; lm.suggestion = ''; lm.wikiExtract = '';
+  lm.image = null; lm.isBusiness = false;
+  lm.wikiUrl = 'https://en.wikipedia.org/wiki/' + encodeURIComponent(name.replace(/\s+/g, '_'));
+  lm.gmapsUrl = 'https://www.google.com/maps/search/' + encodeURIComponent(name) + (lat ? '/@' + lat + ',' + lng + ',18z' : '');
+  const ov = document.getElementById('correctOv'); if (ov) ov.remove();
+  showToast('✓ Set to "' + name + '" — add it to your schedule');
+  const card = document.getElementById('identifyCard');
+  if (card) { const tnode = card.querySelector('div[style*="font-weight:900"]'); if (tnode) tnode.textContent = name; }
+}
+
+function _useCorrectedPlace(json) {
+  try { const p = JSON.parse(json); _applyCorrection(p.name, p.lat, p.lng); } catch(e) { console.error(e); }
+}
+
+function _useTypedName() {
+  const v = (document.getElementById('correctName') || {}).value;
+  if (v && v.trim()) _applyCorrection(v.trim());
 }
 
 function _addIdentifyPassedBy() {
