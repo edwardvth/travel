@@ -1,5 +1,5 @@
 // Travel app service worker — handles background notifications
-const CACHE = 'travel-sw-v4';
+const CACHE = 'travel-sw-v5';
 
 self.addEventListener('install', e => self.skipWaiting());
 
@@ -20,8 +20,11 @@ self.addEventListener('activate', e => {
 // Always fetch Trip.html fresh from network — never serve a cached/stale version
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  if (url.pathname.includes('Trip.html')) {
-    e.respondWith(fetch(e.request, { cache: 'no-store' }));
+  // Always fetch the app shell fresh — covers /Trip.html AND the pretty /Trip rewrite + index
+  const p = url.pathname;
+  const isAppShell = p.includes('Trip.html') || /\/Trip\/?$/.test(p) || p === '/' || p.endsWith('/index.html');
+  if (isAppShell) {
+    e.respondWith(fetch(e.request, { cache: 'no-store' }).catch(() => caches.match(e.request)));
     return;
   }
   // Everything else: network first, cache fallback
