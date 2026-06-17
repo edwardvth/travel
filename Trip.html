@@ -5906,7 +5906,26 @@ function stopPhotosHtml(stopIdx, dayIdx) {
 }
 
 function renderDetail() {
-  const s = days[currentDay].stops[currentStop];
+  const s = days[currentDay] && days[currentDay].stops[currentStop];
+  if (!s) { console.warn('renderDetail: no stop'); return; }
+  try {
+    _renderDetailInner(s);
+  } catch (err) {
+    console.error('renderDetail failed for', s && s.name, err);
+    // Fail safe: never leave the previous stop's detail on screen
+    const el = document.getElementById('detailContent');
+    if (el) el.innerHTML =
+      '<div class="detail-hero"><div class="detail-title">' + (s.name || 'Stop') + '</div>' +
+      '<div class="detail-subtitle">' + (s.type || '') + '</div>' +
+      '<div style="display:flex;gap:6px;margin-top:8px;">' +
+        '<button onclick="enrichStopContent(currentStop,currentDay)" style="background:none;border:1px solid #d8d0f8;color:#5c4db1;font-size:12px;font-weight:700;padding:4px 10px;border-radius:8px;cursor:pointer;">✨ Generate details</button>' +
+        '<button onclick="goBackToList()" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:700;padding:4px 10px;border-radius:8px;cursor:pointer;">← List</button>' +
+      '</div></div>' +
+      '<div class="detail-section" style="padding:12px 16px;color:#888;font-size:13px;">Tap ✨ Generate details to load history, tips, and directions for this place.</div>';
+  }
+}
+
+function _renderDetailInner(s) {
   const badgeLabels = { free:'Free entry', prebook:'Pre-book', paid:'Paid', food:'Healthy food', walk:'Walking', weekend:'Weekend only', weekday:'Weekday only' };
   const isBooked = s.reservation && (s.reservation.confirmed || s.reservation.time);
   const hasStatus = isBooked || s.passedBy || s.checkIn;
@@ -5914,13 +5933,17 @@ function renderDetail() {
     .filter(b => !(b === 'prebook' && isBooked))
     .filter(b => !(b === 'free' && hasStatus))
     .map(b => `<span class="badge ${b}">${badgeLabels[b]||b}</span>`).join('');
-  const gmSearch = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(s.name + ' ' + s.address)}`;
-  const gmWalk = `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}&travelmode=walking`;
+  const gmSearch = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((s.name||'') + ' ' + (s.address||''))}`;
+  const gmWalk = (s.lat && s.lng)
+    ? `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lng}&travelmode=walking`
+    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((s.name||'') + ' ' + (s.address||''))}`;
+  let _heroImg = '';
+  try { _heroImg = s.image ? (wikiThumb(s.image, 500) || s.image) : ''; } catch(e) { _heroImg = ''; }
   const histParas = (s.history || '').split('\n\n').map((p,i) => `<p class="history-text${i>0?' history-para':''}">${p.replace(/\n/g,' ')}</p>`).join('');
 
   document.getElementById('detailContent').innerHTML = `
     <div class="detail-hero">
-      ${s.image ? `<img src="${wikiThumb(s.image, 500)}" alt="${s.name}" style="width:100%;max-height:280px;object-fit:contain;border-radius:12px;margin-bottom:12px;display:block;background:#f0f0f0;">` : ''}
+      ${_heroImg ? `<img src="${_heroImg}" alt="${s.name}" style="width:100%;max-height:280px;object-fit:contain;border-radius:12px;margin-bottom:12px;display:block;background:#f0f0f0;">` : ''}
       <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:0;">
         <div class="detail-badge" style="border-left:3px solid ${s.color};padding-left:10px;">
         <span onclick="editStopTime(currentStop)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;" title="Tap to change start time">⏱ ${s.time}</span> &nbsp;·&nbsp; <span onclick="editDuration(currentStop)" style="cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;" title="Tap to edit duration">⏳ ${s.duration}</span> &nbsp;·&nbsp; ${days[currentDay].title.split('—')[0].trim()}
