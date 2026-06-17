@@ -5401,13 +5401,13 @@ function renderStopList() {
       </div>`}
       <div class="stop-check ${completed.includes(currentDay+'-'+i) ? 'done' : ''}"
            onclick="event.stopPropagation(); toggleDone(${i})"></div>
-      <div class="stop-meta" onclick="selectStop(${i})">
+      <div class="stop-meta" onclick="selectStop(${i},${currentDay})">
         <div onclick="event.stopPropagation();editStopTime(${i})" style="cursor:pointer;" title="Tap to change time">
           ${_stopTimeRowHtml(s, i, currentDay, endTime)}
         </div>
-        <div class="stop-name-label" onclick="event.stopPropagation();selectStop(${i})" style="cursor:pointer;">${s.name}${s.passedBy ? ' <span class="res-badge" style="background:#f3e5f5;border-color:#9c27b0;color:#6a1b9a;">📷 Passed by</span>' : ''}${s.checkIn ? ' <span class="res-badge" style="background:#fef3e2;border-color:#e67e22;color:#b35400;">📍 Check-in</span>' : ''}${s.reservation ? ' <span class="res-badge ' + (s.reservation.confirmed?'confirmed':'') + '">' + (s.reservation.confirmed?'✓ Booked':'⏳ Pending') + '</span>' : ''}</div>
+        <div class="stop-name-label" onclick="event.stopPropagation();selectStop(${i},${currentDay})" style="cursor:pointer;">${s.name}${s.passedBy ? ' <span class="res-badge" style="background:#f3e5f5;border-color:#9c27b0;color:#6a1b9a;">📷 Passed by</span>' : ''}${s.checkIn ? ' <span class="res-badge" style="background:#fef3e2;border-color:#e67e22;color:#b35400;">📍 Check-in</span>' : ''}${s.reservation ? ' <span class="res-badge ' + (s.reservation.confirmed?'confirmed':'') + '">' + (s.reservation.confirmed?'✓ Booked':'⏳ Pending') + '</span>' : ''}</div>
         ${getConflict(i) ? '<div class="conflict-banner">⚠️ Time conflict with previous stop</div>' : ''}
-        <div class="stop-type-label" onclick="event.stopPropagation();selectStop(${i})" style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;"><span>${s.type}${(s.free && !s.passedBy && !s.checkIn && !(s.reservation)) ? ' · <span style="color:#2e7d32;font-weight:700;font-size:11px;">Free</span>' : ''}</span>${s.isHotel ? '' : `<button onclick="event.stopPropagation(); moveStopToDayPrompt(${i});" style="display:inline-flex;align-items:center;gap:3px;background:#eef3fb;border:1px solid #d3e2f7;color:#1a56c4;font-size:10px;font-weight:700;border-radius:8px;padding:2px 7px;cursor:pointer;" title="Move to another day">📅 Move to day</button>`}</div>
+        <div class="stop-type-label" onclick="event.stopPropagation();selectStop(${i},${currentDay})" style="display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;cursor:pointer;"><span>${s.type}${(s.free && !s.passedBy && !s.checkIn && !(s.reservation)) ? ' · <span style="color:#2e7d32;font-weight:700;font-size:11px;">Free</span>' : ''}</span>${s.isHotel ? '' : `<button onclick="event.stopPropagation(); moveStopToDayPrompt(${i});" style="display:inline-flex;align-items:center;gap:3px;background:#eef3fb;border:1px solid #d3e2f7;color:#1a56c4;font-size:10px;font-weight:700;border-radius:8px;padding:2px 7px;cursor:pointer;" title="Move to another day">📅 Move to day</button>`}</div>
         <div class="stop-tags">
           ${(s.prebook && !(s.reservation && (s.reservation.confirmed || s.reservation.time))) ? '<span class="tag-pill prebook">Pre-book</span>' : ''}
         </div>
@@ -5463,7 +5463,10 @@ function renderStopList() {
   setTimeout(_initStopDrag, 50); // iOS touch drag-to-reorder (no-op on Android/desktop)
 }
 
-function selectStop(i) {
+function selectStop(i, dayArg) {
+  if (typeof dayArg === 'number' && dayArg !== currentDay) currentDay = dayArg;
+  const dayStops = days[currentDay] && days[currentDay].stops;
+  if (!dayStops || !dayStops[i]) { console.warn('selectStop: no stop at day', currentDay, 'idx', i); return; }
   currentStop = i;
   try { renderStopList(); } catch(e) { console.error('renderStopList', e); }
   try { renderDetail(); } catch(e) { console.error('renderDetail', e); }
