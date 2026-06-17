@@ -5469,6 +5469,15 @@ function selectStop(i) {
   renderDetail();
   showView('detail');
   document.getElementById('mainArea').scrollTop = 0;
+  // Auto-generate details for stops that have none yet (e.g. passed-by / check-in)
+  const s = days[currentDay] && days[currentDay].stops[i];
+  if (s && !s.history && (s.lat || s.name) && !s._enriching) {
+    s._enriching = true;
+    Promise.resolve()
+      .then(() => enrichStopContent(i, currentDay))
+      .catch(() => {})
+      .finally(() => { try { delete s._enriching; } catch(e) {} });
+  }
 }
 
 function goBackToList() {
@@ -5965,7 +5974,7 @@ function renderDetail() {
 
     <div class="detail-section">
       <div class="section-label">History & context <button onclick="speakText('history',${currentStop},${currentDay})" style="background:none;border:none;font-size:14px;cursor:pointer;padding:0 4px;opacity:0.6;" title="Read aloud">🔊</button></div>
-      ${histParas}
+      ${histParas || (s.lat ? '<p class="history-text" id="autoEnrichHint" style="color:#888;">✨ Generating details for this place…</p>' : '<p class="history-text" style="color:#888;">Tap ✨ Refresh above to generate details, history, and tips for this place.</p>')}
     </div>
 
     ${s.facts && s.facts.length ? `
