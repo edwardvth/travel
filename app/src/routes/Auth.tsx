@@ -30,9 +30,9 @@ export default function Auth() {
         <Logo className="mb-1" />
         <p className="text-muted text-[13px] mb-5">Sign in to see your trips.</p>
         <div className="space-y-2.5">
-          <Input placeholder="Your name (for new accounts)" autoComplete="name" value={name} onChange={e => setName(e.target.value)} />
-          <Input placeholder="Email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} />
-          <Input placeholder="Password" type="password" autoComplete="current-password" value={pw} onChange={e => setPw(e.target.value)} />
+          <Input aria-label="Your name (for new accounts)" placeholder="Your name (for new accounts)" autoComplete="name" value={name} onChange={e => setName(e.target.value)} />
+          <Input aria-label="Email address" placeholder="Email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} />
+          <Input aria-label="Password" placeholder="Password" type="password" autoComplete="current-password" value={pw} onChange={e => setPw(e.target.value)} />
         </div>
         <div className="mt-4 space-y-2.5">
           <Button variant="claret" busy={busy} className="w-full" onClick={wrap(() => signIn(email, pw))}>Sign in</Button>
@@ -40,13 +40,14 @@ export default function Auth() {
             onClick={wrap(() => signUp(email, pw, name).then(r => r.needConfirm ? { error: undefined } : r) , 'Check your email to confirm, then come back here.')}>
             Create account
           </Button>
-          <Button variant="soft" className="w-full" onClick={wrap(() => signInGoogle())}>Continue with Google</Button>
+          <Button variant="soft" busy={busy} className="w-full" onClick={wrap(() => signInGoogle())}>Continue with Google</Button>
         </div>
-        <button className="mt-3 w-full text-center text-[13px] text-sig-link"
+        <button className="mt-3 w-full text-center text-[13px] text-sig-link disabled:opacity-60"
+          disabled={busy}
           onClick={wrap(() => magicLink(email), 'Magic link sent — check your email.')}>
           Email me a magic link instead
         </button>
-        <div className="mt-3 min-h-[18px] text-center text-[13px]" style={{ color: msg?.err ? 'var(--sig-link)' : 'var(--muted)' }}>
+        <div aria-live="polite" className="mt-3 min-h-[18px] text-center text-[13px]" style={{ color: msg?.err ? 'var(--sig-link)' : 'var(--muted)' }}>
           {msg?.text}
         </div>
       </div>
