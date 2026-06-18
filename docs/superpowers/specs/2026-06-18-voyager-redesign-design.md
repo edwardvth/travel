@@ -1,9 +1,11 @@
-# Voyager — Complete UI/UX Redesign · Design Spec
+# Voyager — Complete UI/UX Redesign · Vision Spec
 
 **Date:** 2026-06-18
-**Status:** Approved (design) → ready for implementation plan
+**Status:** Approved (design) → ready for implementation
 **Owner:** Dana
 **Repo:** `edwardvth/travel` (local `C:\Users\edwar\travel`)
+**Companion doc:** build phases & acceptance criteria live in `docs/IMPLEMENTATION.md`.
+This document is **the vision** — keep it stable; track execution separately.
 
 ---
 
@@ -11,9 +13,9 @@
 
 The existing app is a working travel product (forked from a family project) with a
 generic, dark/Google-blue, AI-template aesthetic spread across large single-file HTML
-pages. This project is a **complete UI/UX overhaul** that re-skins and re-architects the
-front end into a premium, cohesive consumer product called **Voyager**, while preserving
-the existing Supabase backend and all functionality.
+pages. This project is a **complete UI/UX overhaul** into a premium, cohesive consumer
+product called **Voyager**, while preserving the existing Supabase backend and all
+functionality.
 
 The product is three experiences in one, and the design embraces that:
 
@@ -42,16 +44,16 @@ Voyager should **NOT** feel like:
 - Booking.com-style information overload
 - A typical AI-startup landing page
 
-> Note on references: **Uber** is a good benchmark for *interaction quality* (confident,
-> precise, one-handed live controls) — but **not** for travel inspiration or emotional tone.
-> Borrow its interaction discipline; never its utilitarian coldness.
+> **Uber** is a good benchmark for *interaction quality* (confident, precise, one-handed
+> live controls) — but **not** for travel inspiration or emotional tone. Borrow its
+> interaction discipline; never its utilitarian coldness.
 
 ---
 
 ## 3. Emotional Design Goals
 
-The emotion a screen should evoke is a first-class design requirement. When a design
-decision is ambiguous, choose the option that produces the target feeling.
+The emotion a screen should evoke is a first-class requirement. When a design decision is
+ambiguous, choose the option that produces the target feeling.
 
 | Moment | User should feel |
 |---|---|
@@ -63,29 +65,56 @@ decision is ambiguous, choose the option that produces the target feeling.
 
 ---
 
-## 4. Guiding Principles
+## 4. Voyager Voice (product personality)
+
+All copy — buttons, empty states, errors, toasts, onboarding — uses one voice.
+
+Voyager should sound: **Calm · Curious · Confident · Helpful · Human.**
+
+Voyager should never sound: **Corporate · Overly enthusiastic · Excessively witty ·
+AI-assistant-like · Overly verbose.**
+
+| Instead of | Use |
+|---|---|
+| "Your itinerary has been successfully updated." | **"Tomorrow's plan is ready."** |
+| "Error loading destination." | **"Couldn't load this place. Try again."** |
+
+Rules of thumb: lead with the outcome, not the system; short over complete; no exclamation
+marks by default; no "Oops!"/"Uh-oh!"; speak to a person, not a user.
+
+---
+
+## 5. Guiding Principles
 
 1. **Companion, not tool.** Lead with intent, not inventory.
-   - Bad: *"Here's your itinerary."*
-   - Good: *"Here's what you're doing next."*
+   *Bad: "Here's your itinerary." Good: "Here's what you're doing next."*
    The UI should constantly reduce cognitive load, especially while traveling.
 2. **Editorial beauty must not cost information density during active planning.**
    Editorial, full-bleed treatment belongs to *dreaming* surfaces (Landing, Dashboard
    featured trip, Stop hero, Story). **Active-planning surfaces prioritize speed and
    scanning over visual flourish** — dense, legible rows; minimal chrome; fast taps.
-   Developers must not over-design utility screens.
-3. **Every element must have a reason to exist.** If it doesn't aid the user's current
-   goal, remove it.
+   Do not over-design utility screens. *(Referenced below as the "planning-density rule.")*
+3. **Every element must have a reason to exist.** If it doesn't aid the current goal, remove it.
 4. **Momentum.** Each screen makes the obvious next action effortless and visible.
 5. **Calm by default.** Restraint over decoration; motion that orients, never distracts.
 
 ---
 
-## 5. Anti-Patterns — Kill AI Slop
+## 6. Competitive Rule (forcing function)
 
-During implementation, the UI must actively avoid the "AI-generated" look. **Run the
-anti-slop / "stop slop" discipline (and `frontend-design` guidance) on every screen before
-it is considered done.**
+For every screen, ask:
+
+> **"If Apple, Airbnb, and Notion collaborated on this screen, what would they remove?"**
+
+Then remove it. This is the standing defense against feature creep and over-design. Apply
+it in every review before a screen is considered done.
+
+---
+
+## 7. Anti-Patterns — Kill AI Slop
+
+The UI must actively avoid the "AI-generated" look. **Run the anti-slop / "stop slop"
+discipline (and `frontend-design` guidance) on every screen before it is done.**
 
 **Never use:**
 - Emoji as interface icons (SVG only — Lucide/Heroicons)
@@ -99,55 +128,54 @@ it is considered done.**
 - Random accent colors (only the claret signature + gold accent; nothing else)
 - Material Design defaults
 
-**Every element should have a reason to exist.** (See §4.3.)
+**Every element should have a reason to exist** (see Competitive Rule).
 
 ---
 
-## 6. Goals & Non-Goals
+## 8. Goals & Non-Goals
 
 ### Goals
-- A single cohesive design system (color, type, motion, components) applied across every
-  surface, dark-primary with an equally premium light mode.
-- Rethink UX per screen: fewer clicks, obvious primary actions, momentum, moments of
-  delight, beautiful empty/loading states — guided by §3 and §4.
-- Real page transitions and micro-interactions (the thing single-file HTML can't do well).
+- One cohesive design system (color, type, motion, components) across every surface;
+  dark-primary with an equally premium light mode.
+- Rethink UX per screen — fewer clicks, obvious primary actions, momentum, delight,
+  beautiful empty/loading states — guided by the Emotional Goals, Voice, and Principles above.
+- Real page transitions and micro-interactions.
 - Excellent on every device; layouts may differ per platform (not just scaled).
 - Reuse the existing backend and AI features unchanged.
 
 ### Non-Goals
 - **No backend/schema changes.** Supabase tables, RPCs, edge functions, auth, realtime,
   and the JSONB trip data shape stay as-is.
-- No new product features in this initiative beyond UX affordances around existing ones.
-- Final logo art and production domain are **not** blockers (see Open Items).
+- No new product features beyond UX affordances around existing ones.
+- Final logo art and production domain are not blockers (see Open Items).
 
 ---
 
-## 7. Decision Log (locked)
+## 9. Decision Log (locked)
 
 | Decision | Choice |
 |---|---|
 | Product name | **Voyager** |
 | Logo | "Little traveler with a backpack" line mark from the Identity Board (`docs/design/`); distinctive, usable now, may evolve. Finalized later via Claude Design. |
-| Brand feel | **Hybrid**: aspirational/editorial for browse+plan → calm/confident for live tools ("dream it → do it") |
-| Theme | **Dark primary**, with a fully-designed, equally premium **light mode** |
+| Brand feel | **Hybrid**: aspirational/editorial for browse+plan → calm/confident for live tools |
+| Theme | **Dark primary**, plus a fully-designed, equally premium **light mode** |
 | Platform | Excellent on all devices; per-platform layouts allowed (mobile-first authoring) |
 | Scope | One design system across **all surfaces**, built in **phases** |
 | Build strategy | **Phased modern rebuild** — new React front end, reuse Supabase backend |
 | Type | **Fraunces** (display serif) + **General Sans/Satoshi** (UI) + **JetBrains Mono** (data) |
 | Signature color | **Claret / brick-red** family (warm, harmonizes with gold Fraunces italics) |
-| Component sourcing | Hand-crafted mockups are the visual contract; implement with shadcn/ui + 21st.dev Magic MCP themed to the tokens (MCP connected at build time) |
+| Component sourcing | Hand-crafted mockups are the visual contract; implement with shadcn/ui + 21st.dev Magic MCP themed to the tokens |
 
-The approved mockups live in `.superpowers/brainstorm/` (gitignored) and the
-**Voyager Identity Board** at `docs/design/Voyager Identity Board (standalone).html` is the
-canonical visual reference.
+Canonical references: approved mockups in `.superpowers/brainstorm/` (gitignored); the
+**Voyager Identity Board** at `docs/design/Voyager Identity Board (standalone).html`.
 
 ---
 
-## 8. Visual Identity / Design Tokens
+## 10. Visual Identity / Design Tokens
 
 Sourced from the Identity Board. These become the Tailwind theme + CSS variables.
 
-### 8.1 Color — Dark (primary)
+### 10.1 Color — Dark (primary)
 ```
 --base       #0A0A0C      app background
 --raised     #141417      cards / raised surfaces
@@ -164,7 +192,7 @@ Sourced from the Identity Board. These become the Tailwind theme + CSS variables
 --shadow-lift  0 2px 6px rgba(0,0,0,.45), 0 30px 80px -28px rgba(0,0,0,.8)
 ```
 
-### 8.2 Color — Light (equally premium)
+### 10.2 Color — Light (equally premium)
 ```
 --base       #FAF8F5      warm paper
 --raised     #FFFFFF
@@ -179,44 +207,41 @@ Sourced from the Identity Board. These become the Tailwind theme + CSS variables
 --shadow-lift  0 2px 8px rgba(36,28,20,.08), 0 36px 90px -32px rgba(36,28,20,.24)
 ```
 > Generate full 50–900 ramps for `sig` and `gold` in both modes during Phase 1; verify
-> button-text contrast ≥ 4.5:1 (claret buttons use white text; gold accents use dark text).
-> **No accent color outside this set** (see §5).
+> button-text contrast ≥ 4.5:1. **No accent color outside this set** (see Anti-Patterns).
 
-### 8.3 Typography
+### 10.3 Typography
 ```
 --serif "Fraunces", Georgia, serif         display / emotional moments; weight 500, italic accent
 --sans  "General Sans","Satoshi", system   all UI text
 --mono  "JetBrains Mono", ui-monospace      live data: distance, ETA, coordinates, dates
 ```
-Loading: Fraunces + JetBrains Mono via Google Fonts; General Sans/Satoshi via Fontshare
-(self-host in production to avoid third-party latency/FOUT).
+Load Fraunces + JetBrains Mono via Google Fonts; General Sans/Satoshi via Fontshare
+(self-host in production to avoid latency/FOUT).
 
-### 8.4 Form language
-- **Editorial cards** (dreaming surfaces only): full-bleed imagery with text overlaid on a
+### 10.4 Form language
+- **Editorial cards** (dreaming surfaces only): full-bleed imagery, text overlaid on a
   gradient — *not* image-top / white-body tiles.
 - **Dense rows** (planning surfaces): hairline list rows, thumbnail + text + time, built for
-  scanning speed. (See §4.2 — editorial flourish must not reduce planning density.)
-- **Buttons**: confident, **squared** (`--r-btn: 13px`), weight 700, press = `translateY(1px)`;
+  scanning speed (planning-density rule).
+- **Buttons**: confident, **squared** (`--r-btn: 13px`), weight 700, press `translateY(1px)`;
   no full pills, no multi-color gradients. Primary = ink (inverse); brand = claret; plus
   ghost (hairline) and soft (subtle fill).
-- **Icons**: SVG only (Lucide/Heroicons) — **never emoji** (§5).
+- **Icons**: SVG only (Lucide/Heroicons) — never emoji.
 - **Radii**: card `18`, button `13`, pill for tags only.
-- **Spacing**: 4px base scale (4·8·12·16·20·24·32·48·64); generous on dreaming surfaces,
-  tighter and faster on planning surfaces.
-- **Depth**: soft layered shadows (`--shadow-soft` / `--shadow-lift`); glassmorphism only
-  where it earns it (overlays on imagery), never as a default surface.
+- **Spacing**: 4px base scale; generous on dreaming surfaces, tighter/faster on planning surfaces.
+- **Depth**: soft layered shadows; glassmorphism only over imagery, never as a default surface.
 
-### 8.5 Motion
+### 10.5 Motion
 - **Page transitions**: View Transitions API; shared-element hero image morphs list → detail.
 - **Entrances**: opacity + translateY(12px), 400ms, `cubic-bezier(.22,1,.36,1)`.
-- **Micro-interactions**: press `translateY(1px)`/scale .97 (120ms); hover lift -4px; button arrow nudges.
+- **Micro-interactions**: press `translateY(1px)`/scale .97 (120ms); hover lift -4px; arrow nudge.
 - **Lists**: staggered children (~30ms) via Framer Motion.
-- **Loading**: real skeletons with shimmer — **never fake delays** (§5).
-- **Always** respect `prefers-reduced-motion`. Restraint over spectacle (§4.5).
+- **Loading**: real skeletons with shimmer — never fake delays.
+- **Always** respect `prefers-reduced-motion`. Restraint over spectacle.
 
 ---
 
-## 9. Information Architecture & Navigation
+## 11. Information Architecture & Navigation
 
 One unified, routed SPA replacing the separate `index.html` / `Trip.html` pages.
 
@@ -237,107 +262,70 @@ One unified, routed SPA replacing the separate `index.html` / `Trip.html` pages.
 - **Mobile in-trip nav**: slim bottom tab bar — *Itinerary · Map · Live · Story* — plus a
   persistent, collapsible **"Resume tour"** bar when a tour is active.
 - **Desktop in-trip nav**: same destinations as a left rail + split map panel.
-- **No reload** between dashboard ↔ planner: shared-element transition (trip hero image
-  morphs into the planner header).
+- **No reload** between dashboard ↔ planner: shared-element transition.
 
 ---
 
-## 10. Screen-by-Screen UX Redesign
+## 12. Screen-by-Screen UX Redesign
 
-> Companion framing (§4.1) applies throughout: copy and layout lead with *what's next*, not
-> *here's all your data*.
+> Companion framing applies throughout: copy and layout lead with *what's next*, in the
+> Voyager Voice. Detailed acceptance criteria live in `docs/IMPLEMENTATION.md`.
 
-### 10.1 Landing (`/`) — *feel: curious*
-Aspirational full-bleed hero (approved), legibility scrims, glassy top nav with a "Get
-started" pill. **The CTA is a destination search** ("Where do you want to go? → Start
-planning"), lifted into the upper-center "sky." Below the fold: a 3-beat **Plan · Walk ·
-Remember** story with scroll-reveal motion, then sign-in. This is the *only* place a giant
-hero is allowed (§5).
-
-### 10.2 Auth (`/auth`)
-Keep all existing methods (email+password, Google OAuth, magic link, email-confirm flow,
-URL-error handling). Re-skin to the system: single calm card, claret primary, clear states.
-
-### 10.3 Dashboard (`/trips`) — *feel: confident, anticipatory*
-Greeting leads with intent — *"Your next trip is in 12 days"* + a **featured / next trip**
-hero (countdown, one-tap *Resume tour*). Trips split into **Upcoming / Past** as an elegant
-segmented control. Featured trip is editorial; the rest of the list is scannable rows/cards.
-Beautiful empty state invites the first trip. Account menu, sharing, founder/role and
-credits logic preserved.
-
-### 10.4 New trip — *feel: confident, fast*
-Replace the single dense modal with a **2-step sheet**: *Where* (destination + title) →
-*When* (date-range picker) with a live preview. Same slug/title/profanity/teaser rules and
-`create_trip` RPC underneath; fewer visible fields. **Target: first trip created in <60s.**
-
-### 10.5 Itinerary (`/trip/:id`) — *feel: confident; optimize for scanning*
-**This is a planning surface — density and speed first (§4.2).** Day rail (horizontal chips
-on mobile / vertical on desktop). Stops as **dense, legible rows** (thumbnail, time, type,
-drag-reorder), not large editorial cards. **Tap = shared-element open to detail.** Inline
-"add stop" with smart search (existing AI + OSM suggest) — **target: add a stop in ≤3 taps.**
-Empty days get a beautiful empty state with one-tap **"Suggest a day for me."** Weather strip
-and hotel surfaced compactly.
-
-### 10.6 Stop detail (`/trip/:id/stop/:n`) — *feel: curious*
-Editorial here is welcome: big image, Fraunces title, then AI **history / facts / tips** in
-clean sections. Generate/enrich shows graceful **skeletons**, never blank or fake-delayed.
-Map peek + Navigate + Mark-done. Photo gallery, "not the right place?" correction, and
-verified `wikiTitle`/coords logic preserved.
-
-### 10.7 Live walking tour (`/trip/:id/live`) — *feel: calm*
-Calm, map-forward, big **mono** ETA/distance, a bottom sheet of upcoming stops, glanceable
-landmark alerts on approach. Built for one-handed, in-sunlight, on-the-move use — **target:
-navigate without reading instructions.** Borrow Uber's *interaction* precision, not its tone.
-Preserves GPS tracking, nearby (OSM) cards, approach detection, walk history, high-accuracy
-shutter GPS.
-
-### 10.8 Identify (`/trip/:id/identify`) — *feel: curious*
-Full-screen camera, single shutter, confident result card; refined "not the right place?"
-correction picker (real nearby OSM places or type a name). Preserves landmark-vs-restaurant
-classification fixes.
-
-### 10.9 Story / recap (`/trip/:id/story`) — *feel: nostalgic*
-Generated recap as a shareable, editorial layout the user *wants* to share; read-aloud as a
-polished player. **Target: user chooses to share their recap.** Preserves IG/FB caption
-generation, custom types, notes.
-
-### 10.10 Settings (`/trip/:id/settings`)
-Tabs: Trip (days + hotel) · Data (export/import/reset) · AI · Units (metric/imperial).
-Re-skin; preserve members/invite UI, realtime sync, and the AI-proxy config.
-
-### 10.11 Cross-cutting
-Global skeletons, toasts, empty states, optimistic updates, real light/dark toggle,
-onboarding/getting-started, PWA install. SVG icon set throughout.
+- **Landing** (`/`) — *curious.* Aspirational full-bleed hero (approved), legibility scrims,
+  glassy nav with a "Get started" pill. **CTA is a destination search** lifted into the
+  upper-center "sky." Below: a 3-beat *Plan · Walk · Remember* story with scroll-reveal,
+  then sign-in. The *only* place a giant hero is allowed.
+- **Auth** (`/auth`) — keep all methods (email+pw, Google OAuth, magic link, confirm flow,
+  URL-error handling); single calm card, claret primary, clear states.
+- **Dashboard** (`/trips`) — *confident, anticipatory.* Greeting leads with intent
+  (*"Your next trip is in 12 days"*) + a **featured/next trip** hero (countdown, one-tap
+  *Resume tour*). Upcoming/Past segmented control. Featured trip editorial; rest scannable.
+  Beautiful empty state. Account/sharing/role/credits preserved.
+- **New trip** — *confident, fast.* **2-step sheet**: *Where* → *When* (date-range, live
+  preview). Same rules + `create_trip` RPC. Target: first trip in <60s.
+- **Itinerary** (`/trip/:id`) — *planning surface; density first.* Day rail; stops as **dense
+  rows** (not editorial cards), drag-reorder; tap = shared-element to detail. Inline add with
+  smart search (≤3 taps). Beautiful empty days with one-tap *"Suggest a day for me."*
+- **Stop detail** (`/trip/:id/stop/:n`) — *curious.* Big image, Fraunces title, AI
+  history/facts/tips with graceful skeletons. Map peek + Navigate + Mark-done. Gallery and
+  "not the right place?" correction preserved.
+- **Live tour** (`/trip/:id/live`) — *calm.* Map-forward, big **mono** ETA/distance, bottom
+  sheet of upcoming stops, glanceable approach alerts. One-handed, in-sunlight. Preserves
+  GPS, nearby OSM, approach detection, walk history.
+- **Identify** (`/trip/:id/identify`) — *curious.* Full-screen camera, single shutter,
+  confident result card; refined correction picker.
+- **Story** (`/trip/:id/story`) — *nostalgic.* Shareable editorial recap; polished read-aloud
+  player. Preserves IG/FB captions.
+- **Settings** (`/trip/:id/settings`) — Trip · Data · AI · Units; preserve members/invite,
+  realtime sync, AI-proxy config.
+- **Cross-cutting** — skeletons, toasts, empty states, optimistic updates, light/dark toggle,
+  onboarding, PWA install; SVG icons throughout.
 
 ---
 
-## 11. Technical Architecture
+## 13. Technical Architecture
 
 - **Framework:** Vite + React + TypeScript, single PWA.
-- **Styling:** Tailwind CSS with the token theme above; CSS variables drive light/dark.
-- **Components:** shadcn/ui primitives + **21st.dev Magic MCP** components, each themed to
-  the tokens to match the approved mockups (mockups are the contract; bend components to
-  them, never the reverse). MCP connected at the start of Phase 1.
-- **Anti-slop gate:** run the "stop slop" / `frontend-design` review on each screen before
-  marking it done (§5).
+- **Styling:** Tailwind with the token theme; CSS variables drive light/dark.
+- **Components:** shadcn/ui + **21st.dev Magic MCP**, themed to the tokens to match the
+  mockups (mockups are the contract; bend the component, not the design). MCP connected at
+  the start of Phase 1.
+- **Anti-slop gate:** run "stop slop" / `frontend-design` review on each screen before done.
 - **Motion:** Framer Motion + View Transitions API.
-- **Routing:** React Router (routes in §9).
-- **Data:** existing `@supabase/supabase-js` client wrapped in **TanStack Query** (caching,
+- **Routing:** React Router (routes in §11).
+- **Data:** existing `@supabase/supabase-js` wrapped in **TanStack Query** (caching,
   optimistic updates, realtime invalidation).
-- **Maps:** Leaflet (existing) wrapped in a React component.
-- **Device APIs:** Geolocation (GPS), camera (Identify), as today.
-- **PWA:** keep service worker + offline shell (port `sw.js`; bump cache strategy).
-- **Hosting:** Cloudflare Pages (existing `worker.js` / `wrangler.jsonc` / `_headers`),
-  now serving the Vite build output.
-
-The current single-file pages remain in the repo until each surface is migrated, then are
-retired phase by phase.
+- **Maps:** Leaflet wrapped in a React component.
+- **Device APIs:** Geolocation (GPS), camera (Identify).
+- **PWA:** keep service worker + offline shell (port `sw.js`).
+- **Hosting:** Cloudflare Pages (existing `worker.js`/`wrangler.jsonc`/`_headers`) serving
+  the Vite build. Legacy single-file pages retired per phase.
 
 ---
 
-## 12. Data Model (existing — preserved, documented for reference)
+## 14. Data Model (existing — preserved)
 
-No changes. Observed from the live code:
+No changes. From the live code:
 
 - **`trips`**: `id` (text slug, PK), `owner_id` (uuid), `title`, `subtitle`,
   `config` (jsonb), `data` (jsonb), `created_at`, `updated_at`.
@@ -346,82 +334,73 @@ No changes. Observed from the live code:
   - `Stop`: `{ name, type, time, duration, lat, lng, address, facts[], history, tips,
     image, icon, coords, wikiTitle, note }`
 - **`profiles`**: `id` (uuid = auth user), `email`, `name`, `role` (`free`/`founder`), `credits`.
-- **`trip_members`**: `trip_id`, `email` (+ user linkage) — sharing.
+- **`trip_members`**: `trip_id`, `email` (+ user linkage).
 - **RPCs**: `create_trip`, `delete_trip`, `add_trip_member`, `remove_trip_member`,
-  `create_invite`, `trip_owner_emails` (and any others currently called).
-- **Edge functions**: `ai-proxy` (Anthropic proxy, rate-limited), `send-invite` (email).
-- **Auth**: Supabase email+password, Google OAuth, magic link; shared session across surfaces.
-- **Realtime**: `trips` table publication for live collaborative edits.
+  `create_invite`, `trip_owner_emails` (and others currently called).
+- **Edge functions**: `ai-proxy` (Anthropic proxy, rate-limited), `send-invite`.
+- **Auth**: Supabase email+pw, Google OAuth, magic link; shared session.
+- **Realtime**: `trips` publication for live collaborative edits.
 
-> Note: `SUPABASE_SETUP.md` describes an older public-RLS schema and is stale relative to
-> the current owner/profile/members model. Treat the live code as source of truth.
-
----
-
-## 13. Phasing
-
-**Phase 1 — Foundation + first impression**
-Design-token system (Tailwind theme, light/dark), app shell + routing, logo component,
-shared UI primitives, **Landing + Auth + Dashboard** (incl. new-trip sheet, sharing).
-Connect 21st.dev Magic MCP. *This is the "wow" we ship first.*
-
-**Phase 2 — Planner**
-Itinerary (day rail, dense stop rows, drag-reorder), stop detail (shared-element, AI enrich),
-search/add, maps (route/all), settings, hotel, weather, prebook. TanStack Query + realtime.
-
-**Phase 3 — Live companion**
-Live walking tour, Identify (camera), Story/recap, onboarding polish, PWA/offline hardening,
-retire legacy HTML.
-
-Each phase ships independently behind the same design system.
+> `SUPABASE_SETUP.md` is stale relative to the current owner/profile/members model — treat
+> the live code as source of truth.
 
 ---
 
-## 14. Accessibility & Performance (requirements)
+## 15. Accessibility & Performance (requirements)
 
-- Contrast ≥ 4.5:1 for text (verify claret/gold combos); visible focus rings; keyboard nav
-  matches visual order; `aria-label` on icon-only buttons; labelled form inputs.
+- Contrast ≥ 4.5:1 for text; visible focus rings; keyboard nav matches visual order;
+  `aria-label` on icon-only buttons; labelled form inputs.
 - Touch targets ≥ 44×44px.
 - `prefers-reduced-motion` honored everywhere.
 - Images: WebP, `srcset`, lazy-load; reserve space to avoid layout shift.
 - Body text ≥ 16px on mobile; no horizontal scroll; tested at 375 / 768 / 1024 / 1440.
-- Disable buttons during async; clear inline error feedback.
+- Disable buttons during async; clear inline error feedback (in the Voyager Voice).
 
 ---
 
-## 15. Success Metrics
+## 16. Success Metrics (north-star)
 
-Beyond the qualitative target in §1, each area has a measurable goal:
-
-| Area | Measurable goal |
+| Area | Goal |
 |---|---|
-| **Landing** | New visitor understands what Voyager is within seconds (no "what is this?"). |
-| **Phase 1 / onboarding** | New user creates their **first trip in under 60 seconds.** |
-| **Planning** | User can **add a stop in ≤3 taps**; open a stop's detail in 1 tap. |
-| **Live** | User can **navigate without reading instructions.** |
-| **Story** | User **wants to share** their recap (chooses to share unprompted). |
-| **Regression** | No loss of existing functionality (auth, sync, AI, GPS, sharing, PWA). |
-| **Consistency** | Identity is unmistakably "Voyager" across all surfaces, light and dark. |
+| Landing | New visitor understands what Voyager is within seconds. |
+| Onboarding | New user creates their first trip in **under 60 seconds.** |
+| Planning | Add a stop in **≤3 taps**; open a stop in 1 tap. |
+| Live | **Navigate without reading instructions.** |
+| Story | User **wants to share** their recap. |
+| Regression | No loss of existing functionality (auth, sync, AI, GPS, sharing, PWA). |
+| Consistency | Unmistakably "Voyager" across all surfaces, light and dark. |
+
+Per-phase, per-screen acceptance criteria: see `docs/IMPLEMENTATION.md`.
 
 ---
 
-## 16. Risks & Mitigations
+## 17. Phasing (summary)
+
+Detail and acceptance criteria live in `docs/IMPLEMENTATION.md`.
+
+- **Phase 1 — Foundation + first impression:** design-token system, app shell/routing, logo,
+  shared primitives, **Landing + Auth + Dashboard**. Connect 21st.dev MCP. Ships the "wow."
+- **Phase 2 — Planner:** itinerary, stop detail, search/add, maps, settings, hotel.
+- **Phase 3 — Live companion:** live tour, identify, story, PWA hardening, retire legacy HTML.
+
+---
+
+## 18. Risks & Mitigations
 
 | Risk | Mitigation |
 |---|---|
-| Rebuilding deep live-tour/Identify logic loses subtle fixes | Port behavior faithfully from `Trip.html`; keep it Phase 3 after the system is proven; treat current code as the behavioral spec. |
-| Editorial styling creeps into planning screens (kills density) | §4.2 is a hard rule; planning surfaces use dense rows; anti-slop review (§5) checks it. |
-| Two stacks coexisting during migration | Phase boundaries are whole surfaces; route-level cutover; legacy pages retired per phase. |
-| 21st.dev MCP output drifts from mockups | Mockups + Identity Board are the contract; theme components to tokens; bend component, not the design. |
-| Font loading FOUT / third-party latency | Self-host General Sans/Satoshi; `font-display: swap`; preload display face. |
-| Realtime + optimistic updates conflicts | TanStack Query with realtime invalidation; last-write-wins as today. |
+| Rebuilding deep live-tour/Identify logic loses subtle fixes | Port behavior faithfully from `Trip.html`; keep it Phase 3; treat current code as behavioral spec. |
+| Editorial styling creeps into planning screens | Planning-density rule is hard; dense rows; anti-slop + Competitive Rule reviews check it. |
+| Two stacks coexisting during migration | Whole-surface phase boundaries; route-level cutover; retire legacy per phase. |
+| 21st.dev MCP output drifts from mockups | Mockups + Identity Board are the contract; theme to tokens; bend the component. |
+| Font FOUT / third-party latency | Self-host General Sans/Satoshi; `font-display: swap`; preload display face. |
+| Realtime + optimistic conflicts | TanStack Query with realtime invalidation; last-write-wins as today. |
 
 ---
 
-## 17. Open Items (non-blocking)
+## 19. Open Items (non-blocking)
 
-- **Logo** — backpack-traveler mark is good for now; final art via Claude Design later.
-- **Domain** — design around the name "Voyager"; pick an affordable variant
-  (`getvoyager.com`, `voyager.app`, etc.) before launch.
+- **Logo** — backpack-traveler mark good for now; final art via Claude Design later.
+- **Domain** — design around "Voyager"; pick an affordable variant before launch.
 - **Color ramps** — generate 50–900 for `sig`/`gold` (both modes) in Phase 1.
 - **21st.dev Magic MCP** — connect at the start of Phase 1.
