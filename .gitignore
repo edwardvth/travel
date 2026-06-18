@@ -7,3 +7,8 @@
 !.dev.vars.example
 .env*
 !.env.example
+
+# node / vite app
+app/node_modules/
+app/dist/
+app/.env.local
