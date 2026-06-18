@@ -5,6 +5,10 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Voyager is dark-first: :root holds the dark tokens so the app defaults to dark
+   before JS runs. `.light` opts into the light theme. ThemeToggle always sets an
+   explicit `dark` or `light` class on <html> (it never relies on a class being
+   absent). Components theme via these CSS variables, not Tailwind `dark:` variants. */
 :root, .dark {
   --base:#0A0A0C; --raised:#141417; --overlay:#1B1B20;
   --ink:#F4F3F0; --muted:#8E8E96;
