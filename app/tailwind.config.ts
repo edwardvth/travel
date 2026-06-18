@@ -10,6 +10,7 @@ export default {
         ink: 'var(--ink)', muted: 'var(--muted)',
         sig: 'var(--sig)', 'sig-btn': 'var(--sig-btn)', 'sig-link': 'var(--sig-link)',
         gold: 'var(--gold)',
+        fill: 'var(--fill)', 'fill-hover': 'var(--fill-hover)', skeleton: 'var(--skeleton)',
         hair: 'var(--hair)', 'hair-strong': 'var(--hair-strong)',
       },
       fontFamily: {

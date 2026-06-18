@@ -4,8 +4,8 @@ type Variant = 'primary' | 'claret' | 'ghost' | 'soft'
 const styles: Record<Variant, string> = {
   primary: 'bg-ink text-base hover:shadow-lift',
   claret: 'bg-sig-btn text-white hover:brightness-110',
-  ghost: 'bg-transparent text-ink border border-hair hover:bg-[rgba(255,255,255,.06)]',
-  soft: 'bg-[rgba(255,255,255,.07)] text-ink hover:bg-[rgba(255,255,255,.12)]',
+  ghost: 'bg-transparent text-ink border border-hair hover:bg-fill',
+  soft: 'bg-fill text-ink hover:bg-fill-hover',
 }
 export function Button(
   { variant = 'primary', className, busy, children, ...props }:
