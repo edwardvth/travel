@@ -1,0 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=JetBrains+Mono:wght@500;600&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&f[]=general-sans@400,500,600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root, .dark {
+  --base:#0A0A0C; --raised:#141417; --overlay:#1B1B20;
+  --ink:#F4F3F0; --muted:#8E8E96;
+  --hair:rgba(255,255,255,.10); --hair-strong:rgba(255,255,255,.16);
+  --gold:#FFD9A8; --sig:#9C3D3A; --sig-btn:#B0473F; --sig-link:#C56A60;
+  --shadow-soft:0 1px 2px rgba(0,0,0,.4), 0 12px 40px -12px rgba(0,0,0,.7);
+  --shadow-lift:0 2px 6px rgba(0,0,0,.45), 0 30px 80px -28px rgba(0,0,0,.8);
+  color-scheme: dark;
+}
+.light {
+  --base:#FAF8F5; --raised:#FFFFFF; --overlay:#FFFFFF;
+  --ink:#14141A; --muted:#6A6A72;
+  --hair:rgba(20,20,26,.10); --hair-strong:rgba(20,20,26,.16);
+  --gold:#A86A2A; --sig:#9C3D3A; --sig-btn:#B0473F; --sig-link:#8A2F2C;
+  --shadow-soft:0 1px 2px rgba(36,28,20,.06), 0 18px 50px -20px rgba(36,28,20,.18);
+  --shadow-lift:0 2px 8px rgba(36,28,20,.08), 0 36px 90px -32px rgba(36,28,20,.24);
+  color-scheme: light;
+}
+
+@layer base {
+  * { box-sizing: border-box; }
+  body { @apply bg-base text-ink font-sans antialiased; margin: 0; }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+  }
+}
