@@ -19,6 +19,33 @@ Per-phase, generate a detailed step-by-step plan via the `writing-plans` skill i
 
 ---
 
+## Build Priority (don't optimize early)
+
+Work in this order, top to bottom. **Never sacrifice a higher item for a lower one** — never
+trade functionality for polish.
+
+1. **Correct behavior** (it works)
+2. **Correct UX** (it's the right flow, fewest taps)
+3. **Correct visuals** (matches tokens / mockups)
+4. **Animation polish** (motion, micro-interactions)
+5. **Performance optimization**
+
+> Don't spend six hours tweaking shadows while a flow is still broken. Get to "correct,"
+> then climb.
+
+## Phase Gate (no ambitious skipping)
+
+A phase **cannot begin** until the previous phase clears all of:
+
+- [ ] Previous phase acceptance criteria pass.
+- [ ] No major regression bugs remain.
+- [ ] Legacy functionality parity verified (the new surface does everything the old one did).
+- [ ] Visual QA approved (matches mockups / Identity Board, both light and dark).
+
+If any gate fails, fix it before moving on — do not start the next phase.
+
+---
+
 ## Phase 0 — Project scaffold (part of Phase 1 kickoff)
 
 Scope: stand up the new front end without touching the backend.

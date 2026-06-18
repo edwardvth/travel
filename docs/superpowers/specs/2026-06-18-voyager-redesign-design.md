@@ -80,7 +80,8 @@ AI-assistant-like · Overly verbose.**
 | "Error loading destination." | **"Couldn't load this place. Try again."** |
 
 Rules of thumb: lead with the outcome, not the system; short over complete; no exclamation
-marks by default; no "Oops!"/"Uh-oh!"; speak to a person, not a user.
+marks by default; no "Oops!"/"Uh-oh!"; speak to a person, not a user; **prefer contractions**
+("you're" not "you are", "couldn't" not "could not", "we'll" not "we will") — human, not chatty.
 
 ---
 
@@ -106,8 +107,9 @@ For every screen, ask:
 
 > **"If Apple, Airbnb, and Notion collaborated on this screen, what would they remove?"**
 
-Then remove it. This is the standing defense against feature creep and over-design. Apply
-it in every review before a screen is considered done.
+Then remove it — **remove complexity, not capability.** (Apple sometimes hides too
+aggressively; keep the power, lose the clutter.) This is the standing defense against
+feature creep and over-design. Apply it in every review before a screen is considered done.
 
 ---
 
