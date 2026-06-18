@@ -23,7 +23,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let active = true
     supabase.auth.getSession().then(({ data }) => {
       if (active) { setUser(data.session?.user ?? null); setLoading(false) }
-    })
+    }).catch(() => { if (active) setLoading(false) })
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null); setLoading(false)
       // scrub auth tokens from the URL hash after sign-in
