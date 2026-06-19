@@ -31,3 +31,38 @@ export function dayLabel(trip: Trip | null | undefined, day: number): string {
   const cfg = trip?.config
   return cfg?.dayLabels?.[day] || cfg?.dayTitles?.[day] || `Day ${day + 1}`
 }
+
+/**
+ * The calendar date for a day index as a local `YYYY-MM-DD` string:
+ * `config.startDate` (an ISO `YYYY-MM-DD`) advanced by `dayIndex` days.
+ * Returns null when there's no valid start date. Pure + unit-tested.
+ */
+export function dayDate(trip: Trip | null | undefined, dayIndex: number): string | null {
+  const start = trip?.config?.startDate
+  if (!start) return null
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(start)
+  if (!m) return null
+  // Build the date in local time so we never cross a day boundary via UTC.
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  if (Number.isNaN(d.getTime())) return null
+  d.setDate(d.getDate() + dayIndex)
+  const yyyy = d.getFullYear()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yyyy}-${mm}-${dd}`
+}
+
+/**
+ * Friendly rendering of a `YYYY-MM-DD` date for the day glance, e.g. "Tue · Jul 2".
+ * Returns null for a null/invalid input so callers can skip the line entirely.
+ */
+export function formatDayDate(date: string | null): string | null {
+  if (!date) return null
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(date)
+  if (!m) return null
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  if (Number.isNaN(d.getTime())) return null
+  const weekday = d.toLocaleDateString(undefined, { weekday: 'short' })
+  const monthDay = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return `${weekday} · ${monthDay}`
+}

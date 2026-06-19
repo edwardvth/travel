@@ -1,11 +1,17 @@
 import { describe, it, expect } from 'vitest'
-import { completedKey, isCompleted, dayCount, dayStops, stopCount } from './helpers'
+import { completedKey, isCompleted, dayCount, dayStops, stopCount, dayDate, formatDayDate } from './helpers'
 import type { Trip } from '../types'
 
 const trip = (days: { stops: unknown[] }[], completed: string[] = [], numDays?: number): Trip => ({
   id: 't', owner_id: 'o', title: 't', subtitle: null,
   config: numDays !== undefined ? { numDays } : {},
   data: { days: days.map(d => ({ title: 'd', stops: d.stops as never[] })), completed, hotel: null },
+})
+
+const dated = (startDate?: string): Trip => ({
+  id: 't', owner_id: 'o', title: 't', subtitle: null,
+  config: startDate !== undefined ? { startDate } : {},
+  data: { days: [], completed: [], hotel: null },
 })
 
 describe('completedKey', () => {
@@ -44,5 +50,36 @@ describe('day helpers', () => {
     expect(stopCount(t, 0)).toBe(2)
     expect(stopCount(t, 1)).toBe(0)
     expect(stopCount(t, 2)).toBe(1)
+  })
+})
+
+describe('dayDate', () => {
+  it('returns startDate for day 0 and advances by N local days', () => {
+    expect(dayDate(dated('2026-07-02'), 0)).toBe('2026-07-02')
+    expect(dayDate(dated('2026-07-02'), 1)).toBe('2026-07-03')
+    expect(dayDate(dated('2026-07-02'), 5)).toBe('2026-07-07')
+  })
+  it('rolls over month and year boundaries', () => {
+    expect(dayDate(dated('2026-01-30'), 3)).toBe('2026-02-02')
+    expect(dayDate(dated('2026-12-31'), 1)).toBe('2027-01-01')
+  })
+  it('handles a leap-year February', () => {
+    expect(dayDate(dated('2028-02-28'), 1)).toBe('2028-02-29')
+  })
+  it('returns null without a valid start date', () => {
+    expect(dayDate(dated(), 0)).toBeNull()
+    expect(dayDate(dated('not-a-date'), 0)).toBeNull()
+    expect(dayDate(null, 0)).toBeNull()
+  })
+})
+
+describe('formatDayDate', () => {
+  it('renders a weekday and month/day for a valid date', () => {
+    // 2026-07-02 is a Thursday.
+    expect(formatDayDate('2026-07-02')).toBe('Thu · Jul 2')
+  })
+  it('returns null for null/invalid input', () => {
+    expect(formatDayDate(null)).toBeNull()
+    expect(formatDayDate('nope')).toBeNull()
   })
 })

@@ -7,6 +7,7 @@ import { AddStop } from './AddStop'
 import TripMapView, { type MapSelection } from './TripMapView'
 import { suggestDay } from './suggest'
 import { dayCount as countDays, dayLabel, stopCount } from './helpers'
+import { WeatherGlance } from './WeatherGlance'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/EmptyState'
 import { Plus, Sparkles } from 'lucide-react'
@@ -122,6 +123,8 @@ export default function Itinerary() {
           </div>
 
           <section aria-label={`Stops for ${dayLabel(trip, day)}`}>
+            {/* Slim per-day weather glance (Open-Meteo) — graceful when no coords/date. */}
+            <WeatherGlance trip={trip} day={day} />
             <div className="flex items-center justify-between gap-3 mb-1">
               <h2 className="font-serif text-2xl">{dayLabel(trip, day)}</h2>
               {canEdit && count > 0 && addStopButton}
