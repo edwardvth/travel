@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '../lib/utils'
-import { Check, ChevronRight, GripVertical, Trash2, stopTypeIcon } from './icons'
+import { Check, ChevronRight, GripVertical, Trash2, kindIcon, kindLabel, stopKind } from './icons'
 import type { Stop } from '../types'
 
 export interface StopRowProps {
@@ -44,6 +44,9 @@ export function StopRow({
     transform: CSS.Transform.toString(transform),
     transition,
   }
+
+  const kind = stopKind(stop)
+  const KindIcon = kindIcon(kind)
 
   return (
     <div
@@ -114,14 +117,9 @@ export function StopRow({
             className="flex-none w-11 h-11 rounded-[10px] object-cover bg-raised"
           />
         ) : (
-          (() => {
-            const TypeIcon = stopTypeIcon(stop.type)
-            return (
-              <span className="flex-none grid place-items-center w-11 h-11 rounded-[10px] bg-fill text-muted" aria-hidden="true">
-                <TypeIcon size={18} />
-              </span>
-            )
-          })()
+          <span className="flex-none grid place-items-center w-11 h-11 rounded-[10px] bg-fill text-muted" aria-hidden="true">
+            <KindIcon size={18} />
+          </span>
         )}
 
         <span className="min-w-0 flex-1">
@@ -131,8 +129,16 @@ export function StopRow({
           )}>
             {stop.name}
           </span>
-          <span className="block text-[12px] text-muted truncate">
-            {[stop.time, stop.type].filter(Boolean).join(' · ') || 'Tap to add details'}
+          <span className="flex items-center gap-1.5 text-[12px] text-muted truncate">
+            <span
+              className="flex-none inline-flex items-center gap-1 rounded-full bg-fill px-1.5 py-0.5 text-[10.5px] font-semibold text-muted"
+            >
+              <KindIcon size={11} aria-hidden="true" />
+              {kindLabel(kind)}
+            </span>
+            <span className="truncate">
+              {[stop.time, stop.type].filter(Boolean).join(' · ') || 'Tap to add details'}
+            </span>
           </span>
         </span>
       </button>

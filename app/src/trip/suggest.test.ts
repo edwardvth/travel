@@ -87,6 +87,28 @@ describe('buildSuggestPrompt', () => {
     expect(p).toContain('museums')
     expect(p).toContain('JSON array')
   })
+
+  it('biases the prompt toward eating places when kind is "eat"', () => {
+    const p = buildSuggestPrompt('something good', { kind: 'eat' })
+    expect(p).toMatch(/places to eat/i)
+    expect(p).toMatch(/restaurants/i)
+  })
+
+  it('biases the prompt toward lodging when kind is "stay"', () => {
+    const p = buildSuggestPrompt('somewhere central', { kind: 'stay' })
+    expect(p).toMatch(/places to stay/i)
+    expect(p).toMatch(/hotels|lodging/i)
+  })
+
+  it('biases the prompt toward sights/activities when kind is "do"', () => {
+    const p = buildSuggestPrompt('what to see', { kind: 'do' })
+    expect(p).toMatch(/things to do|sights|attractions/i)
+  })
+
+  it('adds no category bias line when kind is omitted', () => {
+    const p = buildSuggestPrompt('anything', {})
+    expect(p).not.toMatch(/Focus on/)
+  })
 })
 
 describe('buildSuggestDayPrompt', () => {

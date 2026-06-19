@@ -1,10 +1,20 @@
 import { callAI, textMessage } from './ai'
-import type { Stop } from '../types'
+import type { Stop, StopKind } from '../types'
 
 export interface SuggestContext {
   tripTitle?: string
   /** Optional locality hint (e.g. a city / area) to anchor the search. */
   near?: string
+  /** Bias the search toward a category (do = sights, eat = food, stay = lodging). */
+  kind?: StopKind
+}
+
+/** A short phrase describing the kind of place to bias the suggest prompt. */
+function kindBias(kind: StopKind | undefined): string {
+  if (kind === 'eat') return 'Focus on places to eat and drink — restaurants, cafés, bars and food spots.'
+  if (kind === 'stay') return 'Focus on places to stay — hotels, ryokans, guesthouses and other lodging.'
+  if (kind === 'do') return 'Focus on things to do — sights, attractions, museums, parks and experiences.'
+  return ''
 }
 
 /**
@@ -20,7 +30,9 @@ export function buildSuggestPrompt(query: string, ctx: SuggestContext): string {
   const locationCtx = where
     ? ` in the destination for this trip: "${where}"`
     : ''
-  return `You are a knowledgeable travel expert. Suggest 5 excellent, real, notable places that match: "${query}"${locationCtx}.
+  const bias = kindBias(ctx.kind)
+  const biasLine = bias ? `\n\n${bias}` : ''
+  return `You are a knowledgeable travel expert. Suggest 5 excellent, real, notable places that match: "${query}"${locationCtx}.${biasLine}
 
 Use real places that genuinely exist, with accurate coordinates when you are confident. Prefer to omit lat/lng (leave them out) rather than invent inaccurate coordinates.
 

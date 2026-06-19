@@ -1,11 +1,21 @@
 import { useEffect, useState } from 'react'
 import { suggestPlaces } from './suggest'
-import { Check, stopTypeIcon } from './icons'
+import { Check, kindIcon, kindLabel, stopTypeIcon } from './icons'
+import { cn } from '../lib/utils'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Sheet } from '../components/ui/Sheet'
 import { Skeleton } from '../components/ui/Skeleton'
-import type { Stop, Trip, TripData } from '../types'
+import type { Stop, StopKind, Trip, TripData } from '../types'
+
+const KINDS: StopKind[] = ['do', 'eat', 'stay']
+
+/** Per-kind placeholder copy for the search box. */
+const KIND_PLACEHOLDER: Record<StopKind, string> = {
+  do: 'e.g. hidden viewpoints, a classic museum, a riverside walk…',
+  eat: 'e.g. great coffee, a classic trattoria, late-night ramen…',
+  stay: 'e.g. a boutique hotel, a quiet ryokan, central lodging…',
+}
 
 interface AddStopProps {
   open: boolean
@@ -21,6 +31,7 @@ type Status = 'idle' | 'loading' | 'done' | 'error'
 const TITLE_ID = 'add-stop-title'
 
 export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
+  const [kind, setKind] = useState<StopKind>('do')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<Status>('idle')
   const [results, setResults] = useState<Stop[]>([])
@@ -31,6 +42,7 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
   // Reset state whenever the sheet opens.
   useEffect(() => {
     if (!open) return
+    setKind('do')
     setQuery('')
     setStatus('idle')
     setResults([])
@@ -46,7 +58,7 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
     setError(null)
     setResults([])
     try {
-      const places = await suggestPlaces(q, { tripTitle: trip.title })
+      const places = await suggestPlaces(q, { tripTitle: trip.title, kind })
       setResults(places)
       setStatus('done')
     } catch (e) {
@@ -59,13 +71,15 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
     }
   }
 
-  /** Append a stop to the active day immutably and persist. */
+  /** Append a stop to the active day immutably and persist, tagged with the
+   *  currently-selected category. */
   function addStop(stop: Stop) {
+    const tagged: Stop = { ...stop, kind }
     const data = trip.data
     const next: TripData = {
       ...data,
       days: data.days.map((d, i) =>
-        i === day ? { ...d, stops: [...d.stops, stop] } : d,
+        i === day ? { ...d, stops: [...d.stops, tagged] } : d,
       ),
     }
     save({ data: next })
@@ -100,6 +114,33 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
         Search for a place and I’ll find a few real spots — or just add one by name.
       </p>
 
+      {/* Category toggle — biases the AI suggest and tags every added stop. */}
+      <div
+        role="group"
+        aria-label="Stop category"
+        className="flex p-1 mb-4 rounded-btn bg-fill border border-hair"
+      >
+        {KINDS.map(k => {
+          const KindIcon = kindIcon(k)
+          const active = kind === k
+          return (
+            <button
+              key={k}
+              type="button"
+              aria-pressed={active}
+              onClick={() => setKind(k)}
+              className={cn(
+                'flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-[10px] text-[13px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link',
+                active ? 'bg-sig-btn text-white' : 'text-muted hover:text-ink',
+              )}
+            >
+              <KindIcon size={15} aria-hidden="true" />
+              {kindLabel(k)}
+            </button>
+          )
+        })}
+      </div>
+
       <form
         onSubmit={e => {
           e.preventDefault()
@@ -111,7 +152,7 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
           autoFocus
           value={query}
           onChange={e => setQuery(e.target.value)}
-          placeholder="e.g. great coffee, hidden viewpoints, a classic trattoria…"
+          placeholder={KIND_PLACEHOLDER[kind]}
           aria-label="Search for a place"
         />
         <Button type="submit" variant="claret" busy={status === 'loading'} className="flex-none">

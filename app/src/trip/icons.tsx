@@ -18,6 +18,7 @@ export {
   ChevronLeft,
   ChevronRight,
   Building2,
+  BedDouble,
   Utensils,
   Camera,
   Check,
@@ -46,7 +47,8 @@ export {
   type LucideIcon,
 } from 'lucide-react'
 
-import { Landmark, MapPin, Utensils, Coffee, Beer, Wine, Church, ShoppingBag, Theater, Trees, ShoppingCart, Image, Building2, type LucideIcon } from 'lucide-react'
+import { Landmark, MapPin, Utensils, Coffee, Beer, Wine, Church, ShoppingBag, Theater, Trees, ShoppingCart, Image, Building2, BedDouble, type LucideIcon } from 'lucide-react'
+import type { Stop, StopKind } from '../types'
 
 /**
  * Map a legacy `stop.type` string to a lucide icon component (replaces the old
@@ -70,4 +72,37 @@ export function stopTypeIcon(type: string | undefined): LucideIcon {
     monument: Landmark,
   }
   return map[t] || MapPin
+}
+
+/** Keywords that imply a place to eat (matched against type + name). */
+const EAT_HINTS = ['restaurant', 'food', 'cafe', 'café', 'bar', 'dining', 'izakaya', 'coffee', 'pub', 'bistro', 'trattoria', 'eatery', 'brunch']
+/** Keywords that imply a place to stay (matched against type + name). */
+const STAY_HINTS = ['hotel', 'hostel', 'ryokan', 'lodging', 'lodge', 'airbnb', 'stay', 'inn', 'guesthouse', 'resort', 'motel']
+
+/**
+ * Derive a stop's coarse category. Honours an explicit `stop.kind`; otherwise
+ * infers from `stop.type` and `stop.name` (eat → restaurant/cafe/bar/…, stay →
+ * hotel/hostel/lodging/…), defaulting to 'do' for sights and everything else.
+ * Pure + unit-tested.
+ */
+export function stopKind(stop: Pick<Stop, 'kind' | 'type' | 'name'>): StopKind {
+  if (stop.kind) return stop.kind
+  const hay = `${stop.type ?? ''} ${stop.name ?? ''}`.toLowerCase()
+  if (STAY_HINTS.some(h => hay.includes(h))) return 'stay'
+  if (EAT_HINTS.some(h => hay.includes(h))) return 'eat'
+  return 'do'
+}
+
+/** The lucide icon for a category. */
+export function kindIcon(kind: StopKind): LucideIcon {
+  if (kind === 'eat') return Utensils
+  if (kind === 'stay') return BedDouble
+  return MapPin
+}
+
+/** The user-facing label for a category. */
+export function kindLabel(kind: StopKind): string {
+  if (kind === 'eat') return 'Eat'
+  if (kind === 'stay') return 'Stay'
+  return 'Do'
 }

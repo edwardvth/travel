@@ -3,7 +3,7 @@ import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom
 import type { PlannerOutletContext } from './PlannerLayout'
 import { generateStopDetail } from './enrich'
 import { isCompleted } from './helpers'
-import { Lightbulb, stopTypeIcon } from './icons'
+import { Lightbulb, kindIcon, kindLabel, stopKind } from './icons'
 import { remapCompletedAfterDelete, toggleCompleted } from './itinerary-helpers'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -52,6 +52,8 @@ export default function StopDetail() {
   const done = isCompleted(trip.data?.completed, day, n)
   const hasContent = !!(stop.history || (stop.facts && stop.facts.length) || stop.tips)
   const meta = [stop.type, stop.time, stop.address].filter(Boolean).join(' · ')
+  const kind = stopKind(stop)
+  const KindIcon = kindIcon(kind)
 
   /** Clone trip.data with this day's stops array cloned, so we never mutate cache. */
   function cloneData(): TripData {
@@ -127,10 +129,8 @@ export default function StopDetail() {
           className="w-full h-44 md:h-56 grid place-items-center bg-sig-btn/10 text-sig"
           aria-hidden="true"
         >
-          {(() => {
-            const TypeIcon = stopTypeIcon(stop.type)
-            return <TypeIcon size={44} strokeWidth={1.5} />
-          })()}
+          <KindIcon size={44} strokeWidth={1.5} />
+          <span className="sr-only">{kindLabel(kind)}</span>
         </div>
       )}
 
@@ -139,7 +139,13 @@ export default function StopDetail() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h1 className="font-serif text-[26px] md:text-3xl leading-tight">{stop.name}</h1>
-              {meta && <p className="text-muted text-[13.5px] mt-1.5">{meta}</p>}
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="inline-flex items-center gap-1 rounded-full bg-fill px-2 py-0.5 text-[11.5px] font-semibold text-muted">
+                  <KindIcon size={12} aria-hidden="true" />
+                  {kindLabel(kind)}
+                </span>
+                {meta && <p className="text-muted text-[13.5px] truncate">{meta}</p>}
+              </div>
             </div>
             <a
               href={mapsUrl}

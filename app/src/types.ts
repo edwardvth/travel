@@ -1,6 +1,11 @@
+/** Coarse category for a stop, biasing the Add suggest + driving the row icon. */
+export type StopKind = 'do' | 'eat' | 'stay'
+
 export interface Stop {
   name: string
   type?: string
+  /** Coarse category — derived from `type`/name when unset (see `stopKind`). */
+  kind?: StopKind
   time?: string
   duration?: number
   lat?: number
