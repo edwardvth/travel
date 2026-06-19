@@ -17,7 +17,8 @@ import {
   parseImportedTrip,
   resetTripData,
 } from './settings-helpers'
-import type { Trip } from '../types'
+import { normalizeHotel } from './hotel'
+import type { Hotel, Trip } from '../types'
 
 type Tab = 'trip' | 'data' | 'ai' | 'units'
 
@@ -28,10 +29,8 @@ const AI_MODELS: { value: string; label: string }[] = [
 ]
 const DEFAULT_MODEL = 'claude-sonnet-4-6'
 
-interface HotelShape { name?: string; address?: string; note?: string }
-function readHotel(trip: Trip): HotelShape {
-  const h = trip.data?.hotel
-  return h && typeof h === 'object' ? (h as HotelShape) : {}
+function readHotel(trip: Trip): Hotel {
+  return normalizeHotel(trip.data?.hotel) ?? {}
 }
 
 export default function Settings() {
@@ -127,9 +126,15 @@ function TripTab({ trip, canEdit, canShare, save }:
       startDate: start,
       numDays: newCount,
     })
-    // Fold the hotel object into data.
-    const nextHotel = hName.trim()
-      ? { name: hName.trim(), address: hAddr.trim() || undefined, note: hNote.trim() || undefined }
+    // Fold the hotel object into data, preserving any existing Stay coords.
+    const nextHotel: Hotel | null = hName.trim()
+      ? {
+          name: hName.trim(),
+          ...(hAddr.trim() ? { address: hAddr.trim() } : {}),
+          ...(hNote.trim() ? { note: hNote.trim() } : {}),
+          ...(hotel.lat !== undefined ? { lat: hotel.lat } : {}),
+          ...(hotel.lng !== undefined ? { lng: hotel.lng } : {}),
+        }
       : null
     save({ title: config.title || trip.title, subtitle: config.subtitle ?? null, config, data: { ...data, hotel: nextHotel } })
   }

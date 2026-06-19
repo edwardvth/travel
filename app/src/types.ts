@@ -21,6 +21,14 @@ export interface Stop {
   note?: string
 }
 export interface Day { title: string; note?: string; stops: Stop[] }
+/** The Voyage base lodging ("Stay"). Stored loosely (legacy may be a bare string). */
+export interface Hotel {
+  name?: string
+  address?: string
+  note?: string
+  lat?: number
+  lng?: number
+}
 export interface TripConfig {
   title?: string; subtitle?: string; numDays?: number
   dayLabels?: string[]; dayTitles?: string[]; startDate?: string
@@ -31,7 +39,10 @@ export interface TripConfig {
   [key: string]: unknown
 }
 export interface TripData {
-  days: Day[]; completed: string[]; hotel: unknown | null; savedAt?: string
+  days: Day[]; completed: string[]
+  /** Voyage base Stay. Loosely stored (may be a string on old trips); read via `normalizeHotel`. */
+  hotel?: Hotel | string | null
+  savedAt?: string
 }
 export interface Trip {
   id: string

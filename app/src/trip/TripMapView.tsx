@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import type * as Leaflet from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { dayCount, dayLabel, dayStops } from './helpers'
+import { normalizeHotel, hotelCoords } from './hotel'
 import { cn } from '../lib/utils'
 import type { Stop, Trip } from '../types'
 
@@ -54,6 +55,33 @@ function dayColor(day: number, total: number): string {
 
 /** The claret signature, used for single-day routes (matches the design tokens). */
 const CLARET = '#8b2942'
+
+/** Gold accent for the Stay marker's glyph — distinct from the numbered claret pins. */
+const GOLD = '#c79a3b'
+
+/**
+ * The Voyage Stay marker — a distinct claret pin carrying a gold bed glyph
+ * (vs. the numbered stop pins). Deliberately reads as "base", not "stop N".
+ */
+function stayIcon(L: typeof Leaflet): Leaflet.DivIcon {
+  const size = 32
+  const bed =
+    `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="${GOLD}" ` +
+    `stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">` +
+    `<path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/>` +
+    `<path d="M2 17h20"/><path d="M6 8v9"/></svg>`
+  return L.divIcon({
+    className: '',
+    html:
+      `<div style="background:${CLARET};width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;` +
+      `transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;` +
+      `border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);">` +
+      `<span style="transform:rotate(45deg);display:flex;">${bed}</span></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size - 2],
+    popupAnchor: [0, -(size - 4)],
+  })
+}
 
 /** Escape user text before injecting into Leaflet popup HTML. */
 function esc(s: string): string {
@@ -119,6 +147,14 @@ export default function TripMapView({
     }
     return out
   }, [trip, scope, totalDays])
+
+  // The Voyage base Stay's coords, if finite — drives the distinct Stay pin.
+  // The same Stay shows on every day, so it's rendered for any scope.
+  const stay = useMemo(() => {
+    const hotel = normalizeHotel(trip.data?.hotel)
+    const coords = hotelCoords(hotel)
+    return coords ? { ...coords, name: hotel?.name ?? 'Your stay', address: hotel?.address } : null
+  }, [trip])
 
   // Create the Leaflet map once, when the container is ready. jsdom-safe.
   useEffect(() => {
@@ -219,13 +255,28 @@ export default function TripMapView({
     if (!map || !L || !layer) return
 
     layer.clearLayers()
-    if (mapped.length === 0) {
+    if (mapped.length === 0 && !stay) {
       boundsRef.current = null
       return
     }
 
     const bounds = L.latLngBounds([])
     let selectedMarker: Leaflet.Marker | null = null
+
+    // The Voyage Stay pin (distinct claret/gold bed marker), if it has coords.
+    // Rendered before the numbered stops so stop pins stack above it.
+    if (stay) {
+      bounds.extend([stay.lat, stay.lng])
+      const stayPopup =
+        `<div style="min-width:160px;font-family:system-ui,sans-serif;">` +
+        `<div style="color:${GOLD};font-size:11px;font-weight:800;letter-spacing:.04em;">YOUR STAY</div>` +
+        `<div style="font-size:14px;font-weight:700;margin-top:2px;">${esc(stay.name)}</div>` +
+        (stay.address ? `<div style="color:#888;font-size:11px;margin-top:2px;">${esc(stay.address)}</div>` : '') +
+        `</div>`
+      L.marker([stay.lat, stay.lng], { icon: stayIcon(L), zIndexOffset: -500 })
+        .addTo(layer)
+        .bindPopup(stayPopup)
+    }
 
     // Group mapped stops by day so we can draw an ordered route per day.
     const byDay = new Map<number, MappedStop[]>()
@@ -304,9 +355,10 @@ export default function TripMapView({
         /* panTo/openPopup can throw on a not-yet-laid-out map — ignore. */
       }
     }
-  }, [mapped, scope, trip, totalDays, selected, ready])
+  }, [mapped, stay, scope, trip, totalDays, selected, ready])
 
-  const hasStops = mapped.length > 0
+  // Something is on the map if there are mapped stops or a located Stay.
+  const hasStops = mapped.length > 0 || !!stay
 
   return (
     <div className={cn('relative', className)}>
