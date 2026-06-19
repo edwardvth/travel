@@ -2,6 +2,7 @@ import { act, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HeroModeCinematic } from './HeroModeCinematic'
 import { HERO_CONFIG } from './clips'
+import { _resetHeroReady } from './heroReady'
 
 // useReducedMotion is controlled per-test via this mutable flag.
 const reducedMotion = { value: false }
@@ -41,6 +42,7 @@ const ALL_POSTERS = HERO_CONFIG.clips.map((c) => c.poster)
 
 beforeEach(() => {
   reducedMotion.value = false
+  _resetHeroReady()
   makeVideoFriendlyEnv()
 })
 

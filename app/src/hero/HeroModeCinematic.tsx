@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import { useReducedMotion } from 'framer-motion'
 import { HERO_CONFIG } from './clips'
+import { signalHeroReady } from './heroReady'
 import { pickAny } from './timeOfDay'
 import type { HeroClip, HeroVideoConfig } from './types'
 
@@ -306,6 +307,16 @@ export function HeroModeCinematic({
     }
   }, [])
 
+  // Poster-only / reduced-motion: no <video> ever mounts (and thus no
+  // `onPlaying`), so there's nothing to wait on — signal hero-ready shortly
+  // after mount so the splash can dismiss. (Video mode signals via the
+  // <video onPlaying>.)
+  useEffect(() => {
+    if (videoEnabled) return
+    const t = setTimeout(signalHeroReady, 200)
+    return () => clearTimeout(t)
+  }, [videoEnabled])
+
   // Don't render layers until the first clip resolves (poster needs a src).
   if (!clip) {
     return (
@@ -461,6 +472,7 @@ const VideoLayer = forwardRef<HTMLVideoElement, VideoLayerProps>(function VideoL
       preload="metadata"
       poster={clip.poster}
       onError={() => setErrored(true)}
+      onPlaying={() => signalHeroReady()}
       style={{
         position: 'absolute',
         inset: 0,

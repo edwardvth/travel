@@ -11,23 +11,16 @@ vi.mock('framer-motion', async () => {
 })
 
 import SplashIntro from './SplashIntro'
+import { signalHeroReady, _resetHeroReady } from '../hero/heroReady'
 
 /** The overlay carries aria-hidden; query it via that attribute. */
 function overlay(): HTMLElement | null {
   return document.querySelector('[aria-hidden="true"]')
 }
 
-/** Force document.readyState for the duration of a test. */
-function setReadyState(state: DocumentReadyState) {
-  Object.defineProperty(document, 'readyState', {
-    configurable: true,
-    get: () => state,
-  })
-}
-
 beforeEach(() => {
   reducedMotion.value = false
-  setReadyState('complete') // jsdom default
+  _resetHeroReady()
   vi.useFakeTimers()
 })
 
@@ -49,33 +42,48 @@ describe('SplashIntro', () => {
     expect(overlay()!.getAttribute('aria-hidden')).toBe('true')
   })
 
-  it('auto-dismisses once the page is ready (readyState=complete) past the min-visible + fade', () => {
-    setReadyState('complete')
+  it('auto-dismisses once the hero signals ready (past min-visible + fade)', () => {
     const { container } = render(<SplashIntro />)
 
     // Visible immediately after mount.
     expect(overlay()).not.toBeNull()
 
     act(() => {
-      vi.advanceTimersByTime(1000) // > min-visible (~350) + fade (~200)
+      signalHeroReady()
+      // > min-visible (~350) + fade (~200), well under the safety cap.
+      vi.advanceTimersByTime(700)
     })
     expect(container.firstChild).toBeNull()
     expect(overlay()).toBeNull()
   })
 
-  it('hard-cap path: dismisses even if the page never reports loaded', () => {
-    setReadyState('loading') // never fires `load` in this test
+  it('honors the min-visible floor when hero-ready fires immediately', () => {
+    const { container } = render(<SplashIntro />)
+
+    act(() => {
+      signalHeroReady()
+      vi.advanceTimersByTime(100) // below the ~350 floor
+    })
+    // Still present — the floor has not elapsed yet.
+    expect(container.firstChild).not.toBeNull()
+
+    act(() => {
+      vi.advanceTimersByTime(600) // past floor + fade
+    })
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('safety-cap path: dismisses even if the hero never signals ready', () => {
     const { container } = render(<SplashIntro />)
     expect(overlay()).not.toBeNull()
 
     act(() => {
-      vi.advanceTimersByTime(1100) // > hard cap (~800) + fade (~200)
+      vi.advanceTimersByTime(2800) // > safety cap (~2500) + fade (~200)
     })
     expect(container.firstChild).toBeNull()
   })
 
   it('clicking the overlay removes it early', () => {
-    setReadyState('loading') // avoid the ready-path racing the click
     const { container } = render(<SplashIntro />)
     const el = overlay()
     expect(el).not.toBeNull()
@@ -88,7 +96,6 @@ describe('SplashIntro', () => {
   })
 
   it('pressing Escape removes it early', () => {
-    setReadyState('loading')
     const { container } = render(<SplashIntro />)
     expect(overlay()).not.toBeNull()
 
@@ -101,13 +108,13 @@ describe('SplashIntro', () => {
 
   it('reduced motion: still renders and auto-dismisses without error', () => {
     reducedMotion.value = true
-    setReadyState('complete')
     const { container } = render(<SplashIntro />)
 
     expect(document.body.textContent).toContain('VOYAGER')
 
     act(() => {
-      vi.advanceTimersByTime(1000)
+      signalHeroReady()
+      vi.advanceTimersByTime(700)
     })
     expect(container.firstChild).toBeNull()
   })
