@@ -228,31 +228,25 @@ The refinement succeeds when:
 
 ---
 
-## 14. Brand Splash — Journey Reveal (onboarding)
+## 14. Brand Splash — minimal brand reveal (onboarding)
 
-Replace the "loading screen" idea with a short **brand reveal that transitions into the
-journey**. Not a spinner/progress bar — a cinematic identity moment. Non-blocking: the app
-renders and loads underneath while the splash plays over it, then fades away.
+A **small, quiet brand moment** that auto-clears the instant the homepage is ready — not a
+loading screen, not a production. Enhances perceived speed; **≤1s total.**
 
-- **Initial state:** fullscreen near-black canvas (`--base`), centered **VOYAGER** wordmark —
-  uppercase, generously letter-spaced, elegant/minimal. No other UI.
-- **Traveler motif:** the logo's little traveler starts at the **V** and walks smoothly across
-  the letters to the **R** (~1–1.5s). Subtle, not cartoonish. As it passes, letters gently
-  illuminate; a faint light/path trails behind it.
-- **Transition into app:** at the **R**, the wordmark begins to fade and a thin **route line**
-  extends forward from the traveler (a journey continuing) — the splash fades into the homepage
-  hero beneath it; UI fades in naturally. The traveler may drift slightly into the page before
-  fading.
-- **First visit vs return:** first load of a session → full animation; subsequent loads →
-  shortened fade-through (300–500ms). Gate via `sessionStorage` (`voyager-splash-seen`). Never
-  make repeat visits feel heavy.
-- **Reduced motion:** skip the walk — quick static wordmark → fade-in (no movement).
-- **Non-blocking & perf:** overlay only (the routed app mounts in parallel beneath it); time-
-  boxed so it never sticks on a frozen frame; `pointer-events:none` during fade; removed from
-  the DOM when done (no focus trap; decorative / `aria-hidden`). Click/Escape skips. Must
-  enhance perceived speed, never reduce it.
+- **Look:** fullscreen near-black canvas (`--base`) with a **small, centered** mark — the logo
+  `Mark` (traveler) above a compact **VOYAGER** wordmark (uppercase, gently letter-spaced,
+  elegant; small — wordmark ~16–22px). Nothing else. Minimal, premium.
+- **Motion:** a quick, subtle fade/scale-in of the small mark (~200ms). No walk-across, no
+  route line — keep it understated. Reduced-motion → instant (no movement).
+- **Auto-dismiss on ready (the point):** the overlay disappears the moment content is ready —
+  dismiss at the **earliest of** (a) the page `load` / `document.readyState==='complete'` after
+  a brief minimum (~350ms so it registers), or (b) a hard cap (~800ms). Then a fast fade-out
+  (~200ms). Never exceeds ~1s; never sticks on a frozen frame.
+- **Non-blocking & perf:** overlay only — the routed app mounts and loads in parallel beneath
+  it. `pointer-events:none` during fade; removed from the DOM when done (decorative /
+  `aria-hidden`, no focus trap). Click/Escape skips immediately. Timers cleaned; StrictMode-safe.
 - **Component:** `app/src/components/SplashIntro.tsx`, mounted once at the app root above the
-  router. Uses the `Mark` from `Logo.tsx`, brand tokens, Framer Motion.
+  router. Uses the `Mark` from `Logo.tsx` + brand tokens.
 
 ---
 
