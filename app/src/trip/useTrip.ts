@@ -49,11 +49,12 @@ export function useTrip(tripId: string | undefined): UseTripResult {
     queryKey: ['trip-member', tripId, user?.id],
     enabled: needMembership,
     queryFn: async (): Promise<boolean> => {
+      // RLS scopes trip_members rows to the current user (matches Phase 1
+      // useTrips + legacy). A returned row for this trip = I'm a member.
       const { data } = await supabase
         .from('trip_members')
         .select('trip_id')
         .eq('trip_id', tripId)
-        .eq('user_id', user!.id)
         .maybeSingle()
       return !!data
     },
