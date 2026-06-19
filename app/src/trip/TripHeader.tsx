@@ -1,8 +1,11 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ThemeToggle } from '../components/ThemeToggle'
+import { AccountMenu } from '../components/AccountMenu'
 import { ShareSheet } from '../routes/ShareSheet'
 import { SyncIndicator } from './SyncIndicator'
+import { useAuth } from '../auth/useAuth'
+import { useProfile } from '../data/useProfile'
 import { formatDateRange } from '../lib/trip-helpers'
 import type { Trip } from '../types'
 
@@ -26,6 +29,8 @@ export function TripHeader({
   saveError?: Error | null
 }) {
   const [shareOpen, setShareOpen] = useState(false)
+  const { user } = useAuth()
+  const { data: profile } = useProfile(user?.id)
   const dates = formatDateRange(trip)
 
   return (
@@ -69,6 +74,10 @@ export function TripHeader({
       )}
 
       <ThemeToggle />
+
+      {/* Global account affordance — reachable in-trip on desktop and mobile.
+          It is account-scoped (sign-out, account settings), never trip-scoped. */}
+      <AccountMenu email={user?.email ?? ''} profile={profile} />
 
       {shareOpen && <ShareSheet tripId={trip.id} open onClose={() => setShareOpen(false)} />}
     </header>

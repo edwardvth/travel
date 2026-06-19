@@ -5,10 +5,9 @@ import Dashboard from './routes/Dashboard'
 import SplashIntro from './components/SplashIntro'
 import PlannerLayout from './trip/PlannerLayout'
 import Itinerary from './trip/Itinerary'
-import Bookings from './trip/Bookings'
+import Guide from './trip/Guide'
+import Trip from './trip/Trip'
 import StopDetail from './trip/StopDetail'
-import TripMap from './trip/TripMap'
-import Settings from './trip/Settings'
 
 export default function App() {
   return (
@@ -19,10 +18,14 @@ export default function App() {
         <Route path="/trips" element={<Dashboard />} />
         <Route path="/trip/:id" element={<PlannerLayout />}>
           <Route index element={<Itinerary />} />
-          <Route path="bookings" element={<Bookings />} />
+          <Route path="guide" element={<Guide />} />
+          <Route path="trip" element={<Trip />} />
           <Route path="stop/:day/:n" element={<StopDetail />} />
-          <Route path="map" element={<TripMap />} />
-          <Route path="settings" element={<Settings />} />
+          {/* Single-meaning redirects from the retired 4-tab nav. These are nested
+              under /trip/:id, so the relative targets resolve against the trip. */}
+          <Route path="bookings" element={<Navigate to="../trip" replace />} />
+          <Route path="map" element={<Navigate to=".." replace />} />
+          <Route path="settings" element={<Navigate to="/trips" replace />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

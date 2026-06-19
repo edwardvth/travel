@@ -11,7 +11,7 @@ import type { TripData } from '../types'
  * below). One tap moves an item between them; tapping the item opens that stop.
  * All writes are immutable through `save` and edit-gated via `canEdit`.
  */
-export default function Bookings() {
+export default function Trip() {
   const { trip, canEdit, save, setActiveDay } = useOutletContext<PlannerOutletContext>()
   const navigate = useNavigate()
 

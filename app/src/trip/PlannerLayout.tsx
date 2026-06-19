@@ -16,7 +16,7 @@ import { Skeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
 import { cn } from '../lib/utils'
 import { dayCount, dayLabel } from './helpers'
-import { Bookmark, CalendarDays, Eye, LayoutList, Map, Settings } from 'lucide-react'
+import { Briefcase, CalendarDays, Compass, Eye, LayoutList } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Trip } from '../types'
 
@@ -40,13 +40,13 @@ interface SectionItem {
   Icon: LucideIcon
 }
 
-/** The named sections (Plan is implicit on desktop — a selected day — but is its
- *  own tab on mobile). Bookings · Map · Settings live in the sidebar / tab bar. */
+/** The named sections (Plan is implicit — the index route, with the Day list
+ *  nested beneath it). Guide · Trip live in the sidebar / tab bar; together with
+ *  the implicit Plan they form the three intent-tabs Plan · Guide · Trip. */
 function sectionItems(id: string): SectionItem[] {
   return [
-    { to: `/trip/${id}/bookings`, label: 'Bookings', Icon: Bookmark },
-    { to: `/trip/${id}/map`, label: 'Map', Icon: Map },
-    { to: `/trip/${id}/settings`, label: 'Settings', Icon: Settings },
+    { to: `/trip/${id}/guide`, label: 'Guide', Icon: Compass },
+    { to: `/trip/${id}/trip`, label: 'Trip', Icon: Briefcase },
   ]
 }
 
@@ -115,13 +115,13 @@ export default function PlannerLayout() {
   // ── Lifted day selection ──────────────────────────────────────────────────
   // Single source of truth: `?day=N`, clamped to the trip's day count. The
   // desktop sidebar day list and the mobile day chips both drive it through the
-  // outlet context. Selecting a day while on Bookings/Map/Settings returns to
-  // the Plan index so the chosen day actually shows.
+  // outlet context. Selecting a day while on Guide/Trip returns to the Plan
+  // index so the chosen day actually shows.
   const days = dayCount(trip)
   const rawDay = Number.parseInt(searchParams.get('day') ?? '', 10)
   const activeDay = Number.isFinite(rawDay) ? Math.min(Math.max(rawDay, 0), Math.max(0, days - 1)) : 0
 
-  // "Plan" is the index route (no /map, /settings, /bookings, /stop segment).
+  // "Plan" is the index route (no /guide, /trip, /stop segment).
   const planPath = `/trip/${trip.id}`
   const onPlan = location.pathname === planPath || location.pathname === `${planPath}/`
 
@@ -160,7 +160,7 @@ export default function PlannerLayout() {
 
       {/* Body: desktop = persistent left sidebar + main; mobile = main only. */}
       <div className="flex-1 min-h-0 flex">
-        {/* Desktop sidebar — Day list (top) → hairline → Bookings · Map · Settings */}
+        {/* Desktop sidebar — Day list (top, nested under Plan) → hairline → Guide · Trip */}
         <nav
           aria-label="Voyage navigation"
           className="hidden md:flex flex-col w-[200px] flex-none border-r border-hair overflow-y-auto py-3 px-2.5"
@@ -215,7 +215,7 @@ export default function PlannerLayout() {
         </nav>
 
         {/* Sub-views fill the remaining height as a flex column. `min-h-0` lets a child
-            (the split view) own its own scroll; tall views (StopDetail/Settings/TripMap)
+            (the split view) own its own scroll; tall views (StopDetail/Guide/Trip)
             fall back to scrolling the page via this container's overflow.
             Pad bottom on mobile so the fixed tab bar never covers content. */}
         <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-y-auto pb-24 md:pb-0">
@@ -225,7 +225,7 @@ export default function PlannerLayout() {
         </main>
       </div>
 
-      {/* Mobile bottom tab bar — Plan · Bookings · Map · Settings */}
+      {/* Mobile bottom tab bar — Plan · Guide · Trip */}
       <nav
         aria-label="Voyage navigation"
         className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-hair bg-base/95 backdrop-blur"
