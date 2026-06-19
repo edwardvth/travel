@@ -60,6 +60,9 @@ import {
   Star,
   Search,
   ScrollText,
+  Compass,
+  Navigation,
+  Volume2,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -113,6 +116,9 @@ export {
   Star,
   Search,
   ScrollText,
+  Compass,
+  Navigation,
+  Volume2,
 }
 export type { LucideIcon }
 import type { Stop, StopKind } from '../types'
