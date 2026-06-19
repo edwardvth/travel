@@ -1,4 +1,4 @@
-import { render } from '@testing-library/react'
+import { act, render } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { HeroModeCinematic } from './HeroModeCinematic'
 import { HERO_CONFIG } from './clips'
@@ -102,5 +102,65 @@ describe('HeroModeCinematic — poster-only policy', () => {
 
     expect(container.querySelector('[data-testid="hero-poster"]')).not.toBeNull()
     expect(container.querySelector('[data-testid="hero-video"]')).toBeNull()
+  })
+})
+
+describe('HeroModeCinematic — video source reload (BUG 1)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+  afterEach(() => {
+    vi.runOnlyPendingTimers()
+    vi.useRealTimers()
+  })
+
+  // Two clips, each eligible for ALL times-of-day and ALL seasons, so the
+  // playlist always has both and advancing always stages the OTHER one —
+  // regardless of when (date/hour) the test runs.
+  const ALL_TOD = ['morning', 'afternoon', 'evening', 'night'] as const
+  const twoClipConfig = {
+    ...HERO_CONFIG,
+    minClipDisplayMs: 1000,
+    crossfadeMs: 200,
+    clips: [
+      {
+        ...HERO_CONFIG.clips[0],
+        id: 'test-clip-one',
+        timeOfDay: [...ALL_TOD],
+        season: undefined,
+      },
+      {
+        ...HERO_CONFIG.clips[1],
+        id: 'test-clip-two',
+        timeOfDay: [...ALL_TOD],
+        season: undefined,
+      },
+    ],
+  }
+
+  it('calls video.load() when a clip is staged/advanced (source switch)', () => {
+    // Video-enabled path: motion on, fine pointer, no saveData (set in the
+    // outer beforeEach via makeVideoFriendlyEnv).
+    const loadSpy = vi
+      .spyOn(HTMLMediaElement.prototype, 'load')
+      .mockImplementation(() => {})
+
+    const { container } = render(<HeroModeCinematic config={twoClipConfig} />)
+
+    // Two persistent <video> layers should mount (video path is active).
+    expect(container.querySelectorAll('[data-testid="hero-video"]').length).toBe(2)
+
+    // load() runs once per layer on initial source mount (clip.id effect).
+    const callsAfterMount = loadSpy.mock.calls.length
+    expect(callsAfterMount).toBeGreaterThan(0)
+
+    // Advance past minClipDisplayMs to stage the next (different) clip into the
+    // back layer. The staged layer's clip.id changes → effect must call load().
+    act(() => {
+      vi.advanceTimersByTime(twoClipConfig.minClipDisplayMs + 50)
+    })
+
+    // A fresh source was switched in, so load() must have been called again.
+    expect(loadSpy.mock.calls.length).toBeGreaterThan(callsAfterMount)
   })
 })

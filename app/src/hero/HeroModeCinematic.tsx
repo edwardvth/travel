@@ -160,6 +160,7 @@ export function HeroModeCinematic({
 
     let advanceTimer: ReturnType<typeof setTimeout> | undefined
     let fadeTimer: ReturnType<typeof setTimeout> | undefined
+    let canplayTimer: ReturnType<typeof setTimeout> | undefined
     let cancelled = false
 
     const now = new Date()
@@ -217,17 +218,17 @@ export function HeroModeCinematic({
           if (settled) return
           settled = true
           incomingVideo.removeEventListener('canplay', onReady)
-          incomingVideo.play?.().catch(() => {})
+          if (canplayTimer) clearTimeout(canplayTimer)
+          incomingVideo.play?.()?.catch(() => {})
           doFade()
         }
         incomingVideo.addEventListener('canplay', onReady)
-        if (incomingVideo.readyState >= 2) {
-          onReady()
-        } else {
-          // Fallback timeout: if no canplay (e.g. file missing), fade anyway —
-          // the poster underneath keeps the hero non-blank.
-          fadeTimer = setTimeout(onReady, 600)
-        }
+        // BUG 3: do NOT early-fire on readyState — right after staging a new
+        // clip (which triggers VideoLayer's load()), a `readyState >= 2` would
+        // reflect the OLD source, not the freshly-staged one. Fire only via the
+        // real `canplay` event, with a safety timeout so a missing file (which
+        // never fires canplay) still fades. The poster underneath covers the gap.
+        canplayTimer = setTimeout(onReady, 600)
       } else {
         doFade()
       }
@@ -239,6 +240,7 @@ export function HeroModeCinematic({
       cancelled = true
       if (advanceTimer) clearTimeout(advanceTimer)
       if (fadeTimer) clearTimeout(fadeTimer)
+      if (canplayTimer) clearTimeout(canplayTimer)
     }
     // We intentionally depend on the gating flags; clip is only used as a
     // "ready" guard (its identity changes each advance but the loop reads from
@@ -427,9 +429,35 @@ const VideoLayer = forwardRef<HTMLVideoElement, VideoLayerProps>(function VideoL
   ref,
 ) {
   const [errored, setErrored] = useState(false)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+
+  // Merge the forwarded ref with our internal one so the parent still gets the
+  // element while we can drive load() ourselves.
+  const setRef = (el: HTMLVideoElement | null) => {
+    videoRef.current = el
+    if (typeof ref === 'function') ref(el)
+    else if (ref) (ref as React.MutableRefObject<HTMLVideoElement | null>).current = el
+  }
+
+  // BUG 1: React swapping a <video>'s <source> children does NOT reload the
+  // element — without an explicit load() it keeps playing the previous source.
+  // Whenever the staged clip changes, reload the new sources. This also clears
+  // BUG 2 (sticky `errored`): each freshly-staged clip gets a fresh chance to
+  // play, falling back to the poster only if THAT clip errors.
+  useEffect(() => {
+    const v = videoRef.current
+    if (!v) return
+    setErrored(false)
+    try {
+      v.load()
+    } catch {
+      /* jsdom / partial DOM — ignore */
+    }
+  }, [clip.id])
+
   return (
     <video
-      ref={ref}
+      ref={setRef}
       data-testid="hero-video"
       muted
       loop
