@@ -8,6 +8,7 @@ import { remapCompletedAfterDelete, toggleCompleted } from './itinerary-helpers'
 import { reservationStatus, setReservation, type Reservation } from './reservation'
 import { applyLocation, type PlaceLocation } from './location'
 import { coverPhoto } from './photo'
+import { formatInline } from './richtext'
 import { StopPhotos } from './StopPhotos'
 import { ChangeLocation } from './ChangeLocation'
 import { Button } from '../components/ui/Button'
@@ -312,9 +313,11 @@ export default function StopDetail() {
             ) : (
               <div className="space-y-3">
                 {(stop.history ?? '').split('\n\n').filter(Boolean).map((para, i) => (
-                  <p key={i} className="text-[14.5px] leading-relaxed text-ink/90">
-                    {para.replace(/\n/g, ' ')}
-                  </p>
+                  <p
+                    key={i}
+                    className="text-[14.5px] leading-relaxed text-ink/90"
+                    dangerouslySetInnerHTML={{ __html: formatInline(para.replace(/\n/g, ' ')) }}
+                  />
                 ))}
               </div>
             )}
@@ -340,7 +343,7 @@ export default function StopDetail() {
                     <span aria-hidden="true" className="flex-none text-sig mt-0.5">
                       <Lightbulb size={15} />
                     </span>
-                    <span className="text-ink/90">{fact}</span>
+                    <span className="text-ink/90" dangerouslySetInnerHTML={{ __html: formatInline(fact) }} />
                   </li>
                 ))}
               </ul>
@@ -355,9 +358,10 @@ export default function StopDetail() {
             {generating ? (
               <Skeleton className="h-12 w-full rounded-card" />
             ) : (
-              <p className="text-[14px] leading-relaxed bg-amber-50 dark:bg-amber-500/10 border-l-[3px] border-amber-400 rounded-r-card px-4 py-3 text-ink/90">
-                {stop.tips}
-              </p>
+              <p
+                className="text-[14px] leading-relaxed bg-amber-50 dark:bg-amber-500/10 border-l-[3px] border-amber-400 rounded-r-card px-4 py-3 text-ink/90"
+                dangerouslySetInnerHTML={{ __html: formatInline(stop.tips ?? '') }}
+              />
             )}
           </section>
         )}
