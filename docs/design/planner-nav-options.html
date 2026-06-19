@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nav options — laptop + mobile</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap" rel="stylesheet">
+<style>
+  :root{--base:#0A0A0C;--raised:#141417;--ink:#F4F3F0;--muted:#8E8E96;--hair:rgba(255,255,255,.10);--sig:#B0473F;--gold:#FFD9A8;--fill:rgba(255,255,255,.06)}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased}
+  body{font-family:'General Sans',sans-serif;background:radial-gradient(1100px 560px at 12% -10%,rgba(176,71,63,.10),transparent 60%),var(--base);color:var(--ink);padding:38px 20px 90px}
+  .wrap{max-width:1180px;margin:0 auto}
+  .kicker{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+  h1{font-family:'Fraunces',serif;font-weight:500;font-size:32px;letter-spacing:-.4px;margin:9px 0 6px}
+  .lead{color:var(--muted);font-size:14px;max-width:680px;line-height:1.55}
+  svg.i{stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  .opt{margin-top:40px;cursor:pointer;border-radius:18px;padding:14px;transition:box-shadow .2s}
+  .opt:hover{box-shadow:0 0 0 1px var(--hair)}
+  .opt.selected{box-shadow:0 0 0 2px var(--sig)}
+  .lbl{display:flex;align-items:baseline;gap:10px;margin:0 4px 14px}
+  .lbl .L{font-size:19px;font-weight:700}.lbl .s{font-size:13px;color:var(--muted)}
+  .lbl .rec{font-size:11px;font-weight:700;color:var(--gold);border:1px solid rgba(255,217,168,.3);padding:2px 8px;border-radius:20px}
+  .pair{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
+  .lap{flex:1;min-width:520px}
+  .phwrap{width:248px}
+  .vp{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+  /* browser */
+  .browser{border-radius:12px;overflow:hidden;border:1px solid var(--hair);box-shadow:0 24px 56px -28px rgba(0,0,0,.85)}
+  .bar{height:30px;background:#161619;display:flex;align-items:center;gap:6px;padding:0 12px;border-bottom:1px solid var(--hair)}
+  .dot{width:9px;height:9px;border-radius:50%}
+  .app{height:360px;background:var(--base);display:flex;flex-direction:column}
+  /* phone */
+  .phone{border-radius:30px;padding:7px;background:linear-gradient(160deg,#1b1b20,#0c0c0f);border:1px solid rgba(255,255,255,.10);box-shadow:0 26px 60px -26px rgba(0,0,0,.85)}
+  .pscreen{border-radius:24px;overflow:hidden;height:500px;background:var(--base);display:flex;flex-direction:column}
+  /* shared chrome */
+  .hdr{display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid var(--hair)}
+  .mk{width:20px;height:20px;border-radius:6px;background:var(--sig);display:flex;align-items:center;justify-content:center;flex:none}
+  .mk svg{width:12px;height:12px}
+  .vtitle{font-family:'Fraunces',serif;font-weight:500;font-size:16px;line-height:1}
+  .vdate{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px}
+  .spacer{flex:1}
+  .hico{width:28px;height:28px;border-radius:7px;border:1px solid var(--hair);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+  .hico svg{width:15px;height:15px}
+  .tabs{display:flex;gap:3px;padding:6px 13px;border-bottom:1px solid var(--hair)}
+  .tab{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:6px 11px;border-radius:8px;color:var(--muted)}
+  .tab svg{width:14px;height:14px}.tab.on{background:var(--sig);color:#fff}
+  .body{flex:1;display:flex;min-height:0}
+  .sidebar{width:118px;border-right:1px solid var(--hair);padding:9px 8px;display:flex;flex-direction:column;gap:2px}
+  .sn{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:500;color:var(--muted);padding:7px 8px;border-radius:8px}
+  .sn svg{width:14px;height:14px}.sn.on{background:var(--fill);color:var(--ink)}
+  .sdiv{height:1px;background:var(--hair);margin:6px 4px}
+  .list{flex:1;padding:11px 13px;overflow:hidden;min-width:0}
+  .map{position:relative;background:repeating-linear-gradient(0deg,#101216 0 1px,transparent 1px 28px),repeating-linear-gradient(90deg,#101216 0 1px,transparent 1px 28px),#0c0d10}
+  .map.col{width:40%;border-left:1px solid var(--hair)}
+  .map svg.route{position:absolute;inset:0;width:100%;height:100%}
+  .pin{position:absolute;width:18px;height:18px;border-radius:50% 50% 50% 0;background:var(--sig);transform:rotate(-45deg);border:2px solid #fff}
+  .pin span{transform:rotate(45deg);display:block;color:#fff;font-size:8.5px;font-weight:800;text-align:center;line-height:14px}
+  .full{position:absolute;top:7px;right:7px;width:24px;height:24px;border-radius:7px;background:rgba(0,0,0,.5);backdrop-filter:blur(6px);border:1px solid var(--hair);display:flex;align-items:center;justify-content:center;color:#fff}
+  .full svg{width:13px;height:13px}
+  /* content bits */
+  .days{display:flex;gap:5px;margin-bottom:9px}
+  .dchip{font-size:10.5px;font-weight:600;padding:5px 9px;border-radius:7px;border:1px solid var(--hair);color:var(--muted);white-space:nowrap}
+  .dchip.on{background:var(--sig);color:#fff;border-color:var(--sig)}
+  .wx{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-bottom:9px}.wx svg{width:13px;height:13px}.wx b{color:var(--ink);font-weight:600}
+  .stay{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:10px;background:rgba(255,217,168,.07);border:1px solid rgba(255,217,168,.18);margin-bottom:9px}
+  .stay svg{width:15px;height:15px;color:var(--gold);flex:none}
+  .stay .t{font-size:11.5px;font-weight:600}.stay .d{font-size:9.5px;color:var(--muted)}
+  .stop{display:flex;align-items:center;gap:8px;padding:6px 0}
+  .num{width:21px;height:21px;border-radius:50%;background:var(--sig);color:#fff;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none}
+  .stop .n{font-size:12.5px;font-weight:600}.stop .m{font-size:10px;color:var(--muted);display:flex;align-items:center;gap:4px}
+  .kind{font-size:9px;font-weight:700;color:var(--muted);border:1px solid var(--hair);border-radius:4px;padding:1px 4px}
+  .tag{margin-left:auto;font-size:9px;font-weight:700;padding:3px 7px;border-radius:20px}
+  .tag.tobook{background:rgba(176,71,63,.18);color:#f0a99f}.tag.booked{background:rgba(120,180,140,.14);color:#a8d9b8}
+  .conn{display:flex;align-items:center;gap:5px;font-size:9.5px;color:var(--muted);padding:2px 0 2px 29px}.conn svg{width:11px;height:11px}
+  .add{margin-top:9px;background:var(--sig);color:#fff;font-size:12px;font-weight:700;padding:9px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:6px}.add svg{width:14px;height:14px;stroke:#fff}
+  .de{display:flex;gap:5px;margin-top:6px}.de span{flex:1;text-align:center;font-size:10px;font-weight:600;color:var(--muted);border:1px solid var(--hair);padding:5px;border-radius:7px}.de span.on{background:var(--fill);color:var(--ink)}
+  .tabbar{display:flex;border-top:1px solid var(--hair);background:#0d0d10}
+  .tbb{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 10px;color:var(--muted);font-size:9px;font-weight:600}.tbb svg{width:17px;height:17px}.tbb.on{color:var(--sig)}
+  .pmap{height:120px;position:relative;background:repeating-linear-gradient(0deg,#101216 0 1px,transparent 1px 20px),repeating-linear-gradient(90deg,#101216 0 1px,transparent 1px 20px),#0c0d10}
+  .desc{font-size:12.5px;color:var(--muted);padding:12px 4px 0;line-height:1.5;max-width:760px}
+  .pick{text-align:center;font-size:12px;color:var(--muted);margin-top:6px}.opt.selected .pick{color:var(--sig)}
+</style></head>
+<body><div class="wrap">
+  <div class="kicker">Planner navigation · laptop + mobile</div>
+  <h1>A, B, C — <span style="font-style:italic;color:var(--gold)">both screens</span></h1>
+  <p class="lead">Same Voyage (Kyoto Day 2), same content, same naming (Plan · Stay · Do/Eat/Stay · To book/Booked). SVG icons, no emoji. Each row: laptop on the left, phone on the right. Click the one you want.</p>
+
+  <!-- =================== OPTION A =================== -->
+  <div class="opt" data-choice="A" onclick="toggleSelect(this)">
+    <div class="lbl"><span class="L">A · One surface</span><span class="s">map built-in · no tabs · fullscreen toggle</span></div>
+    <div class="pair">
+      <div class="lap"><div class="vp">Laptop</div><div class="browser"><div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span></div>
+        <div class="app">
+          <div class="hdr"><span class="mk"><svg viewBox="0 0 44 44"><path d="M16.5 10.8h8v12.6h-8z" fill="#fff"/><circle cx="27" cy="9" r="3" fill="#fff"/></svg></span><div><div class="vtitle">Kyoto</div><div class="vdate">JUN 30 – JUL 3</div></div><span class="spacer"></span>
+            <span class="hico"><svg class="i" viewBox="0 0 24 24"><path d="M4 4h16v16l-4-3-4 3-4-3-4 3z"/></svg></span>
+            <span class="hico"><svg class="i" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M21 16v3a2 2 0 01-2 2h-3M3 16v3a2 2 0 002 2h3"/></svg></span>
+            <span class="hico"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a1.7 1.7 0 00.3 1.9l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-2.9 1.2V21a2 2 0 01-4 0v-.2A1.7 1.7 0 005 19.4l-.1.1a2 2 0 11-2.8-2.8l.1-.1A1.7 1.7 0 003 13.6H3a2 2 0 010-4h.1A1.7 1.7 0 004.6 5l-.1-.1a2 2 0 112.8-2.8l.1.1A1.7 1.7 0 0010 4.6V3a2 2 0 014 0v.1a1.7 1.7 0 002.9 1.2l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 001.2 2.9H21a2 2 0 010 4z"/></svg></span>
+          </div>
+          <div class="body">
+            <div class="list">
+              <div class="days"><span class="dchip">Day 1</span><span class="dchip on">Day 2</span><span class="dchip">Day 3</span><span class="dchip">Day 4</span></div>
+              <div class="wx"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2"/></svg><b>Tue · 24°</b> · clear</div>
+              <div class="stay"><svg class="i" viewBox="0 0 24 24"><path d="M3 21h18M5 21V8l7-4 7 4v13"/></svg><div><div class="t">Stay · Ritz-Carlton</div><div class="d">check-out 11:00</div></div></div>
+              <div class="stop"><span class="num">1</span><div><div class="n">Fushimi Inari</div><div class="m">9:30 <span class="kind">Do</span></div></div></div>
+              <div class="conn"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>12 min walk</div>
+              <div class="stop"><span class="num">2</span><div><div class="n">Nishiki Market</div><div class="m">12:00 <span class="kind">Eat</span></div></div><span class="tag booked">Booked</span></div>
+              <div class="conn"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>8 min walk</div>
+              <div class="stop"><span class="num">3</span><div><div class="n">Gion tea house</div><div class="m">15:00 <span class="kind">Do</span></div></div><span class="tag tobook">To book</span></div>
+              <div class="add"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add to Day 2</div>
+            </div>
+            <div class="map col"><svg class="route" viewBox="0 0 240 360"><path d="M50 70 C100 110 70 180 130 210 S210 260 180 310" fill="none" stroke="#B0473F" stroke-width="2.5" stroke-dasharray="2 6" stroke-linecap="round"/></svg><div class="pin" style="left:42px;top:62px"><span>1</span></div><div class="pin" style="left:122px;top:200px"><span>2</span></div><div class="pin" style="left:170px;top:300px"><span>3</span></div><div class="full"><svg class="i" viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M21 16v3a2 2 0 01-2 2h-3M3 16v3a2 2 0 002 2h3"/></svg></div></div>
+          </div>
+        </div></div>
+      </div>
+      <div class="phwrap"><div class="vp">Phone</div><div class="phone"><div class="pscreen">
+        <div class="hdr"><svg class="i" style="width:18px;height:18px;color:var(--muted)" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg><div><div class="vtitle">Kyoto</div></div><span class="spacer"></span><span class="hico" style="width:26px;height:26px"><svg class="i" viewBox="0 0 24 24"><path d="M4 4h16v16l-4-3-4 3-4-3-4 3z"/></svg></span><span class="hico" style="width:26px;height:26px"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a1.7 1.7 0 00.3 1.9 2 2 0 11-2.8 2.8 1.7 1.7 0 00-2.9 1.2V21a2 2 0 01-4 0 1.7 1.7 0 00-2.9-1.2 2 2 0 11-2.8-2.8A1.7 1.7 0 003 13.6a2 2 0 010-4 1.7 1.7 0 001.5-2.6 2 2 0 112.8-2.8A1.7 1.7 0 0010 4.6a2 2 0 014 0 1.7 1.7 0 002.9 1.2 2 2 0 112.8 2.8 1.7 1.7 0 001.2 2.9z"/></svg></span></div>
+        <div class="pmap"><svg class="route" viewBox="0 0 240 120"><path d="M40 30 C90 50 70 80 130 85" fill="none" stroke="#B0473F" stroke-width="2.5" stroke-dasharray="2 6"/></svg><div class="pin" style="left:32px;top:24px"><span>1</span></div><div class="pin" style="left:122px;top:76px"><span>2</span></div></div>
+        <div class="list" style="flex:1">
+          <div class="days"><span class="dchip on">Day 2</span><span class="dchip">Day 3</span></div>
+          <div class="wx"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg><b>Tue · 24°</b></div>
+          <div class="stay"><svg class="i" viewBox="0 0 24 24"><path d="M3 21h18M5 21V8l7-4 7 4v13"/></svg><div><div class="t">Stay · Ritz-Carlton</div></div></div>
+          <div class="stop"><span class="num">1</span><div><div class="n">Fushimi Inari</div><div class="m">9:30 <span class="kind">Do</span></div></div></div>
+          <div class="stop"><span class="num">2</span><div><div class="n">Nishiki Market</div></div><span class="tag booked">Booked</span></div>
+          <div class="add"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add</div>
+        </div>
+      </div></div></div>
+    </div>
+    <p class="desc"><b>One surface, no nav bar.</b> Map is always beside the list (laptop) / on top (phone). Bookings + Settings are header icons. Calmest, but secondary things (bookings/map-fullscreen) are less obvious — they hide in the header.</p>
+    <p class="pick">A — One surface</p>
+  </div>
+
+  <!-- =================== OPTION B =================== -->
+  <div class="opt" data-choice="B" onclick="toggleSelect(this)">
+    <div class="lbl"><span class="L">B · Top tabs</span><span class="s">Plan · Bookings · Map · Settings</span></div>
+    <div class="pair">
+      <div class="lap"><div class="vp">Laptop</div><div class="browser"><div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span></div>
+        <div class="app">
+          <div class="hdr"><span class="mk"><svg viewBox="0 0 44 44"><path d="M16.5 10.8h8v12.6h-8z" fill="#fff"/><circle cx="27" cy="9" r="3" fill="#fff"/></svg></span><div><div class="vtitle">Kyoto</div><div class="vdate">JUN 30 – JUL 3</div></div></div>
+          <div class="tabs">
+            <span class="tab on"><svg class="i" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Plan</span>
+            <span class="tab"><svg class="i" viewBox="0 0 24 24"><path d="M4 4h16v16l-4-3-4 3-4-3-4 3z"/></svg>Bookings</span>
+            <span class="tab"><svg class="i" viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Map</span>
+            <span class="tab"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a1.7 1.7 0 00.3 1.9 2 2 0 11-2.8 2.8 1.7 1.7 0 00-2.9 1.2V21a2 2 0 01-4 0 1.7 1.7 0 00-2.9-1.2 2 2 0 11-2.8-2.8A1.7 1.7 0 003 13.6a2 2 0 010-4 1.7 1.7 0 001.5-2.6 2 2 0 112.8-2.8A1.7 1.7 0 0010 4.6a2 2 0 014 0 1.7 1.7 0 002.9 1.2 2 2 0 112.8 2.8 1.7 1.7 0 001.2 2.9z"/></svg>Settings</span>
+          </div>
+          <div class="body">
+            <div class="list">
+              <div class="days"><span class="dchip">Day 1</span><span class="dchip on">Day 2</span><span class="dchip">Day 3</span></div>
+              <div class="wx"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2"/></svg><b>Tue · 24°</b> · clear</div>
+              <div class="stay"><svg class="i" viewBox="0 0 24 24"><path d="M3 21h18M5 21V8l7-4 7 4v13"/></svg><div><div class="t">Stay · Ritz-Carlton</div></div></div>
+              <div class="stop"><span class="num">1</span><div><div class="n">Fushimi Inari</div><div class="m">9:30 <span class="kind">Do</span></div></div></div>
+              <div class="conn"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>12 min walk</div>
+              <div class="stop"><span class="num">2</span><div><div class="n">Nishiki Market</div><div class="m">12:00 <span class="kind">Eat</span></div></div><span class="tag booked">Booked</span></div>
+              <div class="add"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add to Day 2</div>
+            </div>
+            <div class="map col"><svg class="route" viewBox="0 0 240 360"><path d="M50 70 C100 110 70 180 130 210" fill="none" stroke="#B0473F" stroke-width="2.5" stroke-dasharray="2 6"/></svg><div class="pin" style="left:42px;top:62px"><span>1</span></div><div class="pin" style="left:122px;top:200px"><span>2</span></div></div>
+          </div>
+        </div></div>
+      </div>
+      <div class="phwrap"><div class="vp">Phone</div><div class="phone"><div class="pscreen">
+        <div class="hdr"><svg class="i" style="width:18px;height:18px;color:var(--muted)" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg><div class="vtitle">Kyoto</div></div>
+        <div class="pmap"><svg class="route" viewBox="0 0 240 120"><path d="M40 30 C90 50 70 80 130 85" fill="none" stroke="#B0473F" stroke-width="2.5" stroke-dasharray="2 6"/></svg><div class="pin" style="left:32px;top:24px"><span>1</span></div><div class="pin" style="left:122px;top:76px"><span>2</span></div></div>
+        <div class="list" style="flex:1">
+          <div class="days"><span class="dchip on">Day 2</span><span class="dchip">Day 3</span></div>
+          <div class="stay"><svg class="i" viewBox="0 0 24 24"><path d="M3 21h18M5 21V8l7-4 7 4v13"/></svg><div><div class="t">Stay · Ritz-Carlton</div></div></div>
+          <div class="stop"><span class="num">1</span><div><div class="n">Fushimi Inari</div><div class="m">9:30 <span class="kind">Do</span></div></div></div>
+          <div class="stop"><span class="num">2</span><div><div class="n">Nishiki Market</div></div><span class="tag booked">Booked</span></div>
+          <div class="add"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add</div>
+        </div>
+        <div class="tabbar">
+          <div class="tbb on"><svg class="i" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Plan</div>
+          <div class="tbb"><svg class="i" viewBox="0 0 24 24"><path d="M4 4h16v16l-4-3-4 3-4-3-4 3z"/></svg>Bookings</div>
+          <div class="tbb"><svg class="i" viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Map</div>
+          <div class="tbb"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a1.7 1.7 0 00.3 1.9 2 2 0 11-2.8 2.8 1.7 1.7 0 00-2.9 1.2V21a2 2 0 01-4 0 1.7 1.7 0 00-2.9-1.2 2 2 0 11-2.8-2.8A1.7 1.7 0 003 13.6a2 2 0 010-4 1.7 1.7 0 001.5-2.6 2 2 0 112.8-2.8A1.7 1.7 0 0010 4.6a2 2 0 014 0 1.7 1.7 0 002.9 1.2 2 2 0 112.8 2.8 1.7 1.7 0 001.2 2.9z"/></svg>Settings</div>
+        </div>
+      </div></div></div>
+    </div>
+    <p class="desc"><b>Top tabs (laptop) / bottom tabs (phone).</b> Plan keeps the split map; Bookings & Map are their own clearly-labeled places. Familiar and obvious. Slightly more chrome than A.</p>
+    <p class="pick">B — Top tabs</p>
+  </div>
+
+  <!-- =================== OPTION C =================== -->
+  <div class="opt" data-choice="C" onclick="toggleSelect(this)">
+    <div class="lbl"><span class="L">C · Sidebar</span><span class="s">desktop day-list sidebar · phone bottom tabs</span><span class="rec">you liked this</span></div>
+    <div class="pair">
+      <div class="lap"><div class="vp">Laptop</div><div class="browser"><div class="bar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span></div>
+        <div class="app">
+          <div class="hdr"><span class="mk"><svg viewBox="0 0 44 44"><path d="M16.5 10.8h8v12.6h-8z" fill="#fff"/><circle cx="27" cy="9" r="3" fill="#fff"/></svg></span><div><div class="vtitle">Kyoto</div><div class="vdate">JUN 30 – JUL 3</div></div></div>
+          <div class="body">
+            <div class="sidebar">
+              <div class="sn on"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Day 2</div>
+              <div class="sn"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Day 3</div>
+              <div class="sn"><svg class="i" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>Day 4</div>
+              <div class="sdiv"></div>
+              <div class="sn"><svg class="i" viewBox="0 0 24 24"><path d="M4 4h16v16l-4-3-4 3-4-3-4 3z"/></svg>Bookings</div>
+              <div class="sn"><svg class="i" viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Map</div>
+              <div class="sn"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a1.7 1.7 0 00.3 1.9 2 2 0 11-2.8 2.8 1.7 1.7 0 00-2.9 1.2V21a2 2 0 01-4 0 1.7 1.7 0 00-2.9-1.2 2 2 0 11-2.8-2.8A1.7 1.7 0 003 13.6a2 2 0 010-4 1.7 1.7 0 001.5-2.6 2 2 0 112.8-2.8A1.7 1.7 0 0010 4.6a2 2 0 014 0 1.7 1.7 0 002.9 1.2 2 2 0 112.8 2.8 1.7 1.7 0 001.2 2.9z"/></svg>Settings</div>
+            </div>
+            <div class="list" style="flex:1">
+              <div class="wx"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4 12H2M22 12h-2"/></svg><b>Day 2 · Tue · 24°</b> · clear</div>
+              <div class="stay"><svg class="i" viewBox="0 0 24 24"><path d="M3 21h18M5 21V8l7-4 7 4v13"/></svg><div><div class="t">Stay · Ritz-Carlton</div><div class="d">check-out 11:00</div></div></div>
+              <div class="stop"><span class="num">1</span><div><div class="n">Fushimi Inari</div><div class="m">9:30 <span class="kind">Do</span></div></div></div>
+              <div class="conn"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>12 min walk</div>
+              <div class="stop"><span class="num">2</span><div><div class="n">Nishiki Market</div><div class="m">12:00 <span class="kind">Eat</span></div></div><span class="tag booked">Booked</span></div>
+              <div class="conn"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>8 min walk</div>
+              <div class="stop"><span class="num">3</span><div><div class="n">Gion tea house</div><div class="m">15:00 <span class="kind">Do</span></div></div><span class="tag tobook">To book</span></div>
+              <div class="add"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add to Day 2</div>
+            </div>
+            <div class="map col" style="width:36%"><svg class="route" viewBox="0 0 220 360"><path d="M50 70 C100 110 70 180 130 210 S190 260 170 310" fill="none" stroke="#B0473F" stroke-width="2.5" stroke-dasharray="2 6"/></svg><div class="pin" style="left:42px;top:62px"><span>1</span></div><div class="pin" style="left:122px;top:200px"><span>2</span></div><div class="pin" style="left:160px;top:300px"><span>3</span></div></div>
+          </div>
+        </div></div>
+      </div>
+      <div class="phwrap"><div class="vp">Phone</div><div class="phone"><div class="pscreen">
+        <div class="hdr"><svg class="i" style="width:18px;height:18px;color:var(--muted)" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg><div class="vtitle">Kyoto</div></div>
+        <div class="days" style="padding:9px 13px 0"><span class="dchip on">Day 2</span><span class="dchip">Day 3</span><span class="dchip">Day 4</span></div>
+        <div class="pmap" style="margin:9px 13px;border-radius:12px;height:104px;overflow:hidden"><svg class="route" viewBox="0 0 240 110"><path d="M40 28 C90 48 70 78 130 82" fill="none" stroke="#B0473F" stroke-width="2.5" stroke-dasharray="2 6"/></svg><div class="pin" style="left:32px;top:22px"><span>1</span></div><div class="pin" style="left:122px;top:74px"><span>2</span></div></div>
+        <div class="list" style="flex:1;padding-top:0">
+          <div class="wx"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2"/></svg><b>Tue · 24°</b></div>
+          <div class="stay"><svg class="i" viewBox="0 0 24 24"><path d="M3 21h18M5 21V8l7-4 7 4v13"/></svg><div><div class="t">Stay · Ritz-Carlton</div></div></div>
+          <div class="stop"><span class="num">1</span><div><div class="n">Fushimi Inari</div><div class="m">9:30 <span class="kind">Do</span></div></div></div>
+          <div class="stop"><span class="num">3</span><div><div class="n">Gion tea house</div></div><span class="tag tobook">To book</span></div>
+          <div class="add"><svg class="i" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>Add</div>
+        </div>
+        <div class="tabbar">
+          <div class="tbb on"><svg class="i" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Plan</div>
+          <div class="tbb"><svg class="i" viewBox="0 0 24 24"><path d="M4 4h16v16l-4-3-4 3-4-3-4 3z"/></svg>Bookings</div>
+          <div class="tbb"><svg class="i" viewBox="0 0 24 24"><path d="M12 21s7-6.3 7-11a7 7 0 10-14 0c0 4.7 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>Map</div>
+          <div class="tbb"><svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13a1.7 1.7 0 00.3 1.9 2 2 0 11-2.8 2.8 1.7 1.7 0 00-2.9 1.2V21a2 2 0 01-4 0 1.7 1.7 0 00-2.9-1.2 2 2 0 11-2.8-2.8A1.7 1.7 0 003 13.6a2 2 0 010-4 1.7 1.7 0 001.5-2.6 2 2 0 112.8-2.8A1.7 1.7 0 0010 4.6a2 2 0 014 0 1.7 1.7 0 002.9 1.2 2 2 0 112.8 2.8 1.7 1.7 0 001.2 2.9z"/></svg>Settings</div>
+        </div>
+      </div></div></div>
+    </div>
+    <p class="desc"><b>Sidebar on laptop, bottom tabs on phone.</b> Days are always visible on the left (great for long trips); sections (Bookings/Map/Settings) sit under them. On phone it collapses to the same bottom tabs as B, with day chips on top of Plan. Most structured.</p>
+    <p class="pick">C — Sidebar (you liked this)</p>
+  </div>
+
+</div></body></html>
