@@ -12,16 +12,22 @@ vi.mock('framer-motion', async () => {
 
 import SplashIntro from './SplashIntro'
 
-const SPLASH_KEY = 'voyager-splash-seen'
-
 /** The overlay carries aria-hidden; query it via that attribute. */
 function overlay(): HTMLElement | null {
   return document.querySelector('[aria-hidden="true"]')
 }
 
+/** Force document.readyState for the duration of a test. */
+function setReadyState(state: DocumentReadyState) {
+  Object.defineProperty(document, 'readyState', {
+    configurable: true,
+    get: () => state,
+  })
+}
+
 beforeEach(() => {
   reducedMotion.value = false
-  sessionStorage.clear()
+  setReadyState('complete') // jsdom default
   vi.useFakeTimers()
 })
 
@@ -38,69 +44,70 @@ describe('SplashIntro', () => {
     act(() => {
       render(<SplashIntro />)
     })
-    // The wordmark renders each letter as its own element, so assert the
-    // letters are present (textContent of the rig contains VOYAGER).
     expect(document.body.textContent).toContain('VOYAGER')
     expect(overlay()).not.toBeNull()
+    expect(overlay()!.getAttribute('aria-hidden')).toBe('true')
   })
 
-  it('full mode: sets the sessionStorage flag and removes itself after the full duration', () => {
-    expect(sessionStorage.getItem(SPLASH_KEY)).toBeNull()
+  it('auto-dismisses once the page is ready (readyState=complete) past the min-visible + fade', () => {
+    setReadyState('complete')
     const { container } = render(<SplashIntro />)
 
-    // full mode marks the splash as seen immediately on mount.
-    expect(sessionStorage.getItem(SPLASH_KEY)).toBe('1')
+    // Visible immediately after mount.
+    expect(overlay()).not.toBeNull()
 
     act(() => {
-      vi.advanceTimersByTime(3000) // comfortably past the full ceiling
+      vi.advanceTimersByTime(1000) // > min-visible (~350) + fade (~200)
     })
     expect(container.firstChild).toBeNull()
     expect(overlay()).toBeNull()
   })
 
-  it('short mode: with the flag preset, completes faster (~500ms)', () => {
-    sessionStorage.setItem(SPLASH_KEY, '1')
+  it('hard-cap path: dismisses even if the page never reports loaded', () => {
+    setReadyState('loading') // never fires `load` in this test
     const { container } = render(<SplashIntro />)
-
-    // still visible just after mount
     expect(overlay()).not.toBeNull()
 
     act(() => {
-      vi.advanceTimersByTime(1000) // > short hold + fade
-    })
-    expect(container.firstChild).toBeNull()
-  })
-
-  it('reduced mode: no long animation; removed after the short fade', () => {
-    reducedMotion.value = true
-    const { container } = render(<SplashIntro />)
-
-    // reduced mode does not write the seen flag (no full animation occurred)
-    act(() => {
-      vi.advanceTimersByTime(800) // > reduced hold + fade
+      vi.advanceTimersByTime(1100) // > hard cap (~800) + fade (~200)
     })
     expect(container.firstChild).toBeNull()
   })
 
   it('clicking the overlay removes it early', () => {
+    setReadyState('loading') // avoid the ready-path racing the click
     const { container } = render(<SplashIntro />)
     const el = overlay()
     expect(el).not.toBeNull()
 
     act(() => {
       fireEvent.click(el!)
-      vi.advanceTimersByTime(500) // past the quick skip fade
+      vi.advanceTimersByTime(300) // past the quick fade
     })
     expect(container.firstChild).toBeNull()
   })
 
   it('pressing Escape removes it early', () => {
+    setReadyState('loading')
     const { container } = render(<SplashIntro />)
     expect(overlay()).not.toBeNull()
 
     act(() => {
       fireEvent.keyDown(window, { key: 'Escape' })
-      vi.advanceTimersByTime(500)
+      vi.advanceTimersByTime(300)
+    })
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('reduced motion: still renders and auto-dismisses without error', () => {
+    reducedMotion.value = true
+    setReadyState('complete')
+    const { container } = render(<SplashIntro />)
+
+    expect(document.body.textContent).toContain('VOYAGER')
+
+    act(() => {
+      vi.advanceTimersByTime(1000)
     })
     expect(container.firstChild).toBeNull()
   })
