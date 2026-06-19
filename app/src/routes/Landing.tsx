@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Logo } from '../components/Logo'
 import { Button } from '../components/ui/Button'
 
@@ -7,6 +7,7 @@ const HERO = 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=160
 
 export default function Landing() {
   const nav = useNavigate()
+  const reduce = useReducedMotion()
   const go = () => nav('/auth')
   return (
     <div className="bg-base text-ink">
@@ -24,7 +25,7 @@ export default function Landing() {
           </div>
         </nav>
 
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        <motion.div initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
           className="absolute z-10 top-[24%] inset-x-0 text-center px-5 text-white">
           <div className="font-mono text-[12px] tracking-[4px] uppercase text-white/85">Plan · Walk · Remember</div>
           <h1 className="font-serif font-medium text-5xl md:text-6xl tracking-tight mt-4" style={{ textShadow: '0 2px 30px rgba(0,0,0,.65)' }}>
@@ -45,7 +46,7 @@ export default function Landing() {
           { k: 'Walk', d: 'A calm live guide narrates each landmark as you approach it, hands-free.' },
           { k: 'Remember', d: 'Turn the trip into a beautiful story you’ll actually want to share.' },
         ].map((b, i) => (
-          <motion.div key={b.k} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+          <motion.div key={b.k} initial={reduce ? false : { opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
             transition={{ duration: 0.4, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}>
             <div className="font-serif text-2xl">{b.k}</div>
             <p className="text-muted text-[14px] mt-2 leading-relaxed">{b.d}</p>
