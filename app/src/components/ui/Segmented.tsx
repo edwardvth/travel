@@ -3,7 +3,7 @@ export function Segmented<T extends string>(
   { value, onChange, options }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[] }
 ) {
   return (
-    <div className="inline-flex p-1 rounded-btn bg-[rgba(255,255,255,.05)] border border-hair">
+    <div className="inline-flex p-1 rounded-btn bg-fill border border-hair">
       {options.map(o => (
         <button key={o.value} type="button" onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}

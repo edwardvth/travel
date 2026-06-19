@@ -37,7 +37,14 @@ export default function Auth() {
         <div className="mt-4 space-y-2.5">
           <Button variant="claret" busy={busy} className="w-full" onClick={wrap(() => signIn(email, pw))}>Sign in</Button>
           <Button variant="ghost" busy={busy} className="w-full"
-            onClick={wrap(() => signUp(email, pw, name).then(r => r.needConfirm ? { error: undefined } : r) , 'Check your email to confirm, then come back here.')}>
+            onClick={async () => {
+              setBusy(true); setMsg(null)
+              const r = await signUp(email, pw, name)
+              setBusy(false)
+              if (r.error) setMsg({ text: r.error, err: true })
+              else if (r.needConfirm) setMsg({ text: 'Check your email to confirm, then come back here.' })
+              // else: auto-signed-in → the user effect redirects to /trips
+            }}>
             Create account
           </Button>
           <Button variant="soft" busy={busy} className="w-full" onClick={wrap(() => signInGoogle())}>Continue with Google</Button>
