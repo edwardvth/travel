@@ -49,6 +49,8 @@ export interface Hotel {
 export interface TripConfig {
   title?: string; subtitle?: string; numDays?: number
   dayLabels?: string[]; dayTitles?: string[]; startDate?: string
+  /** Free-form trip-level travel notes (edited in Trip → Trip details). */
+  notes?: string
   units?: 'metric' | 'imperial'
   aiModel?: string
   aiKey?: string

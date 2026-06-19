@@ -1,14 +1,37 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
+import { useAuth } from '../auth/useAuth'
+import { useProfile, isFounder } from '../data/useProfile'
+import { useDeleteTrip } from '../data/useTrips'
 import { allReservations, setReservation, type ReservationEntry } from './reservation'
 import { dayDate, dayLabel, formatDayDate } from './helpers'
 import { formatStayDate } from './stay'
 import { normalizeHotel } from './hotel'
+import {
+  applyTripBasics,
+  daysBetween,
+  droppingDaysWithStops,
+  endDateFor,
+  parseImportedTrip,
+  resetTripData,
+} from './settings-helpers'
 import { BedDouble, Calendar, CheckCircle2, Clock, MapPin, type LucideIcon } from './icons'
+import {
+  AlertTriangle,
+  CalendarDays,
+  ChevronRight,
+  Download,
+  FileText,
+  Pencil,
+  Trash2,
+  Upload,
+} from 'lucide-react'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
-import type { Hotel, Trip as TripT, TripData } from '../types'
+import { Sheet } from '../components/ui/Sheet'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import type { Hotel, Trip as TripT, TripData, TripConfig } from '../types'
 
 /**
  * Trip tab — the trip's **logistics dashboard**: a reflection + management lens
@@ -26,6 +49,12 @@ import type { Hotel, Trip as TripT, TripData } from '../types'
 export default function Trip() {
   const { trip, canEdit, save, setActiveDay } = useOutletContext<PlannerOutletContext>()
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const { data: profile } = useProfile(user?.id)
+
+  // Delete is owner-gated: the trip owner, or a founder. The `delete_trip` RPC
+  // also enforces ownership server-side, so this is a UX gate, not the guard.
+  const canDelete = isFounder(profile) || (!!trip.owner_id && trip.owner_id === user?.id)
 
   const entries = allReservations(trip)
   const toReserve = entries.filter(e => e.status === 'to_reserve')
@@ -71,6 +100,8 @@ export default function Trip() {
           onOpen={openStop}
           onMarkReserved={markReserved}
         />
+        <TripDetailsSection trip={trip} canEdit={canEdit} save={save} />
+        <ManageSection trip={trip} canEdit={canEdit} canDelete={canDelete} save={save} />
       </div>
     </div>
   )
@@ -466,6 +497,392 @@ function StillToArrangeSection({ trip, entries, canEdit, onOpen, onMarkReserved 
           })}
         </ul>
       )}
+    </section>
+  )
+}
+
+/* ----------------------------------------------------------- Trip Details --- */
+
+type SaveFn = PlannerOutletContext['save']
+
+/**
+ * Trip Details — a pure **read/edit projection over `config`**, never a second
+ * store. It surfaces the three trip-level facts that live on `config`: the
+ * **dates** (first day `config.startDate` → last day via `endDateFor`), the
+ * derived **length** (day count), and free-form **travel notes** (`config.notes`,
+ * the one place that field lives). The notes textarea writes `config.notes`
+ * immutably and is edit-gated. "Edit trip…" opens a small sheet for title +
+ * first/last day, reusing `applyTripBasics` and the day-drop confirm flow — so
+ * every field here maps directly back to `config`/`data`, with no duplicate state.
+ */
+function TripDetailsSection({ trip, canEdit, save }: {
+  trip: TripT
+  canEdit: boolean
+  save: SaveFn
+}) {
+  const [editing, setEditing] = useState(false)
+
+  const startDate = trip.config?.startDate || ''
+  const numDays = trip.data?.days?.length || trip.config?.numDays || 1
+  const endDate = startDate ? endDateFor(startDate, numDays) : ''
+  const firstFriendly = formatDayDate(startDate || null)
+  const lastFriendly = formatDayDate(endDate || null)
+
+  // Notes is a projection of config.notes — local state is just the in-flight
+  // edit buffer, re-seeded whenever the persisted value changes (no second store).
+  const persistedNotes = typeof trip.config?.notes === 'string' ? trip.config.notes : ''
+  const [notes, setNotes] = useState(persistedNotes)
+  useEffect(() => { setNotes(persistedNotes) }, [persistedNotes])
+  const notesId = useId()
+
+  const commitNotes = () => {
+    if (!canEdit) return
+    const next = notes.trim()
+    if (next === persistedNotes) return
+    const config: TripConfig = { ...trip.config }
+    if (next) config.notes = next
+    else delete config.notes
+    save({ config })
+  }
+
+  return (
+    <section aria-labelledby="trip-details-h">
+      <SectionHeader id="trip-details-h" icon={FileText} title="Trip details" />
+
+      <div className="mt-3 rounded-card border border-hair bg-base px-4 py-4 space-y-4">
+        {/* Dates + length — read-only projection of config. */}
+        <dl className="flex flex-wrap gap-x-8 gap-y-3">
+          <div>
+            <dt className="text-[11px] font-bold uppercase tracking-wide text-muted">Dates</dt>
+            <dd className="text-[14px] text-ink mt-0.5">
+              {firstFriendly ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarDays size={14} className="text-sig flex-none" aria-hidden="true" />
+                  <span className="font-mono">{firstFriendly}</span>
+                  {lastFriendly && lastFriendly !== firstFriendly && (
+                    <>
+                      <span className="text-muted" aria-hidden="true">→</span>
+                      <span className="font-mono">{lastFriendly}</span>
+                    </>
+                  )}
+                </span>
+              ) : (
+                <span className="text-muted">No dates set</span>
+              )}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-[11px] font-bold uppercase tracking-wide text-muted">Length</dt>
+            <dd className="text-[14px] text-ink mt-0.5 font-mono">
+              {numDays} day{numDays === 1 ? '' : 's'}
+            </dd>
+          </div>
+        </dl>
+
+        {/* Travel notes — config.notes, editable multiline when canEdit. */}
+        <div>
+          <label htmlFor={notesId} className="block text-[11px] font-bold uppercase tracking-wide text-muted mb-1.5">
+            Travel notes
+          </label>
+          {canEdit ? (
+            <textarea
+              id={notesId}
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              onBlur={commitNotes}
+              rows={3}
+              placeholder="Flight numbers, who's coming, packing reminders…"
+              className="w-full rounded-btn bg-fill border border-hair px-4 py-3 text-[14px] text-ink placeholder:text-muted outline-none focus:border-sig-link transition-colors resize-y leading-relaxed"
+            />
+          ) : persistedNotes ? (
+            <p className="text-[14px] text-ink/85 whitespace-pre-wrap leading-relaxed">{persistedNotes}</p>
+          ) : (
+            <p className="text-[13.5px] text-muted">No notes yet.</p>
+          )}
+        </div>
+
+        {/* Edit trip basics — title + dates, reusing applyTripBasics. */}
+        {canEdit && (
+          <div className="pt-0.5">
+            <Button variant="soft" onClick={() => setEditing(true)}>
+              <Pencil size={15} aria-hidden="true" /> Edit trip…
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {editing && (
+        <TripBasicsEditor trip={trip} save={save} onClose={() => setEditing(false)} />
+      )}
+    </section>
+  )
+}
+
+/**
+ * A small editor sheet for the trip's title + first/last day. Reuses
+ * `applyTripBasics` (recomputes day labels + resyncs `data.days`) and
+ * `daysBetween`/`endDateFor`. If shortening drops days that still have stops
+ * (`droppingDaysWithStops`), it raises the existing "Remove days with stops?"
+ * ConfirmDialog before persisting. Everything maps to `config`/`data`.
+ */
+function TripBasicsEditor({ trip, save, onClose }: {
+  trip: TripT
+  save: SaveFn
+  onClose: () => void
+}) {
+  const startDate = trip.config?.startDate || ''
+  const numDays = trip.data?.days?.length || trip.config?.numDays || 1
+  const initialEnd = startDate ? endDateFor(startDate, numDays) : ''
+
+  const [title, setTitle] = useState(trip.title || '')
+  const [start, setStart] = useState(startDate)
+  const [end, setEnd] = useState(initialEnd)
+  const [confirm, setConfirm] = useState(false)
+
+  const persist = () => {
+    const newCount = start && end ? daysBetween(start, end) : numDays
+    const { config, data } = applyTripBasics(trip, {
+      title: title.trim() || trip.title,
+      subtitle: trip.subtitle ?? '',
+      startDate: start,
+      numDays: newCount,
+    })
+    save({ title: config.title || trip.title, config, data })
+    onClose()
+  }
+
+  const onSave = () => {
+    const newCount = start && end ? daysBetween(start, end) : numDays
+    if (newCount < numDays && droppingDaysWithStops(trip.data?.days, newCount)) {
+      setConfirm(true)
+      return
+    }
+    persist()
+  }
+
+  const titleId = 'trip-basics-title'
+  const startId = 'trip-basics-start'
+  const endId = 'trip-basics-end'
+
+  return (
+    <Sheet open onClose={onClose} labelledBy="trip-basics-h">
+      <h2 id="trip-basics-h" className="font-serif text-2xl">Edit trip</h2>
+      <p className="text-muted text-[13.5px] mt-1.5">
+        Title and dates. These live on the trip itself.
+      </p>
+
+      <div className="mt-5 space-y-4">
+        <label className="block" htmlFor={titleId}>
+          <span className="block text-[12px] font-bold text-muted uppercase tracking-wide mb-1.5">Title</span>
+          <Input id={titleId} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. NYC 2026" autoFocus />
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block" htmlFor={startId}>
+            <span className="block text-[12px] font-bold text-muted uppercase tracking-wide mb-1.5">First day</span>
+            <Input id={startId} type="date" value={start} onChange={e => setStart(e.target.value)} />
+          </label>
+          <label className="block" htmlFor={endId}>
+            <span className="block text-[12px] font-bold text-muted uppercase tracking-wide mb-1.5">Last day</span>
+            <Input id={endId} type="date" value={end} min={start || undefined} onChange={e => setEnd(e.target.value)} />
+          </label>
+        </div>
+        {start && end && (
+          <p className="text-[12.5px] text-muted">
+            {daysBetween(start, end)} day{daysBetween(start, end) === 1 ? '' : 's'} total.
+          </p>
+        )}
+      </div>
+
+      <div className="mt-6 flex gap-2.5">
+        <Button variant="soft" className="flex-1" onClick={onClose}>Cancel</Button>
+        <Button variant="claret" className="flex-1" onClick={onSave}>Save trip</Button>
+      </div>
+
+      <ConfirmDialog
+        open={confirm}
+        title="Remove days with stops?"
+        body="Shortening the trip will drop the last day(s), and some of them still have stops. Those stops will be deleted."
+        confirmLabel="Remove days"
+        onCancel={() => setConfirm(false)}
+        onConfirm={() => { setConfirm(false); persist() }}
+      />
+    </Sheet>
+  )
+}
+
+/* --------------------------------------------------------- Manage this trip --- */
+
+/**
+ * Manage this trip — a disclosure section, **collapsed by default**, that expands
+ * only on an explicit click of its header (Chevron + `aria-expanded`/
+ * `aria-controls`, no auto-expand). When open it holds the trip-level data
+ * actions moved verbatim from the old Settings → Data tab — Export JSON, Import
+ * JSON, Reset trip (same helpers + ConfirmDialog) — plus a guarded **Delete
+ * trip** wired to the shared `useDeleteTrip` path (owner-gated). Destructive
+ * actions all confirm. No Duplicate/Archive (future — intentionally omitted).
+ */
+function ManageSection({ trip, canEdit, canDelete, save }: {
+  trip: TripT
+  canEdit: boolean
+  canDelete: boolean
+  save: SaveFn
+}) {
+  const [open, setOpen] = useState(false) // collapsed by default; opens only on click.
+  const navigate = useNavigate()
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [msg, setMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
+  const [resetOpen, setResetOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+  const del = useDeleteTrip()
+  const panelId = useId()
+
+  const onExport = () => {
+    const payload = { id: trip.id, title: trip.title, subtitle: trip.subtitle, config: trip.config, data: trip.data }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${trip.id}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+    setMsg({ tone: 'ok', text: 'Exported as JSON.' })
+  }
+
+  const onImportFile = (file: File) => {
+    const reader = new FileReader()
+    reader.onload = e => {
+      try {
+        const raw = JSON.parse(String(e.target?.result ?? ''))
+        const parsed = parseImportedTrip(raw, trip)
+        if (!window.confirm('Import this file? It will replace the current trip’s days, stay and completed state.')) return
+        save({ title: parsed.title, subtitle: parsed.subtitle, config: parsed.config, data: parsed.data })
+        setMsg({ tone: 'ok', text: 'Imported successfully.' })
+      } catch (err) {
+        setMsg({ tone: 'err', text: 'Import failed: ' + (err instanceof Error ? err.message : 'unknown error') })
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  return (
+    <section aria-labelledby="trip-manage-h">
+      {/* Disclosure header — collapsed by default, toggles only on click. */}
+      <h3 id="trip-manage-h" className="m-0">
+        <button
+          type="button"
+          onClick={() => setOpen(o => !o)}
+          aria-expanded={open}
+          aria-controls={panelId}
+          className="w-full flex items-center gap-2 min-h-[44px] text-[13px] font-bold uppercase tracking-wide text-ink hover:text-sig transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link rounded-btn -mx-1 px-1"
+        >
+          <ChevronRight
+            size={16}
+            aria-hidden="true"
+            className={
+              'flex-none text-sig transition-transform duration-200 ' + (open ? 'rotate-90' : '')
+            }
+          />
+          Manage this trip
+        </button>
+      </h3>
+
+      {open && (
+        <div id={panelId} className="mt-3 space-y-5">
+          {/* Export / Import — verbatim from the old Settings Data tab. */}
+          <div className="rounded-card border border-hair bg-base px-4 py-4 space-y-3">
+            <p className="text-muted text-[13px]">Back up this trip to a file, or restore from one.</p>
+            <div className="flex flex-wrap gap-3">
+              <Button variant="soft" onClick={onExport}>
+                <Upload size={16} aria-hidden="true" /> Export JSON
+              </Button>
+              <Button variant="soft" disabled={!canEdit} onClick={() => fileRef.current?.click()}>
+                <Download size={16} aria-hidden="true" /> Import JSON
+              </Button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                onChange={e => {
+                  const f = e.target.files?.[0]
+                  if (f) onImportFile(f)
+                  e.target.value = ''
+                }}
+              />
+            </div>
+            {msg && (
+              <p className={msg.tone === 'ok' ? 'text-sig-link text-[12.5px]' : 'text-red-600 dark:text-red-400 text-[12.5px]'}>{msg.text}</p>
+            )}
+          </div>
+
+          {/* Danger zone — Reset + Delete. Both edit/owner-gated and confirmed. */}
+          {(canEdit || canDelete) && (
+            <div className="rounded-card border border-red-300/70 dark:border-red-500/30 bg-red-50/50 dark:bg-red-500/5 px-4 py-4 space-y-4">
+              <p className="inline-flex items-center gap-1.5 text-[11px] font-bold text-red-600 dark:text-red-400 uppercase tracking-wide">
+                <AlertTriangle size={13} aria-hidden="true" /> Danger zone
+              </p>
+
+              {canEdit && (
+                <div className="space-y-2">
+                  <p className="text-muted text-[13px]">Clear every stop, the stay and all completed marks. The days stay, but they’ll be empty.</p>
+                  <Button
+                    variant="ghost"
+                    className="border-red-300 dark:border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
+                    onClick={() => setResetOpen(true)}
+                  >
+                    <Trash2 size={16} aria-hidden="true" /> Reset trip
+                  </Button>
+                </div>
+              )}
+
+              {canDelete && (
+                <div className="space-y-2">
+                  <p className="text-muted text-[13px]">Permanently delete this trip for everyone it’s shared with. This can’t be undone.</p>
+                  <Button
+                    variant="ghost"
+                    className="border-red-300 dark:border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
+                    onClick={() => setDeleteOpen(true)}
+                  >
+                    <Trash2 size={16} aria-hidden="true" /> Delete trip
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={resetOpen}
+        title="Reset this trip?"
+        body="This empties every day (stops, stay and completed marks) for all your devices. The day count and titles are kept. This can’t be undone."
+        confirmLabel="Reset trip"
+        onCancel={() => setResetOpen(false)}
+        onConfirm={() => {
+          save({ data: resetTripData(trip) })
+          setResetOpen(false)
+          setMsg({ tone: 'ok', text: 'Trip data reset.' })
+        }}
+      />
+
+      <ConfirmDialog
+        open={deleteOpen}
+        title="Delete this trip?"
+        body="This permanently deletes the trip and removes it for everyone it’s shared with. This can’t be undone."
+        confirmLabel="Delete trip"
+        busy={del.isPending}
+        onCancel={() => setDeleteOpen(false)}
+        onConfirm={async () => {
+          try {
+            await del.mutateAsync(trip.id)
+            setDeleteOpen(false)
+            navigate('/trips')
+          } catch {
+            setDeleteOpen(false)
+            setMsg({ tone: 'err', text: 'Couldn’t delete this trip. Please try again.' })
+          }
+        }}
+      />
     </section>
   )
 }
