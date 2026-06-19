@@ -1,23 +1,26 @@
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
-import { allBookings, setBooking, type BookingEntry, type Booking } from './booking'
+import { allReservations, setReservation, type ReservationEntry, type Reservation } from './reservation'
 import { dayLabel } from './helpers'
 import { Calendar, CheckCircle2, Circle } from './icons'
 import type { TripData } from '../types'
 
 /**
- * Bookings tab — a filtered checklist of every stop the user has marked across
- * the whole Voyage. Two groups: "To book" (actionable, top) and "Booked" (done,
- * below). One tap moves an item between them; tapping the item opens that stop.
- * All writes are immutable through `save` and edit-gated via `canEdit`.
+ * Trip tab — a filtered checklist of every stop the user has marked across the
+ * whole Voyage. Two groups: "Need to reserve" (actionable, top) and "Reserved"
+ * (done, below). One tap moves an item between them; tapping the item opens that
+ * stop. All writes are immutable through `save` and edit-gated via `canEdit`.
+ *
+ * NR4 rebuilds this into the full logistics dashboard; for now it keeps the
+ * reservations checklist working against the new helpers + language.
  */
 export default function Trip() {
   const { trip, canEdit, save, setActiveDay } = useOutletContext<PlannerOutletContext>()
   const navigate = useNavigate()
 
-  const entries = allBookings(trip)
-  const toBook = entries.filter(e => e.status === 'to_book')
-  const booked = entries.filter(e => e.status === 'booked')
+  const entries = allReservations(trip)
+  const toReserve = entries.filter(e => e.status === 'to_reserve')
+  const reserved = entries.filter(e => e.status === 'reserved')
 
   /** Clone data with the target day's stops array cloned (never mutate cache). */
   function cloneData(dayIndex: number): TripData {
@@ -28,16 +31,16 @@ export default function Trip() {
     }
   }
 
-  function patchBooking(e: BookingEntry, patch: Partial<Booking> | null) {
+  function patchReservation(e: ReservationEntry, patch: Partial<Reservation> | null) {
     if (!canEdit) return
     const data = cloneData(e.dayIndex)
     const current = data.days[e.dayIndex]?.stops[e.stopIndex]
     if (!current) return
-    data.days[e.dayIndex].stops[e.stopIndex] = setBooking(current, patch)
+    data.days[e.dayIndex].stops[e.stopIndex] = setReservation(current, patch)
     save({ data })
   }
 
-  function openStop(e: BookingEntry) {
+  function openStop(e: ReservationEntry) {
     setActiveDay(e.dayIndex)
     navigate(`/trip/${trip.id}/stop/${e.dayIndex}/${e.stopIndex}`)
   }
@@ -46,7 +49,7 @@ export default function Trip() {
 
   return (
     <div className="px-5 md:px-8 py-8 max-w-3xl mx-auto">
-      <h2 className="font-serif text-2xl">Bookings</h2>
+      <h2 className="font-serif text-2xl">Trip</h2>
       <p className="text-muted text-[13.5px] mt-1.5">
         Reservations across your Voyage, in one place.
       </p>
@@ -57,31 +60,31 @@ export default function Trip() {
             <Calendar size={22} aria-hidden="true" />
           </span>
           <p className="text-muted text-[14px] mt-4 max-w-md mx-auto leading-relaxed">
-            No bookings yet — mark a stop <span className="font-bold text-ink">To book</span> to track
-            reservations here.
+            Nothing reserved yet — mark a stop <span className="font-bold text-ink">Need to reserve</span> to
+            track reservations here.
           </p>
         </div>
       ) : (
         <div className="mt-7 space-y-8">
-          <BookingGroup
-            title="To book"
-            count={toBook.length}
-            entries={toBook}
+          <ReservationGroup
+            title="Need to reserve"
+            count={toReserve.length}
+            entries={toReserve}
             trip={trip}
             canEdit={canEdit}
-            onToggle={e => patchBooking(e, { status: 'booked' })}
+            onToggle={e => patchReservation(e, { status: 'reserved' })}
             onOpen={openStop}
-            emptyHint="Nothing left to book."
+            emptyHint="Nothing left to reserve."
           />
-          <BookingGroup
-            title="Booked"
-            count={booked.length}
-            entries={booked}
+          <ReservationGroup
+            title="Reserved"
+            count={reserved.length}
+            entries={reserved}
             trip={trip}
             canEdit={canEdit}
-            onToggle={e => patchBooking(e, { status: 'to_book' })}
+            onToggle={e => patchReservation(e, { status: 'to_reserve' })}
             onOpen={openStop}
-            emptyHint="Nothing booked yet."
+            emptyHint="Nothing reserved yet."
           />
         </div>
       )}
@@ -89,19 +92,19 @@ export default function Trip() {
   )
 }
 
-function BookingGroup({
+function ReservationGroup({
   title, count, entries, trip, canEdit, onToggle, onOpen, emptyHint,
 }: {
   title: string
   count: number
-  entries: BookingEntry[]
+  entries: ReservationEntry[]
   trip: PlannerOutletContext['trip']
   canEdit: boolean
-  onToggle: (e: BookingEntry) => void
-  onOpen: (e: BookingEntry) => void
+  onToggle: (e: ReservationEntry) => void
+  onOpen: (e: ReservationEntry) => void
   emptyHint: string
 }) {
-  const done = title === 'Booked'
+  const done = title === 'Reserved'
   return (
     <section aria-label={title}>
       <h3 className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-wide text-muted">
@@ -114,11 +117,12 @@ function BookingGroup({
       ) : (
         <ul className="mt-2.5 divide-y divide-hair rounded-card border border-hair overflow-hidden" role="list">
           {entries.map(e => {
-            const checked = e.status === 'booked'
-            const label = `${dayLabel(trip, e.dayIndex)}${e.stop.booking?.time ? ` · ${e.stop.booking.time}` : ''}`
+            const time = e.stop.reservation?.time ?? e.stop.booking?.time
+            const checked = e.status === 'reserved'
+            const label = `${dayLabel(trip, e.dayIndex)}${time ? ` · ${time}` : ''}`
             const toggleLabel = checked
-              ? `Move ${e.stop.name} back to To book`
-              : `Mark ${e.stop.name} booked`
+              ? `Move ${e.stop.name} back to Need to reserve`
+              : `Mark ${e.stop.name} reserved`
             return (
               <li key={`${e.dayIndex}-${e.stopIndex}`} className="flex items-stretch bg-base">
                 {/* Toggle — edit only writes; viewers see static state */}
@@ -170,7 +174,7 @@ function BookingGroup({
   )
 }
 
-/** Title styling: booked items read as "done" (muted, struck). */
+/** Title styling: reserved items read as "done" (muted, struck). */
 function cnTitle(done: boolean): string {
   return done
     ? 'block font-sans font-semibold text-[14.5px] truncate text-muted line-through'

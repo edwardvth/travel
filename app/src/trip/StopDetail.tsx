@@ -5,7 +5,7 @@ import { generateStopDetail } from './enrich'
 import { isCompleted } from './helpers'
 import { Calendar, CheckCircle2, Lightbulb, MapPin, kindIcon, kindLabel, stopKind } from './icons'
 import { remapCompletedAfterDelete, toggleCompleted } from './itinerary-helpers'
-import { bookingStatus, setBooking, type Booking } from './booking'
+import { reservationStatus, setReservation, type Reservation } from './reservation'
 import { applyLocation, type PlaceLocation } from './location'
 import { coverPhoto } from './photo'
 import { StopPhotos } from './StopPhotos'
@@ -60,7 +60,8 @@ export default function StopDetail() {
   const meta = [stop.type, stop.time, stop.address].filter(Boolean).join(' · ')
   const kind = stopKind(stop)
   const KindIcon = kindIcon(kind)
-  const booking = bookingStatus(stop)
+  const reservation = reservationStatus(stop)
+  const reservationTime = stop.reservation?.time ?? stop.booking?.time
   const cover = coverPhoto(stop)
 
   /** Clone trip.data with this day's stops array cloned, so we never mutate cache. */
@@ -80,13 +81,13 @@ export default function StopDetail() {
     save({ data })
   }
 
-  /** Immutably set/clear this stop's booking and persist. */
-  function patchBooking(patch: Partial<Booking> | null) {
+  /** Immutably set/clear this stop's reservation and persist. */
+  function patchReservation(patch: Partial<Reservation> | null) {
     if (!canEdit) return
     const data = cloneData()
     const current = data.days[day].stops[n]
     if (!current) return
-    data.days[day].stops[n] = setBooking(current, patch)
+    data.days[day].stops[n] = setReservation(current, patch)
     save({ data })
   }
 
@@ -104,7 +105,7 @@ export default function StopDetail() {
 
   /** Immutably re-locate this stop — replaces name/type/address/coords and
    *  clears the now-stale place-derived enrichment, preserving photos/note/
-   *  booking/kind/time (see `applyLocation`). The map pin + walk connectors
+   *  reservation/kind/time (see `applyLocation`). The map pin + walk connectors
    *  re-derive from the new coords automatically. */
   function handleChangeLocation(place: PlaceLocation) {
     if (!canEdit) return
@@ -194,16 +195,16 @@ export default function StopDetail() {
                   <KindIcon size={12} aria-hidden="true" />
                   {kindLabel(kind)}
                 </span>
-                {booking === 'to_book' && (
+                {reservation === 'to_reserve' && (
                   <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[11.5px] font-bold text-amber-700 dark:text-amber-300">
                     <Calendar size={12} aria-hidden="true" />
-                    To book
+                    Need to reserve
                   </span>
                 )}
-                {booking === 'booked' && (
+                {reservation === 'reserved' && (
                   <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-bold text-emerald-700 dark:text-emerald-300">
                     <CheckCircle2 size={12} aria-hidden="true" />
-                    {stop.booking?.time ? `Booked · ${stop.booking.time}` : 'Booked'}
+                    {reservationTime ? `Reserved · ${reservationTime}` : 'Reserved'}
                   </span>
                 )}
                 {meta && <p className="text-muted text-[13.5px] truncate">{meta}</p>}
@@ -402,61 +403,70 @@ export default function StopDetail() {
               </div>
             </div>
 
-            {/* Bookings — explicit reservation tracking for this stop */}
+            {/* Reservation — explicit reservation tracking for this stop */}
             <div className="mt-5 rounded-card border border-hair bg-fill px-4 py-3.5">
               <div className="flex items-center justify-between gap-3">
                 <span className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink">
                   <Calendar size={14} aria-hidden="true" className="text-muted" />
-                  Booking
+                  Reservation
                 </span>
-                {booking === null ? (
-                  <Button variant="soft" onClick={() => patchBooking({ status: 'to_book' })}>
-                    Add to bookings
+                {reservation === null ? (
+                  <Button variant="soft" onClick={() => patchReservation({ status: 'to_reserve' })}>
+                    Add to reservations
                   </Button>
-                ) : booking === 'to_book' ? (
-                  <Button variant="claret" onClick={() => patchBooking({ status: 'booked' })}>
+                ) : reservation === 'to_reserve' ? (
+                  <Button variant="claret" onClick={() => patchReservation({ status: 'reserved' })}>
                     <CheckCircle2 size={15} aria-hidden="true" />
-                    Mark booked
+                    Mark reserved
                   </Button>
                 ) : (
-                  <Button variant="soft" onClick={() => patchBooking({ status: 'to_book' })}>
-                    Booked — undo
+                  <Button variant="soft" onClick={() => patchReservation({ status: 'to_reserve' })}>
+                    Reserved — undo
                   </Button>
                 )}
               </div>
 
-              {booking !== null && (
+              {reservation !== null && (
                 <>
                   <p className="text-muted text-[12.5px] mt-2">
-                    {booking === 'to_book'
-                      ? 'Still to book. It’s on your Bookings checklist.'
-                      : 'Booked. Marked done on your Bookings checklist.'}
+                    {reservation === 'to_reserve'
+                      ? 'Still need to reserve. It’s on your reservations checklist.'
+                      : 'Reserved. Marked done on your reservations checklist.'}
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2 mt-3">
                     <label className="block">
-                      <span className="block text-[12px] font-bold text-muted mb-1.5">Booking time</span>
+                      <span className="block text-[12px] font-bold text-muted mb-1.5">Reservation time</span>
                       <Input
                         type="time"
-                        value={toInputTime(stop.booking?.time)}
-                        onChange={e => patchBooking({ time: fromInputTime(e.target.value) })}
+                        value={toInputTime(reservationTime)}
+                        onChange={e => patchReservation({ time: fromInputTime(e.target.value) })}
                       />
                     </label>
                     <label className="block">
-                      <span className="block text-[12px] font-bold text-muted mb-1.5">Booking note</span>
+                      <span className="block text-[12px] font-bold text-muted mb-1.5">Confirmation #</span>
                       <Input
                         type="text"
-                        placeholder="Confirmation #, party size…"
-                        value={stop.booking?.note ?? ''}
-                        onChange={e => patchBooking({ note: e.target.value })}
+                        placeholder="Reservation ref, e.g. ABC123"
+                        value={stop.reservation?.confirmation ?? ''}
+                        onChange={e => patchReservation({ confirmation: e.target.value })}
+                      />
+                    </label>
+                    <label className="block sm:col-span-2">
+                      <span className="block text-[12px] font-bold text-muted mb-1.5">Reservation note</span>
+                      <Input
+                        type="text"
+                        placeholder="Party size, special requests…"
+                        value={stop.reservation?.note ?? stop.booking?.note ?? ''}
+                        onChange={e => patchReservation({ note: e.target.value })}
                       />
                     </label>
                   </div>
                   <button
                     type="button"
-                    onClick={() => patchBooking(null)}
+                    onClick={() => patchReservation(null)}
                     className="mt-3 text-[12.5px] font-bold text-muted hover:text-sig focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link rounded-md px-1"
                   >
-                    Remove from bookings
+                    Remove from reservations
                   </button>
                 </>
               )}

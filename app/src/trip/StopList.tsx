@@ -24,7 +24,7 @@ import {
   remapCompletedAfterDelete,
   toggleCompleted,
 } from './itinerary-helpers'
-import { setBooking, type Booking } from './booking'
+import { setReservation, type Reservation } from './reservation'
 import type { Trip, TripData } from '../types'
 
 /**
@@ -83,12 +83,12 @@ export function StopList({ trip, day, canEdit, save, selectedIndex, onSelect }: 
     save({ data })
   }
 
-  function handleSetBooking(index: number, patch: Partial<Booking> | null) {
+  function handleSetReservation(index: number, patch: Partial<Reservation> | null) {
     if (!canEdit) return
     const data = cloneData()
     const current = data.days[day].stops[index]
     if (!current) return
-    data.days[day].stops[index] = setBooking(current, patch)
+    data.days[day].stops[index] = setReservation(current, patch)
     save({ data })
   }
 
@@ -145,7 +145,7 @@ export function StopList({ trip, day, canEdit, save, selectedIndex, onSelect }: 
                     onSelect={onSelect}
                     onToggleDone={handleToggleDone}
                     onDelete={setPendingDelete}
-                    onSetBooking={handleSetBooking}
+                    onSetReservation={handleSetReservation}
                   />
                 </li>,
               ]

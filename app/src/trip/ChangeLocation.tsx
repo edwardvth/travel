@@ -105,7 +105,7 @@ export function ChangeLocation({ open, onClose, stop, tripTitle, onConfirm }: Ch
       </div>
       <p className="text-muted text-[13px] mb-4">
         Search for the right place — or type its name — and we’ll update this stop.
-        Your photos, notes and bookings stay put.
+        Your photos, notes and reservations stay put.
       </p>
 
       <form

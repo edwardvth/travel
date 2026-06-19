@@ -20,6 +20,12 @@ export interface Stop {
   wikiTitle?: string
   note?: string
   /** Reservation tracking for this stop. Absent until the user marks it. */
+  reservation?: { status: 'to_reserve' | 'reserved'; time?: string; confirmation?: string; note?: string }
+  /**
+   * Legacy reservation field (pre-"Reserved" rename). Read-only back-compat —
+   * `reservationStatus`/`setReservation` map and migrate it. Never written by
+   * new code; kept in the type so old JSONB trips still parse.
+   */
   booking?: { status: 'to_book' | 'booked'; time?: string; note?: string }
   /**
    * User-added photos as small JPEG data URLs (resized ≤1200px, see `photo.ts`).

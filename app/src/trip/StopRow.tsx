@@ -4,7 +4,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '../lib/utils'
 import { Calendar, Check, CheckCircle2, ChevronRight, Circle, GripVertical, Trash2, kindIcon, kindLabel, stopKind } from './icons'
-import { bookingStatus, type Booking } from './booking'
+import { reservationStatus, type Reservation } from './reservation'
 import { coverPhoto } from './photo'
 import type { Stop } from '../types'
 
@@ -21,8 +21,8 @@ export interface StopRowProps {
   onSelect?: (index: number) => void
   onToggleDone: (index: number) => void
   onDelete: (index: number) => void
-  /** Set or clear this stop's booking (immutable, edit-gated upstream). */
-  onSetBooking?: (index: number, patch: Partial<Booking> | null) => void
+  /** Set or clear this stop's reservation (immutable, edit-gated upstream). */
+  onSetReservation?: (index: number, patch: Partial<Reservation> | null) => void
 }
 
 /**
@@ -31,7 +31,7 @@ export interface StopRowProps {
  * affordances (drag handle, done toggle, delete) are hidden when `!canEdit`.
  */
 export function StopRow({
-  tripId, day, index, stop, done, canEdit, selected = false, onSelect, onToggleDone, onDelete, onSetBooking,
+  tripId, day, index, stop, done, canEdit, selected = false, onSelect, onToggleDone, onDelete, onSetReservation,
 }: StopRowProps) {
   const navigate = useNavigate()
   const rowRef = useRef<HTMLDivElement | null>(null)
@@ -51,8 +51,8 @@ export function StopRow({
 
   const kind = stopKind(stop)
   const KindIcon = kindIcon(kind)
-  const booking = bookingStatus(stop)
-  const bookingTime = stop.booking?.time
+  const reservation = reservationStatus(stop)
+  const reservationTime = stop.reservation?.time ?? stop.booking?.time
   const thumb = coverPhoto(stop)
 
   return (
@@ -150,48 +150,48 @@ export function StopRow({
         </span>
       </button>
 
-      {/* Booking affordance — explicit, edit-gated. Read-only viewers see the
+      {/* Reservation affordance — explicit, edit-gated. Read-only viewers see the
           state but get no interactive control. */}
-      {booking === 'to_book' ? (
+      {reservation === 'to_reserve' ? (
         canEdit ? (
           <button
             type="button"
-            aria-label={`Mark ${stop.name} booked`}
-            onClick={() => onSetBooking?.(index, { status: 'booked' })}
+            aria-label={`Mark ${stop.name} reserved`}
+            onClick={() => onSetReservation?.(index, { status: 'reserved' })}
             className="flex-none inline-flex items-center gap-1 rounded-full min-h-[28px] pl-2 pr-2.5 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-400/15 hover:bg-amber-400/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
           >
             <Calendar size={12} aria-hidden="true" />
-            To book
+            Need to reserve
           </button>
         ) : (
           <span className="flex-none inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-400/15">
             <Calendar size={12} aria-hidden="true" />
-            To book
+            Need to reserve
           </span>
         )
-      ) : booking === 'booked' ? (
+      ) : reservation === 'reserved' ? (
         canEdit ? (
           <button
             type="button"
-            aria-label={`Booked${bookingTime ? ` at ${bookingTime}` : ''} — mark ${stop.name} to book again`}
-            onClick={() => onSetBooking?.(index, { status: 'to_book' })}
+            aria-label={`Reserved${reservationTime ? ` at ${reservationTime}` : ''} — mark ${stop.name} as need to reserve again`}
+            onClick={() => onSetReservation?.(index, { status: 'to_reserve' })}
             className="flex-none inline-flex items-center gap-1 rounded-full min-h-[28px] pl-1.5 pr-2 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
           >
             <CheckCircle2 size={13} aria-hidden="true" />
-            {bookingTime ? `Booked · ${bookingTime}` : 'Booked'}
+            {reservationTime ? `Reserved · ${reservationTime}` : 'Reserved'}
           </button>
         ) : (
           <span className="flex-none inline-flex items-center gap-1 rounded-full px-1.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
             <CheckCircle2 size={13} aria-hidden="true" />
-            {bookingTime ? `Booked · ${bookingTime}` : 'Booked'}
+            {reservationTime ? `Reserved · ${reservationTime}` : 'Reserved'}
           </span>
         )
       ) : canEdit ? (
         <button
           type="button"
-          aria-label={`Add ${stop.name} to bookings`}
-          title="Add to bookings"
-          onClick={() => onSetBooking?.(index, { status: 'to_book' })}
+          aria-label={`Add ${stop.name} to reservations`}
+          title="Add to reservations"
+          onClick={() => onSetReservation?.(index, { status: 'to_reserve' })}
           className="flex-none grid place-items-center w-8 h-8 rounded-md text-muted/50 hover:text-ink hover:bg-fill opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-[opacity,color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
         >
           <Circle size={15} aria-hidden="true" />

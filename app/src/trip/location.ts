@@ -63,8 +63,9 @@ export function placeFromSuggestion(
  * Cleared (place-derived enrichment that now describes the *old* place):
  * `wikiTitle`, `facts`, `history`, `tips`, `image`.
  *
- * Preserved (user-owned, not tied to the location): `photos`, `note`, `booking`,
- * `kind`, `time`, `duration`, `icon`, and any other field. Never mutates the
+ * Preserved (user-owned, not tied to the location): `photos`, `note`,
+ * `reservation` (and legacy `booking`), `kind`, `time`, `duration`, `icon`, and
+ * any other field. Never mutates the
  * input. Pure + unit-tested.
  */
 export function applyLocation(stop: Stop, place: PlaceLocation): Stop {
