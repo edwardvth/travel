@@ -65,7 +65,14 @@ export interface HeroVideoConfig {
 - `enableVideoOnMobile: false`, `saveDataPosterOnly: true`
 - `clips`: the 10 curated entries (santorini-dawn, alps-lake-morning, kyoto-bamboo, tropical-aerial, tuscany-day, skyline-golden, cappadocia-balloons, amalfi-sunset, tokyo-neon, city-aerial-night), each tagged with `timeOfDay[]` **and `season[]`** (winter favors Alps/Iceland/Japan-snow; summer favors Mediterranean/Rio/Santorini). Each: Unsplash poster + placeholder CC0 MP4/WebM (Coverr/Pexels) + dominantColor + credit. **Footage is placeholder-grade; swap licensed cuts later by editing this file + dropping files in `app/public/video/`.**
 
-**Curation rule — atmosphere, not the attraction:** background clips create *mood*, not focal points. Avoid recognizable landmarks that dominate the frame (no big Eiffel Tower / Statue of Liberty / Big Ben close-ups). Prefer skylines, streets, and landscapes — Tokyo skyline, Kyoto street, Swiss lake.
+**Curation Philosophy — a traveler experiencing the destination (not a resort guest).** Voyager is for people who explore cities and places. Hero footage must evoke *"I want to go there and experience that"* — never *"I want to relax at a luxury hotel."*
+
+- **Prioritize:** globally recognizable destinations with strong cultural identity; street life & authentic atmosphere; human-scale exploration; beautiful public spaces, historic districts, markets, cafés, promenades, famous viewpoints, walkable neighborhoods, iconic beaches/waterfronts people actually visit and explore.
+- **Avoid:** resort pools, cruise ships, generic luxury hotels, anonymous tropical beaches, identity-less business districts, generic urban-sunrise drone shots, corporate travel imagery, generic stock travel footage.
+- **Camera style:** mix wide establishing shots with immersive *street-level* footage — walking famous streets, café scenes, pedestrian plazas, scenic overlooks, historic architecture, waterfront promenades, local neighborhoods, street markets, gathering spaces. Don't rely on skylines alone.
+- **Atmosphere over postcards:** a beautiful street, or a bustling café overlooking a landmark, beats a helicopter shot of a skyline. The destination should feel *lived-in*, not staged. (e.g. a Paris café with the Eiffel in the distance; walking Santorini's whitewashed alleys; the Yerevan Cascade; evening along Dubai Marina; Copacabana promenade; Seoul night markets; Kyoto's historic districts; Spiaggia Grande / Positano; Milan's cathedral square; Singapore's waterfront.)
+- **Destination pool:** Yerevan · Santorini · Dubai (Marina, evening) · Rio (Copacabana) · Paris · Seoul · Kyoto · Tokyo · Singapore · Milan · Positano/Spiaggia Grande · Swiss Alps villages & lakes · Cape Town · Banff · Patagonia.
+- **Exclusion (personal preference):** **exclude Turkey and Azerbaijan** from the hero library — no Istanbul, no Cappadocia, no Baku. Applies to footage, the Typewriter destination list, and the Explorer map.
 
 ### 2.3 Behavior (`HeroModeCinematic`)
 - Resolve current `TimeOfDay` **and `Season`** from local time + month (northern-hemisphere default, configurable later) → pick clips matching both (weighted), shuffle. **Avoid repeating recently shown clips via a short session history buffer (last N shown)** so perceived variety stays high across a session.
@@ -221,7 +228,35 @@ The refinement succeeds when:
 
 ---
 
-## 14. Open items
+## 14. Brand Splash — Journey Reveal (onboarding)
+
+Replace the "loading screen" idea with a short **brand reveal that transitions into the
+journey**. Not a spinner/progress bar — a cinematic identity moment. Non-blocking: the app
+renders and loads underneath while the splash plays over it, then fades away.
+
+- **Initial state:** fullscreen near-black canvas (`--base`), centered **VOYAGER** wordmark —
+  uppercase, generously letter-spaced, elegant/minimal. No other UI.
+- **Traveler motif:** the logo's little traveler starts at the **V** and walks smoothly across
+  the letters to the **R** (~1–1.5s). Subtle, not cartoonish. As it passes, letters gently
+  illuminate; a faint light/path trails behind it.
+- **Transition into app:** at the **R**, the wordmark begins to fade and a thin **route line**
+  extends forward from the traveler (a journey continuing) — the splash fades into the homepage
+  hero beneath it; UI fades in naturally. The traveler may drift slightly into the page before
+  fading.
+- **First visit vs return:** first load of a session → full animation; subsequent loads →
+  shortened fade-through (300–500ms). Gate via `sessionStorage` (`voyager-splash-seen`). Never
+  make repeat visits feel heavy.
+- **Reduced motion:** skip the walk — quick static wordmark → fade-in (no movement).
+- **Non-blocking & perf:** overlay only (the routed app mounts in parallel beneath it); time-
+  boxed so it never sticks on a frozen frame; `pointer-events:none` during fade; removed from
+  the DOM when done (no focus trap; decorative / `aria-hidden`). Click/Escape skips. Must
+  enhance perceived speed, never reduce it.
+- **Component:** `app/src/components/SplashIntro.tsx`, mounted once at the app root above the
+  router. Uses the `Mark` from `Logo.tsx`, brand tokens, Framer Motion.
+
+---
+
+## 15. Open items
 - **Final footage** — placeholder CC0 clips ship now; curate/license real cuts and drop into `app/public/video/` + update `clips.ts` (no code change).
 - **Featured Voyages backend** — real shared-itinerary data is a later phase; this pass ships the shell.
 - **Section imagery** — Unsplash now; licensed later.
