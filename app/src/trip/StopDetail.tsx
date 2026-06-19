@@ -3,8 +3,9 @@ import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom
 import type { PlannerOutletContext } from './PlannerLayout'
 import { generateStopDetail } from './enrich'
 import { isCompleted } from './helpers'
-import { Lightbulb, kindIcon, kindLabel, stopKind } from './icons'
+import { Calendar, CheckCircle2, Lightbulb, kindIcon, kindLabel, stopKind } from './icons'
 import { remapCompletedAfterDelete, toggleCompleted } from './itinerary-helpers'
+import { bookingStatus, setBooking, type Booking } from './booking'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Skeleton } from '../components/ui/Skeleton'
@@ -54,6 +55,7 @@ export default function StopDetail() {
   const meta = [stop.type, stop.time, stop.address].filter(Boolean).join(' · ')
   const kind = stopKind(stop)
   const KindIcon = kindIcon(kind)
+  const booking = bookingStatus(stop)
 
   /** Clone trip.data with this day's stops array cloned, so we never mutate cache. */
   function cloneData(): TripData {
@@ -69,6 +71,16 @@ export default function StopDetail() {
     if (!canEdit) return
     const data = cloneData()
     data.days[day].stops[n] = { ...data.days[day].stops[n], ...patch }
+    save({ data })
+  }
+
+  /** Immutably set/clear this stop's booking and persist. */
+  function patchBooking(patch: Partial<Booking> | null) {
+    if (!canEdit) return
+    const data = cloneData()
+    const current = data.days[day].stops[n]
+    if (!current) return
+    data.days[day].stops[n] = setBooking(current, patch)
     save({ data })
   }
 
@@ -144,6 +156,18 @@ export default function StopDetail() {
                   <KindIcon size={12} aria-hidden="true" />
                   {kindLabel(kind)}
                 </span>
+                {booking === 'to_book' && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[11.5px] font-bold text-amber-700 dark:text-amber-300">
+                    <Calendar size={12} aria-hidden="true" />
+                    To book
+                  </span>
+                )}
+                {booking === 'booked' && (
+                  <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-bold text-emerald-700 dark:text-emerald-300">
+                    <CheckCircle2 size={12} aria-hidden="true" />
+                    {stop.booking?.time ? `Booked · ${stop.booking.time}` : 'Booked'}
+                  </span>
+                )}
                 {meta && <p className="text-muted text-[13.5px] truncate">{meta}</p>}
               </div>
             </div>
@@ -318,6 +342,66 @@ export default function StopDetail() {
                   </button>
                 )}
               </div>
+            </div>
+
+            {/* Bookings — explicit reservation tracking for this stop */}
+            <div className="mt-5 rounded-card border border-hair bg-fill px-4 py-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <span className="inline-flex items-center gap-1.5 text-[13px] font-bold text-ink">
+                  <Calendar size={14} aria-hidden="true" className="text-muted" />
+                  Booking
+                </span>
+                {booking === null ? (
+                  <Button variant="soft" onClick={() => patchBooking({ status: 'to_book' })}>
+                    Add to bookings
+                  </Button>
+                ) : booking === 'to_book' ? (
+                  <Button variant="claret" onClick={() => patchBooking({ status: 'booked' })}>
+                    <CheckCircle2 size={15} aria-hidden="true" />
+                    Mark booked
+                  </Button>
+                ) : (
+                  <Button variant="soft" onClick={() => patchBooking({ status: 'to_book' })}>
+                    Booked — undo
+                  </Button>
+                )}
+              </div>
+
+              {booking !== null && (
+                <>
+                  <p className="text-muted text-[12.5px] mt-2">
+                    {booking === 'to_book'
+                      ? 'Still to book. It’s on your Bookings checklist.'
+                      : 'Booked. Marked done on your Bookings checklist.'}
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2 mt-3">
+                    <label className="block">
+                      <span className="block text-[12px] font-bold text-muted mb-1.5">Booking time</span>
+                      <Input
+                        type="time"
+                        value={toInputTime(stop.booking?.time)}
+                        onChange={e => patchBooking({ time: fromInputTime(e.target.value) })}
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="block text-[12px] font-bold text-muted mb-1.5">Booking note</span>
+                      <Input
+                        type="text"
+                        placeholder="Confirmation #, party size…"
+                        value={stop.booking?.note ?? ''}
+                        onChange={e => patchBooking({ note: e.target.value })}
+                      />
+                    </label>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => patchBooking(null)}
+                    className="mt-3 text-[12.5px] font-bold text-muted hover:text-sig focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link rounded-md px-1"
+                  >
+                    Remove from bookings
+                  </button>
+                </>
+              )}
             </div>
 
             <div className="flex flex-wrap gap-2.5 mt-4">

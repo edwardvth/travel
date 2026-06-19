@@ -3,7 +3,8 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '../lib/utils'
-import { Check, ChevronRight, GripVertical, Trash2, kindIcon, kindLabel, stopKind } from './icons'
+import { Calendar, Check, CheckCircle2, ChevronRight, Circle, GripVertical, Trash2, kindIcon, kindLabel, stopKind } from './icons'
+import { bookingStatus, type Booking } from './booking'
 import type { Stop } from '../types'
 
 export interface StopRowProps {
@@ -19,6 +20,8 @@ export interface StopRowProps {
   onSelect?: (index: number) => void
   onToggleDone: (index: number) => void
   onDelete: (index: number) => void
+  /** Set or clear this stop's booking (immutable, edit-gated upstream). */
+  onSetBooking?: (index: number, patch: Partial<Booking> | null) => void
 }
 
 /**
@@ -27,7 +30,7 @@ export interface StopRowProps {
  * affordances (drag handle, done toggle, delete) are hidden when `!canEdit`.
  */
 export function StopRow({
-  tripId, day, index, stop, done, canEdit, selected = false, onSelect, onToggleDone, onDelete,
+  tripId, day, index, stop, done, canEdit, selected = false, onSelect, onToggleDone, onDelete, onSetBooking,
 }: StopRowProps) {
   const navigate = useNavigate()
   const rowRef = useRef<HTMLDivElement | null>(null)
@@ -47,6 +50,8 @@ export function StopRow({
 
   const kind = stopKind(stop)
   const KindIcon = kindIcon(kind)
+  const booking = bookingStatus(stop)
+  const bookingTime = stop.booking?.time
 
   return (
     <div
@@ -142,6 +147,54 @@ export function StopRow({
           </span>
         </span>
       </button>
+
+      {/* Booking affordance — explicit, edit-gated. Read-only viewers see the
+          state but get no interactive control. */}
+      {booking === 'to_book' ? (
+        canEdit ? (
+          <button
+            type="button"
+            aria-label={`Mark ${stop.name} booked`}
+            onClick={() => onSetBooking?.(index, { status: 'booked' })}
+            className="flex-none inline-flex items-center gap-1 rounded-full min-h-[28px] pl-2 pr-2.5 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-400/15 hover:bg-amber-400/25 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+          >
+            <Calendar size={12} aria-hidden="true" />
+            To book
+          </button>
+        ) : (
+          <span className="flex-none inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-bold text-amber-700 dark:text-amber-300 bg-amber-400/15">
+            <Calendar size={12} aria-hidden="true" />
+            To book
+          </span>
+        )
+      ) : booking === 'booked' ? (
+        canEdit ? (
+          <button
+            type="button"
+            aria-label={`Booked${bookingTime ? ` at ${bookingTime}` : ''} — mark ${stop.name} to book again`}
+            onClick={() => onSetBooking?.(index, { status: 'to_book' })}
+            className="flex-none inline-flex items-center gap-1 rounded-full min-h-[28px] pl-1.5 pr-2 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+          >
+            <CheckCircle2 size={13} aria-hidden="true" />
+            {bookingTime ? `Booked · ${bookingTime}` : 'Booked'}
+          </button>
+        ) : (
+          <span className="flex-none inline-flex items-center gap-1 rounded-full px-1.5 py-1 text-[11px] font-bold text-emerald-700 dark:text-emerald-300">
+            <CheckCircle2 size={13} aria-hidden="true" />
+            {bookingTime ? `Booked · ${bookingTime}` : 'Booked'}
+          </span>
+        )
+      ) : canEdit ? (
+        <button
+          type="button"
+          aria-label={`Add ${stop.name} to bookings`}
+          title="Add to bookings"
+          onClick={() => onSetBooking?.(index, { status: 'to_book' })}
+          className="flex-none grid place-items-center w-8 h-8 rounded-md text-muted/50 hover:text-ink hover:bg-fill opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-[opacity,color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+        >
+          <Circle size={15} aria-hidden="true" />
+        </button>
+      ) : null}
 
       {/* Details affordance → stop detail page */}
       <button

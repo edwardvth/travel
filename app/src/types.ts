@@ -19,6 +19,8 @@ export interface Stop {
   coords?: { lat: number; lng: number }
   wikiTitle?: string
   note?: string
+  /** Reservation tracking for this stop. Absent until the user marks it. */
+  booking?: { status: 'to_book' | 'booked'; time?: string; note?: string }
 }
 export interface Day { title: string; note?: string; stops: Stop[] }
 /** The Voyage base lodging ("Stay"). Stored loosely (legacy may be a bare string). */

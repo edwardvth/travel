@@ -1,16 +1,48 @@
-import { useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
-import { Bookmark } from 'lucide-react'
+import { allBookings, setBooking, type BookingEntry, type Booking } from './booking'
+import { dayLabel } from './helpers'
+import { Calendar, CheckCircle2, Circle } from './icons'
+import type { TripData } from '../types'
 
 /**
- * Bookings section — stub. CP6 fills this with the per-stop To book → Booked
- * checklist (filtered across the whole Voyage). For now it explains the idea so
- * the route + nav entry are real and navigable.
+ * Bookings tab — a filtered checklist of every stop the user has marked across
+ * the whole Voyage. Two groups: "To book" (actionable, top) and "Booked" (done,
+ * below). One tap moves an item between them; tapping the item opens that stop.
+ * All writes are immutable through `save` and edit-gated via `canEdit`.
  */
 export default function Bookings() {
-  // Read the lifted planner context (kept so this stays a real planner sub-view,
-  // and so CP6 can build straight on top of it).
-  useOutletContext<PlannerOutletContext>()
+  const { trip, canEdit, save, setActiveDay } = useOutletContext<PlannerOutletContext>()
+  const navigate = useNavigate()
+
+  const entries = allBookings(trip)
+  const toBook = entries.filter(e => e.status === 'to_book')
+  const booked = entries.filter(e => e.status === 'booked')
+
+  /** Clone data with the target day's stops array cloned (never mutate cache). */
+  function cloneData(dayIndex: number): TripData {
+    const data = trip.data
+    return {
+      ...data,
+      days: data.days.map((d, i) => (i === dayIndex ? { ...d, stops: d.stops.slice() } : d)),
+    }
+  }
+
+  function patchBooking(e: BookingEntry, patch: Partial<Booking> | null) {
+    if (!canEdit) return
+    const data = cloneData(e.dayIndex)
+    const current = data.days[e.dayIndex]?.stops[e.stopIndex]
+    if (!current) return
+    data.days[e.dayIndex].stops[e.stopIndex] = setBooking(current, patch)
+    save({ data })
+  }
+
+  function openStop(e: BookingEntry) {
+    setActiveDay(e.dayIndex)
+    navigate(`/trip/${trip.id}/stop/${e.dayIndex}/${e.stopIndex}`)
+  }
+
+  const isEmpty = entries.length === 0
 
   return (
     <div className="px-5 md:px-8 py-8 max-w-3xl mx-auto">
@@ -19,18 +51,128 @@ export default function Bookings() {
         Reservations across your Voyage, in one place.
       </p>
 
-      <div className="mt-7 rounded-card border border-hair bg-fill px-5 py-8 text-center">
-        <span className="inline-grid place-items-center w-12 h-12 rounded-full bg-base text-muted">
-          <Bookmark size={22} aria-hidden="true" />
-        </span>
-        <h3 className="font-serif text-xl mt-4">Coming next</h3>
-        <p className="text-muted text-[13.5px] mt-2 max-w-md mx-auto leading-relaxed">
-          Mark any stop <span className="font-bold text-ink">To book</span>, then tap
-          {' '}<span className="font-bold text-ink">Mark booked</span> once it’s set. This tab will
-          gather them into a simple checklist — what’s still to book, and what’s already booked —
-          for every day of your Voyage.
-        </p>
-      </div>
+      {isEmpty ? (
+        <div className="mt-7 rounded-card border border-hair bg-fill px-5 py-10 text-center">
+          <span className="inline-grid place-items-center w-12 h-12 rounded-full bg-base text-muted">
+            <Calendar size={22} aria-hidden="true" />
+          </span>
+          <p className="text-muted text-[14px] mt-4 max-w-md mx-auto leading-relaxed">
+            No bookings yet — mark a stop <span className="font-bold text-ink">To book</span> to track
+            reservations here.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-7 space-y-8">
+          <BookingGroup
+            title="To book"
+            count={toBook.length}
+            entries={toBook}
+            trip={trip}
+            canEdit={canEdit}
+            onToggle={e => patchBooking(e, { status: 'booked' })}
+            onOpen={openStop}
+            emptyHint="Nothing left to book."
+          />
+          <BookingGroup
+            title="Booked"
+            count={booked.length}
+            entries={booked}
+            trip={trip}
+            canEdit={canEdit}
+            onToggle={e => patchBooking(e, { status: 'to_book' })}
+            onOpen={openStop}
+            emptyHint="Nothing booked yet."
+          />
+        </div>
+      )}
     </div>
   )
+}
+
+function BookingGroup({
+  title, count, entries, trip, canEdit, onToggle, onOpen, emptyHint,
+}: {
+  title: string
+  count: number
+  entries: BookingEntry[]
+  trip: PlannerOutletContext['trip']
+  canEdit: boolean
+  onToggle: (e: BookingEntry) => void
+  onOpen: (e: BookingEntry) => void
+  emptyHint: string
+}) {
+  const done = title === 'Booked'
+  return (
+    <section aria-label={title}>
+      <h3 className="flex items-center gap-2 text-[12.5px] font-bold uppercase tracking-wide text-muted">
+        {title}
+        <span className="text-muted/70 normal-case tracking-normal">· {count}</span>
+      </h3>
+
+      {entries.length === 0 ? (
+        <p className="text-muted/70 text-[13px] mt-2">{emptyHint}</p>
+      ) : (
+        <ul className="mt-2.5 divide-y divide-hair rounded-card border border-hair overflow-hidden" role="list">
+          {entries.map(e => {
+            const checked = e.status === 'booked'
+            const label = `${dayLabel(trip, e.dayIndex)}${e.stop.booking?.time ? ` · ${e.stop.booking.time}` : ''}`
+            const toggleLabel = checked
+              ? `Move ${e.stop.name} back to To book`
+              : `Mark ${e.stop.name} booked`
+            return (
+              <li key={`${e.dayIndex}-${e.stopIndex}`} className="flex items-stretch bg-base">
+                {/* Toggle — edit only writes; viewers see static state */}
+                {canEdit ? (
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={checked}
+                    aria-label={toggleLabel}
+                    onClick={() => onToggle(e)}
+                    className="flex-none grid place-items-center w-12 min-h-[44px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sig-link"
+                  >
+                    {checked ? (
+                      <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                    ) : (
+                      <Circle size={20} className="text-muted/60" aria-hidden="true" />
+                    )}
+                  </button>
+                ) : (
+                  <span
+                    aria-hidden="true"
+                    className="flex-none grid place-items-center w-12 min-h-[44px]"
+                  >
+                    {checked ? (
+                      <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <Circle size={20} className="text-muted/60" />
+                    )}
+                  </span>
+                )}
+
+                {/* Item body → open the stop */}
+                <button
+                  type="button"
+                  onClick={() => onOpen(e)}
+                  className="flex-1 min-w-0 flex items-center gap-3 text-left pr-3 py-2.5 min-h-[44px] hover:bg-fill transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sig-link"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className={cnTitle(done)}>{e.stop.name}</span>
+                    <span className="block text-[12px] text-muted truncate">{label}</span>
+                  </span>
+                </button>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+/** Title styling: booked items read as "done" (muted, struck). */
+function cnTitle(done: boolean): string {
+  return done
+    ? 'block font-sans font-semibold text-[14.5px] truncate text-muted line-through'
+    : 'block font-sans font-semibold text-[14.5px] truncate text-ink'
 }
