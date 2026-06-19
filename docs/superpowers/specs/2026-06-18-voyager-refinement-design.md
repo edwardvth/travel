@@ -238,10 +238,12 @@ loading screen, not a production. Enhances perceived speed; **≤1s total.**
   elegant; small — wordmark ~16–22px). Nothing else. Minimal, premium.
 - **Motion:** a quick, subtle fade/scale-in of the small mark (~200ms). No walk-across, no
   route line — keep it understated. Reduced-motion → instant (no movement).
-- **Auto-dismiss on ready (the point):** the overlay disappears the moment content is ready —
-  dismiss at the **earliest of** (a) the page `load` / `document.readyState==='complete'` after
-  a brief minimum (~350ms so it registers), or (b) a hard cap (~800ms). Then a fast fade-out
-  (~200ms). Never exceeds ~1s; never sticks on a frozen frame.
+- **Auto-dismiss when the hero is live (the point):** the overlay disappears the moment the
+  homepage hero is actually showing — i.e. when the **first background video starts playing**
+  (HeroModeCinematic emits a "hero ready" signal on the video's `playing` event; in
+  poster-only / reduced-motion / mobile modes it signals once the poster paints). Gate behind a
+  brief **~350ms minimum** so it registers, and a **~2.5s safety cap** so it can NEVER stick if
+  a clip is slow or fails. Then a fast fade-out (~200ms). Auto — no click required.
 - **Non-blocking & perf:** overlay only — the routed app mounts and loads in parallel beneath
   it. `pointer-events:none` during fade; removed from the DOM when done (decorative /
   `aria-hidden`, no focus trap). Click/Escape skips immediately. Timers cleaned; StrictMode-safe.
