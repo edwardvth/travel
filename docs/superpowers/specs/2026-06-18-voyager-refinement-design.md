@@ -19,6 +19,8 @@ This complements the vision spec (`2026-06-18-voyager-redesign-design.md`) and t
 | Posters / section imagery | Curated **Unsplash** for now; swap for licensed assets later |
 | Motion | Subtle, intentional, GPU-accelerated; `prefers-reduced-motion` fully honored; never a dead moment, never busy |
 
+> **Scope is locked to this document — refine, don't add.** We've found a good balance; resist feature creep. No new features beyond what's specified here. The right question at every step is "is this more polished?", never "what else can we add?".
+
 ---
 
 ## 2. Hero Video System (the centerpiece)
@@ -66,7 +68,7 @@ export interface HeroVideoConfig {
 **Curation rule — atmosphere, not the attraction:** background clips create *mood*, not focal points. Avoid recognizable landmarks that dominate the frame (no big Eiffel Tower / Statue of Liberty / Big Ben close-ups). Prefer skylines, streets, and landscapes — Tokyo skyline, Kyoto street, Swiss lake.
 
 ### 2.3 Behavior (`HeroModeCinematic`)
-- Resolve current `TimeOfDay` **and `Season`** from local time + month (northern-hemisphere default, configurable later) → pick clips matching both (weighted), shuffle.
+- Resolve current `TimeOfDay` **and `Season`** from local time + month (northern-hemisphere default, configurable later) → pick clips matching both (weighted), shuffle. **Avoid repeating recently shown clips via a short session history buffer (last N shown)** so perceived variety stays high across a session.
 - Render a **poster `<img>` base layer** (instant). Above it, two `<video>` layers (A/B) for **crossfade**: play current, preload+decode next, crossfade on `minClipDisplayMs`, advance. `muted loop playsInline preload="metadata"`, no audio track.
 - **Legibility:** reuse Landing's layered scrims, tuned by `dominantColor`, so headline/typewriter stay ≥4.5:1.
 - **Perf/a11y guards (hard requirements):**
@@ -88,7 +90,8 @@ export interface HeroVideoConfig {
 ---
 
 ## 4. Typewriter (`app/src/hero/Typewriter.tsx`)
-- Sequence: type **"Where do you want to go?"** → hold → delete → cycle destinations (Yerevan, Seoul, Rio de Janeiro, Kyoto, Tokyo, Istanbul, Dubai, Milan, Singapore, Santorini, Cappadocia, Cape Town, Banff, Patagonia, Swiss Alps) → finale **"Anywhere."** → loop.
+- Sequence: type **"Where do you want to go?"** → hold → delete → cycle destinations → finale **"Anywhere."** → loop.
+- **Destinations are data-driven** from `app/src/data/heroDestinations.ts` (not hardcoded): Yerevan, Seoul, Rio de Janeiro, Kyoto, Tokyo, Istanbul, Dubai, Milan, Singapore, Santorini, Cappadocia, Cape Town, Banff, Patagonia, Swiss Alps. Editable without touching the component.
 - Tuned speeds (type ~55ms/char, delete ~35ms/char, hold ~1.6s, post-delete ~400ms), blinking caret, jitter-free width.
 - `prefers-reduced-motion` → no typing; show a static rotating word changed on a slow, calm interval (or just "Where do you want to go?").
 - Exposes `currentTerm` (for Explorer map highlight). Placeholder of the search pill, not a real input value.
@@ -113,7 +116,7 @@ Order: **Hero → Travel Moods → Popular Destinations → Featured Voyages.** 
 - **`TravelMoods`** — cards: Wine Country, Mountain Escape, Big City Energy, Tropical Paradise, Luxury Retreat, Food Adventure, Adventure Travel, Cultural Journey. Editorial image cards, subtle hover lift/zoom. Built to support future filtering (each mood has a stable `key`).
 - **`PopularDestinations`** — horizontal scroll-snap rail of large image cards (Yerevan, Seoul, Kyoto, Istanbul, Rio, Singapore, Tokyo, Milan). Lift + subtle zoom on hover; keyboard/scroll accessible; momentum scroll; edge fade.
   Future-proofed data model (`app/src/data/destinations.ts`): `{ slug, name, region, image, featured: boolean, seasonalWeight: number }` — so the rail can rotate by feature flag + season later (no UI change).
-- **`FeaturedVoyages`** — **coming-soon shell** designed for the future public-itinerary feature: card anatomy (title, creator, short description, save count, "save/duplicate" affordance) shown as an elegant placeholder/"coming soon" state. No fake counts.
+- **`FeaturedVoyages`** — **coming-soon shell** designed for the future public-itinerary feature: card anatomy (title, creator, short description, a **reserved placeholder for a future save count** — never a fabricated value, "save/duplicate" affordance) shown as an elegant placeholder/"coming soon" state.
 
 ---
 
@@ -154,7 +157,7 @@ app/src/trips/
 app/src/components/motion/
   Reveal.tsx  HoverLift.tsx  motion.css
 data:
-  app/src/data/moods.ts  app/src/data/destinations.ts  (curated static content)
+  app/src/data/moods.ts  app/src/data/destinations.ts  app/src/data/heroDestinations.ts  (curated static content)
 ```
 `Landing.tsx` and `Dashboard.tsx` are refactored to compose these (kept thin).
 
