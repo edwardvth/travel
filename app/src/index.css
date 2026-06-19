@@ -37,3 +37,9 @@
     *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
   }
 }
+
+@layer utilities {
+  /* Hide the scrollbar while keeping the element scrollable (e.g. day rail). */
+  .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+}
