@@ -1,0 +1,99 @@
+import { describe, it, expect } from 'vitest'
+import { parseSuggestions, buildSuggestPrompt, buildSuggestDayPrompt } from './suggest'
+
+describe('parseSuggestions', () => {
+  it('parses a clean JSON array into Stops', () => {
+    const text =
+      '[{"name":"The Louvre","type":"Museum","address":"Rue de Rivoli, Paris","lat":48.8606,"lng":2.3376,"note":"World-famous art."}]'
+    expect(parseSuggestions(text)).toEqual([
+      {
+        name: 'The Louvre',
+        type: 'Museum',
+        address: 'Rue de Rivoli, Paris',
+        note: 'World-famous art.',
+        lat: 48.8606,
+        lng: 2.3376,
+        coords: { lat: 48.8606, lng: 2.3376 },
+      },
+    ])
+  })
+
+  it('strips code fences and preamble', () => {
+    const text =
+      'Sure, here are some ideas:\n```json\n[{"name":"Park Güell","type":"Park"}]\n```'
+    expect(parseSuggestions(text)).toEqual([{ name: 'Park Güell', type: 'Park' }])
+  })
+
+  it('omits lat/lng/coords when coordinates are missing', () => {
+    const out = parseSuggestions('[{"name":"Hidden Cafe","type":"Cafe"}]')
+    expect(out).toEqual([{ name: 'Hidden Cafe', type: 'Cafe' }])
+    expect(out[0].lat).toBeUndefined()
+    expect(out[0].coords).toBeUndefined()
+  })
+
+  it('omits lat/lng when only one coordinate is present', () => {
+    const out = parseSuggestions('[{"name":"A","lat":51.5}]')
+    expect(out[0].lat).toBeUndefined()
+    expect(out[0].lng).toBeUndefined()
+    expect(out[0].coords).toBeUndefined()
+  })
+
+  it('omits placeholder 0.0 coordinates', () => {
+    const out = parseSuggestions('[{"name":"A","lat":0.0,"lng":0.0}]')
+    expect(out[0].lat).toBeUndefined()
+    expect(out[0].coords).toBeUndefined()
+  })
+
+  it('coerces string coordinates and skips non-finite ones', () => {
+    const out = parseSuggestions('[{"name":"A","lat":"48.85","lng":"2.29"},{"name":"B","lat":"x","lng":"2"}]')
+    expect(out[0].coords).toEqual({ lat: 48.85, lng: 2.29 })
+    expect(out[1].lat).toBeUndefined()
+  })
+
+  it('drops entries with no name and keeps valid ones', () => {
+    const out = parseSuggestions('[{"type":"Park"},{"name":"Real Place"}]')
+    expect(out).toEqual([{ name: 'Real Place' }])
+  })
+
+  it('reads note from why/description fallbacks', () => {
+    expect(parseSuggestions('[{"name":"A","why":"because"}]')[0].note).toBe('because')
+    expect(parseSuggestions('[{"name":"B","description":"desc"}]')[0].note).toBe('desc')
+  })
+
+  it('unwraps a { results: [...] } object', () => {
+    expect(parseSuggestions('{"results":[{"name":"X"}]}')).toEqual([{ name: 'X' }])
+  })
+
+  it('returns [] for garbage / empty / non-array', () => {
+    expect(parseSuggestions('not json at all')).toEqual([])
+    expect(parseSuggestions('')).toEqual([])
+    expect(parseSuggestions('{"name":"single object, not array"}')).toEqual([])
+    expect(parseSuggestions('[ {broken json ')).toEqual([])
+  })
+})
+
+describe('buildSuggestPrompt', () => {
+  it('includes the query, destination context and asks for a JSON array', () => {
+    const p = buildSuggestPrompt('rooftop bars', { tripTitle: 'Lisbon Long Weekend' })
+    expect(p).toContain('rooftop bars')
+    expect(p).toContain('Lisbon Long Weekend')
+    expect(p).toContain('JSON array')
+    expect(p).toContain('"lat"')
+    expect(p).toMatch(/real places/i)
+  })
+
+  it('works without any context', () => {
+    const p = buildSuggestPrompt('museums', {})
+    expect(p).toContain('museums')
+    expect(p).toContain('JSON array')
+  })
+})
+
+describe('buildSuggestDayPrompt', () => {
+  it('asks for a coherent day of real stops as a JSON array', () => {
+    const p = buildSuggestDayPrompt({ tripTitle: 'Rome' })
+    expect(p).toContain('Rome')
+    expect(p).toMatch(/JSON array/)
+    expect(p).toMatch(/real/i)
+  })
+})
