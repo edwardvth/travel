@@ -1,6 +1,6 @@
 # Voyager Three-Tab Nav Refactor — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development. Fresh subagent per task (opus), two-stage review (spec → quality), commit per task. Anti-slop discipline: **SVG icons only (no emoji)**, tokens light+dark, a11y (44px, aria, focus mgmt), immutable saves, no `any`. Push at the checkpoints noted.
+> **For agentic workers:** REQUIRED SUB-SKILL: superpowers:subagent-driven-development. Fresh subagent per task (opus), two-stage review (spec → quality), commit per task. Anti-slop discipline: **SVG icons only (no emoji)**, tokens light+dark, a11y (44px, aria, focus mgmt), immutable saves, no `any`. Push at the checkpoints noted. **Every UI-bearing task MUST apply the Design & UI tooling rules below.**
 
 **Goal:** Refactor in-Voyage navigation from `Plan · Bookings · Map · Settings` (4 feature-tabs) to **`Plan · Guide · Trip`** (3 intent-tabs), reorganizing existing functionality under them without losing capability.
 
@@ -9,6 +9,14 @@
 **Architecture:** Plan = build (today's split itinerary+map, unchanged) · Guide = live (aspirational teaser; Phase 3 builds it) · Trip = manage (new logistics dashboard, absorbs Bookings + trip-scoped Settings). Stops/stays are the single source of truth; Plan and Trip are read/write projections. Global settings (AI/units/theme) move to a Dashboard account menu. All additive in JSONB `data`/`config`; no backend/schema change.
 
 **Tech stack:** Vite + React 18 + TS + Tailwind (token theming), React Router (nested), TanStack Query, Framer Motion, Leaflet, lucide-react. Tests: vitest. Branch: `voyager-redesign`.
+
+## Design & UI tooling (REQUIRED for every UI-bearing task)
+
+These are rules, not suggestions. Each implementer applies them before reporting DONE; the NR7 holistic reviewer re-verifies.
+
+- **stop-slop / anti-slop skill** — run the anti-slop discipline on every screen built or touched. Concretely, satisfy the Pre-Delivery Checklist: no emoji icons (lucide SVG only, consistent set + sizing); hover states use color/opacity (no layout-shifting scale); `cursor-pointer` on all clickable elements; light **and** dark contrast ≥ 4.5:1; visible focus rings; no content jumping (reserve space / fade in); smooth 150–300ms transitions.
+- **ui-ux-pro-max skill** — consult for layout, color, typography, and UX rules, especially when **designing new surfaces** (Guide teaser NR3, Trip dashboard NR4/NR5, account menu NR6). Follow its priority order: accessibility → touch/interaction → performance → layout/responsive → type/color → animation. Use its empty-state, touch-target (44px), and reduced-motion guidance directly.
+- **21st.dev Magic MCP** — when a surface benefits from a polished pattern (the Guide teaser hero, the account menu, Trip section cards), pull a component from 21st.dev as a starting point, then **conform it to Voyager's identity** (claret signature, Fraunces/General Sans, JetBrains Mono for data, light+dark tokens). Never ship a generic 21st.dev look — it's scaffolding, not the final aesthetic. If the MCP is rate-limited or unavailable, hand-build to the same bar and note it in the report.
 
 **Verified context (don't re-derive):**
 - Nav lives in `app/src/trip/PlannerLayout.tsx` (`sectionItems()` + desktop sidebar + mobile bottom bar; Plan is the index route, days are a sidebar list driven by `?day=N` via outlet `setActiveDay`).
