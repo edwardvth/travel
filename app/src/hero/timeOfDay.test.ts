@@ -40,30 +40,30 @@ describe('resolveSeason', () => {
 
 describe('pickClips', () => {
   it('returns only clips eligible for both tod and season', () => {
-    const result = pickClips(HERO_CONFIG, { tod: 'night', season: 'winter' })
+    const result = pickClips(HERO_CONFIG, { tod: 'afternoon', season: 'winter' })
     expect(result.length).toBeGreaterThan(0)
     for (const clip of result) {
-      expect(clip.timeOfDay).toContain('night')
+      expect(clip.timeOfDay).toContain('afternoon')
       expect(!clip.season || clip.season.includes('winter')).toBe(true)
     }
-    // tokyo-neon (night/winter) and city-aerial-night (night/all) qualify.
+    // paris-alley and kyoto-street are both afternoon/all-season historic clips.
     const ids = result.map((c) => c.id)
-    expect(ids).toContain('tokyo-neon')
-    expect(ids).toContain('city-aerial-night')
+    expect(ids).toContain('paris-alley')
+    expect(ids).toContain('kyoto-street')
   })
 
   it('excludes a history id when alternatives remain', () => {
     const result = pickClips(
       HERO_CONFIG,
-      { tod: 'night', season: 'winter' },
-      { history: ['tokyo-neon'] },
+      { tod: 'afternoon', season: 'winter' },
+      { history: ['paris-alley'] },
     )
-    expect(result.map((c) => c.id)).not.toContain('tokyo-neon')
+    expect(result.map((c) => c.id)).not.toContain('paris-alley')
     expect(result.length).toBeGreaterThan(0)
   })
 
   it('ignores history when excluding would leave no clips', () => {
-    // Only city-aerial-night is eligible for night+spring; exclude it anyway.
+    // Only dubai-marina-night is eligible for night+spring; exclude it anyway.
     const eligibleIds = pickClips(HERO_CONFIG, { tod: 'night', season: 'spring' }).map((c) => c.id)
     const result = pickClips(
       HERO_CONFIG,
