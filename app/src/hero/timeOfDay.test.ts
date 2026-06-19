@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { HERO_CONFIG } from './clips'
 import { pickClips, resolveSeason, resolveTimeOfDay } from './timeOfDay'
-import type { HeroVideoConfig } from './types'
+import type { HeroVideoConfig, Season, TimeOfDay } from './types'
 
 const W = HERO_CONFIG.windows
 
@@ -82,6 +82,17 @@ describe('pickClips', () => {
   it('returns empty when no clip matches the context', () => {
     const emptyConfig: HeroVideoConfig = { ...HERO_CONFIG, clips: [] }
     expect(pickClips(emptyConfig, { tod: 'morning', season: 'summer' })).toEqual([])
+  })
+
+  it('yields at least one clip for every (tod x season) combination', () => {
+    const TODS: TimeOfDay[] = ['morning', 'afternoon', 'evening', 'night']
+    const SEASONS: Season[] = ['winter', 'spring', 'summer', 'autumn']
+    for (const tod of TODS) {
+      for (const season of SEASONS) {
+        const result = pickClips(HERO_CONFIG, { tod, season })
+        expect(result.length, `${tod} x ${season} has no clips`).toBeGreaterThanOrEqual(1)
+      }
+    }
   })
 
   it('produces a deterministic order with a stubbed rng', () => {
