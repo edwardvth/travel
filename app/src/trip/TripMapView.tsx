@@ -143,7 +143,7 @@ export default function TripMapView({
         const isLight = document.documentElement.classList.contains('light')
         const map = L.map(containerRef.current, {
           zoomControl: true,
-          attributionControl: true,
+          attributionControl: false, // no Leaflet/OSM watermark (matches legacy)
           scrollWheelZoom: false,
         }).setView([20, 0], 2)
 
