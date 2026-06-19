@@ -16,6 +16,8 @@ import {
 } from '@dnd-kit/sortable'
 import { StopRow } from './StopRow'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { Footprints } from './icons'
+import { stopCoords, walkMinutes, formatWalk } from './walk'
 import { isCompleted } from './helpers'
 import {
   remapCompletedAfterReorder,
@@ -97,22 +99,43 @@ export function StopList({ trip, day, canEdit, save, selectedIndex, onSelect }: 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={stops.map((_, i) => i)} strategy={verticalListSortingStrategy}>
           <ul className="divide-y divide-hair" role="list">
-            {stops.map((stop, i) => (
-              <li key={i}>
-                <StopRow
-                  tripId={trip.id}
-                  day={day}
-                  index={i}
-                  stop={stop}
-                  done={isCompleted(trip.data?.completed, day, i)}
-                  canEdit={canEdit}
-                  selected={selectedIndex === i}
-                  onSelect={onSelect}
-                  onToggleDone={handleToggleDone}
-                  onDelete={setPendingDelete}
-                />
-              </li>
-            ))}
+            {stops.map((stop, i) => {
+              // Subtle walk-time connector before this row, when both this stop
+              // and the previous one have coords. Non-sortable separator: it sits
+              // in the list but is not a SortableContext item, so dnd is untouched.
+              const prev = i > 0 ? stops[i - 1] : null
+              const a = prev ? stopCoords(prev) : null
+              const b = stopCoords(stop)
+              const connector =
+                a && b ? (
+                  <li
+                    key={`walk-${i}`}
+                    aria-hidden="true"
+                    className="flex items-center gap-1.5 pl-1.5 py-0.5 text-[11.5px] text-muted/70"
+                  >
+                    <Footprints size={12} className="shrink-0 opacity-70" />
+                    <span>{formatWalk(walkMinutes(a, b))}</span>
+                  </li>
+                ) : null
+
+              return [
+                connector,
+                <li key={i}>
+                  <StopRow
+                    tripId={trip.id}
+                    day={day}
+                    index={i}
+                    stop={stop}
+                    done={isCompleted(trip.data?.completed, day, i)}
+                    canEdit={canEdit}
+                    selected={selectedIndex === i}
+                    onSelect={onSelect}
+                    onToggleDone={handleToggleDone}
+                    onDelete={setPendingDelete}
+                  />
+                </li>,
+              ]
+            })}
           </ul>
         </SortableContext>
       </DndContext>
