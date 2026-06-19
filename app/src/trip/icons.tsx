@@ -47,6 +47,8 @@ export {
   Trees,
   ShoppingCart,
   Image,
+  ImagePlus,
+  X,
   Loader2,
   Upload,
   Download,

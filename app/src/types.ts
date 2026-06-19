@@ -21,6 +21,12 @@ export interface Stop {
   note?: string
   /** Reservation tracking for this stop. Absent until the user marks it. */
   booking?: { status: 'to_book' | 'booked'; time?: string; note?: string }
+  /**
+   * User-added photos as small JPEG data URLs (resized ≤1200px, see `photo.ts`).
+   * The first entry doubles as the stop's cover image (see `coverPhoto`).
+   * Kept inline in the JSONB `data` — no storage backend.
+   */
+  photos?: string[]
 }
 export interface Day { title: string; note?: string; stops: Stop[] }
 /** The Voyage base lodging ("Stay"). Stored loosely (legacy may be a bare string). */

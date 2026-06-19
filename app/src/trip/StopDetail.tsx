@@ -6,6 +6,8 @@ import { isCompleted } from './helpers'
 import { Calendar, CheckCircle2, Lightbulb, kindIcon, kindLabel, stopKind } from './icons'
 import { remapCompletedAfterDelete, toggleCompleted } from './itinerary-helpers'
 import { bookingStatus, setBooking, type Booking } from './booking'
+import { coverPhoto } from './photo'
+import { StopPhotos } from './StopPhotos'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Skeleton } from '../components/ui/Skeleton'
@@ -56,6 +58,7 @@ export default function StopDetail() {
   const kind = stopKind(stop)
   const KindIcon = kindIcon(kind)
   const booking = bookingStatus(stop)
+  const cover = coverPhoto(stop)
 
   /** Clone trip.data with this day's stops array cloned, so we never mutate cache. */
   function cloneData(): TripData {
@@ -83,6 +86,25 @@ export default function StopDetail() {
     data.days[day].stops[n] = setBooking(current, patch)
     save({ data })
   }
+
+  /** Immutably replace this stop's `photos` array and persist. */
+  function patchPhotos(next: string[]) {
+    if (!canEdit) return
+    const data = cloneData()
+    const current = data.days[day].stops[n]
+    if (!current) return
+    data.days[day].stops[n] = next.length
+      ? { ...current, photos: next }
+      : (() => { const { photos: _drop, ...rest } = current; void _drop; return rest })()
+    save({ data })
+  }
+
+  const photos = stop.photos ?? []
+  const handleAddPhotos = (urls: string[]) => patchPhotos([...photos, ...urls])
+  const handleSetCover = (i: number) =>
+    patchPhotos([photos[i], ...photos.slice(0, i), ...photos.slice(i + 1)])
+  const handleRemovePhoto = (i: number) =>
+    patchPhotos(photos.filter((_, j) => j !== i))
 
   async function handleGenerate() {
     if (!canEdit || generating) return
@@ -130,9 +152,9 @@ export default function StopDetail() {
   return (
     <div className="max-w-3xl mx-auto pb-12">
       {/* ── Hero image / placeholder ─────────────────────────────── */}
-      {stop.image ? (
+      {cover ? (
         <img
-          src={stop.image}
+          src={cover}
           alt=""
           className="w-full h-52 md:h-72 object-cover bg-raised"
         />
@@ -206,6 +228,16 @@ export default function StopDetail() {
 
       {/* ── Content sections ─────────────────────────────────────── */}
       <div className="px-5 md:px-8 mt-6 space-y-6">
+        {/* Photos — gallery + lightbox; add/cover/delete are edit-gated inside */}
+        <StopPhotos
+          photos={stop.photos ?? []}
+          stopName={stop.name}
+          canEdit={canEdit}
+          onAdd={handleAddPhotos}
+          onSetCover={handleSetCover}
+          onRemove={handleRemovePhoto}
+        />
+
         {/* Generate / Re-generate (edit-only) */}
         {canEdit && (
           <div className="flex items-center justify-between gap-3">

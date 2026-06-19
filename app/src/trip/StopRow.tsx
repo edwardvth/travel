@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { cn } from '../lib/utils'
 import { Calendar, Check, CheckCircle2, ChevronRight, Circle, GripVertical, Trash2, kindIcon, kindLabel, stopKind } from './icons'
 import { bookingStatus, type Booking } from './booking'
+import { coverPhoto } from './photo'
 import type { Stop } from '../types'
 
 export interface StopRowProps {
@@ -52,6 +53,7 @@ export function StopRow({
   const KindIcon = kindIcon(kind)
   const booking = bookingStatus(stop)
   const bookingTime = stop.booking?.time
+  const thumb = coverPhoto(stop)
 
   return (
     <div
@@ -114,9 +116,9 @@ export function StopRow({
         className="flex-1 min-w-0 flex items-center gap-3 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
       >
         {/* Thumbnail */}
-        {stop.image ? (
+        {thumb ? (
           <img
-            src={stop.image}
+            src={thumb}
             alt=""
             loading="lazy"
             className="flex-none w-11 h-11 rounded-[10px] object-cover bg-raised"
