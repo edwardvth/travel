@@ -49,4 +49,52 @@ describe('HeroModeExplorer', () => {
     const { unmount } = render(<HeroModeExplorer activeTerm="Seoul" />)
     expect(() => unmount()).not.toThrow()
   })
+
+  it('starts a rAF loop with motion enabled and cancels it on unmount', () => {
+    // jsdom has no real 2d canvas; stub getContext so the animated branch runs.
+    const makeGradient = () => ({ addColorStop: vi.fn() })
+    const mockCtx = {
+      clearRect: vi.fn(),
+      fillRect: vi.fn(),
+      beginPath: vi.fn(),
+      arc: vi.fn(),
+      fill: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      quadraticCurveTo: vi.fn(),
+      stroke: vi.fn(),
+      fillText: vi.fn(),
+      createLinearGradient: vi.fn(makeGradient),
+      createRadialGradient: vi.fn(makeGradient),
+      drawImage: vi.fn(),
+      save: vi.fn(),
+      restore: vi.fn(),
+      setTransform: vi.fn(),
+      scale: vi.fn(),
+      translate: vi.fn(),
+      // assignable style/state props the component sets
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 1,
+      globalAlpha: 1,
+      font: '',
+      textBaseline: '',
+    }
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+      mockCtx as unknown as CanvasRenderingContext2D,
+    )
+
+    const rafSpy = vi.spyOn(globalThis, 'requestAnimationFrame').mockReturnValue(1 as never)
+    const cancelSpy = vi.spyOn(globalThis, 'cancelAnimationFrame')
+
+    const { unmount } = render(<HeroModeExplorer activeTerm="Seoul" />)
+
+    // The loop must have been scheduled (motion enabled, onscreen by default).
+    expect(rafSpy).toHaveBeenCalled()
+
+    unmount()
+
+    // Teardown must cancel the pending frame.
+    expect(cancelSpy).toHaveBeenCalled()
+  })
 })

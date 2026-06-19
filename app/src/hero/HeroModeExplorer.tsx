@@ -81,6 +81,73 @@ export function HeroModeExplorer({ activeTerm, className }: HeroModeExplorerProp
     let w = 0
     let h = 0
 
+    // Cached projected node positions; recomputed only on resize so the draw
+    // loop never re-allocates the array per frame.
+    let placedPts: { city: City; x: number; y: number }[] = []
+
+    // Offscreen canvas holding the static backdrop (gradient + dot field). Built
+    // once per size/DPR change and blitted each frame, avoiding the ~1.2k
+    // arc/fill calls of the dot loop on every animation frame. Null when the
+    // environment can't create a canvas (SSR/jsdom): the per-frame fallback
+    // painter is used instead.
+    let backdropCanvas: HTMLCanvasElement | null = null
+
+    // Paint the gradient + dot field onto the given context, in logical px,
+    // for a w×h area. Shared by the offscreen cache build and the SSR/jsdom
+    // fallback path so the visual result is identical either way.
+    const drawBackdropTo = (g2: CanvasRenderingContext2D) => {
+      const g = g2.createLinearGradient(0, 0, 0, h)
+      g.addColorStop(0, COL_BG_TOP)
+      g.addColorStop(1, COL_BG_BOT)
+      g2.fillStyle = g
+      g2.fillRect(0, 0, w, h)
+
+      // Faint equirectangular dot field; opacity fades toward poles/edges so it
+      // reads as a globe, not a flat grid.
+      g2.fillStyle = COL_DOT
+      for (let y = DOT_STEP / 2; y < h; y += DOT_STEP) {
+        // Latitude fade: dimmer near top/bottom edges.
+        const latFade = Math.sin((y / h) * Math.PI) // 0 at edges, 1 at middle
+        for (let x = DOT_STEP / 2; x < w; x += DOT_STEP) {
+          const edgeFade = Math.sin((x / w) * Math.PI)
+          const a = 0.04 + 0.1 * latFade * edgeFade
+          g2.globalAlpha = a
+          g2.beginPath()
+          g2.arc(x, y, 1, 0, Math.PI * 2)
+          g2.fill()
+        }
+      }
+      g2.globalAlpha = 1
+    }
+
+    // (Re)build the cached backdrop offscreen canvas to match the current size
+    // and DPR. Feature-detected for SSR/jsdom: if document.createElement or a 2d
+    // context is unavailable, leave the cache null and fall back per-frame.
+    const buildBackdropCache = () => {
+      backdropCanvas = null
+      if (typeof document === 'undefined' || typeof document.createElement !== 'function') {
+        return
+      }
+      let off: HTMLCanvasElement
+      try {
+        off = document.createElement('canvas')
+      } catch {
+        return
+      }
+      off.width = Math.round(w * dpr)
+      off.height = Math.round(h * dpr)
+      let offCtx: CanvasRenderingContext2D | null = null
+      try {
+        offCtx = off.getContext?.('2d') ?? null
+      } catch {
+        offCtx = null
+      }
+      if (!offCtx) return
+      offCtx.setTransform(dpr, 0, 0, dpr, 0, 0)
+      drawBackdropTo(offCtx)
+      backdropCanvas = off
+    }
+
     const resize = () => {
       const rect = root.getBoundingClientRect()
       w = Math.max(1, Math.round(rect.width))
@@ -88,42 +155,25 @@ export function HeroModeExplorer({ activeTerm, className }: HeroModeExplorerProp
       canvas.width = Math.round(w * dpr)
       canvas.height = Math.round(h * dpr)
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
-    }
-    resize()
-
-    // Project a city onto the current logical canvas. The map is inset slightly
-    // and uses the full equirectangular extent.
-    const placed = (): { city: City; x: number; y: number }[] =>
-      CITIES.map((city) => {
+      // Recompute cached node positions and rebuild the backdrop cache for the
+      // new size/DPR.
+      placedPts = CITIES.map((city) => {
         const p = project(city.lat, city.lng, w, h)
         return { city, x: p.x, y: p.y }
       })
+      buildBackdropCache()
+    }
+    resize()
 
     /* ---- static painters (shared by both modes) ---- */
 
     const paintBackdrop = () => {
-      const g = ctx.createLinearGradient(0, 0, 0, h)
-      g.addColorStop(0, COL_BG_TOP)
-      g.addColorStop(1, COL_BG_BOT)
-      ctx.fillStyle = g
-      ctx.fillRect(0, 0, w, h)
-
-      // Faint equirectangular dot field; opacity fades toward poles/edges so it
-      // reads as a globe, not a flat grid.
-      ctx.fillStyle = COL_DOT
-      for (let y = DOT_STEP / 2; y < h; y += DOT_STEP) {
-        // Latitude fade: dimmer near top/bottom edges.
-        const latFade = Math.sin((y / h) * Math.PI) // 0 at edges, 1 at middle
-        for (let x = DOT_STEP / 2; x < w; x += DOT_STEP) {
-          const edgeFade = Math.sin((x / w) * Math.PI)
-          const a = 0.04 + 0.1 * latFade * edgeFade
-          ctx.globalAlpha = a
-          ctx.beginPath()
-          ctx.arc(x, y, 1, 0, Math.PI * 2)
-          ctx.fill()
-        }
+      if (backdropCanvas) {
+        ctx.drawImage(backdropCanvas, 0, 0, w, h)
+      } else {
+        // SSR/jsdom or no offscreen 2d context: paint the dot field per-frame.
+        drawBackdropTo(ctx)
       }
-      ctx.globalAlpha = 1
     }
 
     const paintNode = (
@@ -223,7 +273,7 @@ export function HeroModeExplorer({ activeTerm, className }: HeroModeExplorerProp
 
     /* ---- static render (reduced motion: one calm frame, no rAF) ---- */
     const renderStatic = () => {
-      const pts = placed()
+      const pts = placedPts
       paintBackdrop()
       const activeName = normalize(activeTermRef.current ?? '')
       for (const { city, x, y } of pts) {
@@ -263,7 +313,7 @@ export function HeroModeExplorer({ activeTerm, className }: HeroModeExplorerProp
     let pageVisible = typeof document === 'undefined' || !document.hidden
 
     const frame = (now: number) => {
-      const pts = placed()
+      const pts = placedPts
       paintBackdrop()
 
       // Maintain ARC_COUNT live arcs; stagger spawns.
