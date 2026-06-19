@@ -36,15 +36,19 @@ export function normalizeHotel(raw: unknown): Hotel | null {
   const name = str(o.name)
   const address = str(o.address)
   const note = str(o.note)
+  const checkIn = str(o.checkIn)
+  const checkOut = str(o.checkOut)
   const lat = finite(o.lat)
   const lng = finite(o.lng)
   if (name) hotel.name = name
   if (address) hotel.address = address
   if (note) hotel.note = note
+  if (checkIn) hotel.checkIn = checkIn
+  if (checkOut) hotel.checkOut = checkOut
   if (lat !== undefined) hotel.lat = lat
   if (lng !== undefined) hotel.lng = lng
 
-  // Coords alone (no name/address/note) aren't a meaningful Stay to show.
+  // Coords or dates alone (no name/address/note) aren't a meaningful Stay to show.
   return name || address || note ? hotel : null
 }
 

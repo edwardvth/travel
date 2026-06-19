@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BedDouble } from './icons'
 import { normalizeHotel } from './hotel'
+import { formatStayDate } from './stay'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import type { Hotel, Trip, TripData } from '../types'
@@ -62,6 +63,13 @@ export function StayCard({ trip, canEdit, save }: {
         <p className="text-[11px] font-bold uppercase tracking-wide text-sig/80">Your stay</p>
         <p className="font-bold text-[15px] text-ink truncate">{hotel.name || 'Your stay'}</p>
         {hotel.address && <p className="text-muted text-[12.5px] truncate">{hotel.address}</p>}
+        {(hotel.checkIn || hotel.checkOut) && (
+          <p className="text-muted text-[12.5px] mt-0.5">
+            {formatStayDate(hotel.checkIn) && <>In {formatStayDate(hotel.checkIn)}</>}
+            {hotel.checkIn && hotel.checkOut && <span aria-hidden="true"> · </span>}
+            {formatStayDate(hotel.checkOut) && <>Out {formatStayDate(hotel.checkOut)}</>}
+          </p>
+        )}
         {hotel.note && <p className="text-ink/75 text-[12.5px] mt-0.5 leading-snug">{hotel.note}</p>}
       </div>
       {canEdit && (
@@ -110,6 +118,9 @@ function StayEditor({ trip, hotel, save, onDone }: {
     // Preserve any existing coords (set elsewhere) so editing text doesn't drop the pin.
     if (hotel?.lat !== undefined) next.lat = hotel.lat
     if (hotel?.lng !== undefined) next.lng = hotel.lng
+    // Preserve check-in/out (edited in Trip) so editing text here doesn't drop them.
+    if (hotel?.checkIn !== undefined) next.checkIn = hotel.checkIn
+    if (hotel?.checkOut !== undefined) next.checkOut = hotel.checkOut
 
     const hasContent = n || a || t
     const data: TripData = { ...trip.data, hotel: hasContent ? next : null }

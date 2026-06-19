@@ -40,6 +40,9 @@ export interface Hotel {
   name?: string
   address?: string
   note?: string
+  /** Check-in / check-out as ISO `YYYY-MM-DD` (or date-time) strings. */
+  checkIn?: string
+  checkOut?: string
   lat?: number
   lng?: number
 }
