@@ -3,11 +3,13 @@ import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom
 import type { PlannerOutletContext } from './PlannerLayout'
 import { generateStopDetail } from './enrich'
 import { isCompleted } from './helpers'
-import { Calendar, CheckCircle2, Lightbulb, kindIcon, kindLabel, stopKind } from './icons'
+import { Calendar, CheckCircle2, Lightbulb, MapPin, kindIcon, kindLabel, stopKind } from './icons'
 import { remapCompletedAfterDelete, toggleCompleted } from './itinerary-helpers'
 import { bookingStatus, setBooking, type Booking } from './booking'
+import { applyLocation, type PlaceLocation } from './location'
 import { coverPhoto } from './photo'
 import { StopPhotos } from './StopPhotos'
+import { ChangeLocation } from './ChangeLocation'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Skeleton } from '../components/ui/Skeleton'
@@ -34,6 +36,7 @@ export default function StopDetail() {
   const [genError, setGenError] = useState<string | null>(null)
   const [editingType, setEditingType] = useState(false)
   const [pendingDelete, setPendingDelete] = useState(false)
+  const [relocating, setRelocating] = useState(false)
 
   // ── Out-of-range guard ─────────────────────────────────────────────
   if (!stop) {
@@ -96,6 +99,19 @@ export default function StopDetail() {
     data.days[day].stops[n] = next.length
       ? { ...current, photos: next }
       : (() => { const { photos: _drop, ...rest } = current; void _drop; return rest })()
+    save({ data })
+  }
+
+  /** Immutably re-locate this stop — replaces name/type/address/coords and
+   *  clears the now-stale place-derived enrichment, preserving photos/note/
+   *  booking/kind/time (see `applyLocation`). The map pin + walk connectors
+   *  re-derive from the new coords automatically. */
+  function handleChangeLocation(place: PlaceLocation) {
+    if (!canEdit) return
+    const data = cloneData()
+    const current = data.days[day].stops[n]
+    if (!current) return
+    data.days[day].stops[n] = applyLocation(current, place)
     save({ data })
   }
 
@@ -192,6 +208,16 @@ export default function StopDetail() {
                 )}
                 {meta && <p className="text-muted text-[13.5px] truncate">{meta}</p>}
               </div>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => setRelocating(true)}
+                  className="mt-2 inline-flex items-center gap-1.5 min-h-[44px] -ml-2 px-2 rounded-md text-[12.5px] font-bold text-muted hover:text-sig-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+                >
+                  <MapPin size={14} aria-hidden="true" />
+                  Change location
+                </button>
+              )}
             </div>
             <a
               href={mapsUrl}
@@ -492,6 +518,16 @@ export default function StopDetail() {
         onCancel={() => setPendingDelete(false)}
         onConfirm={handleDelete}
       />
+
+      {canEdit && (
+        <ChangeLocation
+          open={relocating}
+          onClose={() => setRelocating(false)}
+          stop={stop}
+          tripTitle={trip.title}
+          onConfirm={handleChangeLocation}
+        />
+      )}
     </div>
   )
 }

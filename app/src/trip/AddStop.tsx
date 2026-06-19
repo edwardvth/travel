@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { suggestPlaces } from './suggest'
+import { placeFromSuggestion } from './location'
 import { Check, kindIcon, kindLabel, stopTypeIcon } from './icons'
 import { cn } from '../lib/utils'
 import { Button } from '../components/ui/Button'
@@ -72,9 +73,13 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
   }
 
   /** Append a stop to the active day immutably and persist, tagged with the
-   *  currently-selected category. */
+   *  currently-selected category. The chosen suggestion is resolved through the
+   *  shared `placeFromSuggestion` (same mapping the Change-location re-pick uses)
+   *  so location fields are normalized in exactly one place; the suggestion's
+   *  `note` is carried through for context. */
   function addStop(stop: Stop) {
-    const tagged: Stop = { ...stop, kind }
+    const tagged: Stop = { ...placeFromSuggestion(stop), kind }
+    if (stop.note) tagged.note = stop.note
     const data = trip.data
     const next: TripData = {
       ...data,
