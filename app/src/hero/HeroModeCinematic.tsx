@@ -119,6 +119,14 @@ export function HeroModeCinematic({
   const videoARef = useRef<HTMLVideoElement | null>(null)
   const videoBRef = useRef<HTMLVideoElement | null>(null)
 
+  // The advance loop is mount-once (StrictMode-safe), so it must read the
+  // CURRENT front layer from a ref — reading the `front` *state* inside that
+  // closure would freeze it at 'a' and the crossfade would never alternate.
+  const frontRef = useRef<'a' | 'b'>('a')
+  useEffect(() => {
+    frontRef.current = front
+  }, [front])
+
   // Playlist + session history live in refs so the advancing effect can stay
   // mount-once (StrictMode-safe — no double timers).
   const playlistRef = useRef<HeroClip[]>([])
@@ -189,7 +197,7 @@ export function HeroModeCinematic({
     const advance = () => {
       if (cancelled) return
       const next = nextClip()
-      const goingTo: 'a' | 'b' = front === 'a' ? 'b' : 'a'
+      const goingTo: 'a' | 'b' = frontRef.current === 'a' ? 'b' : 'a'
 
       // Stage the incoming layer with the next clip.
       if (goingTo === 'a') setClipA(next)
