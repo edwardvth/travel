@@ -45,6 +45,16 @@ export default function Landing() {
           )}
         </Suspense>
 
+        {/* Shared content scrim — sits above the lazy background (z-0) but below the
+            foreground text (z-10). Guarantees headline/pill/micro-detail legibility in
+            BOTH hero modes (Cinematic already scrims; Explorer's map has none of its own).
+            Soft radial darkening centered behind the hero copy; leaves imagery/map visible. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 z-0"
+          style={{ background: 'radial-gradient(120% 70% at 50% 34%, rgba(6,7,12,.55), rgba(6,7,12,.18) 45%, transparent 65%)' }}
+        />
+
         <nav className="absolute top-0 inset-x-0 z-10 flex items-center justify-between px-6 md:px-9 py-5 text-white">
           <Logo />
           <div className="flex items-center gap-6 text-[14px]">
