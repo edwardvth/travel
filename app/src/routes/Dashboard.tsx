@@ -46,7 +46,7 @@ export default function Dashboard() {
   const shown = tab === 'past' ? past : upcoming
   const featured = upcoming[0]
   const firstName = (profile?.name || user?.email?.split('@')[0] || 'traveler').split(/\s+/)[0]
-  const openTrip = (id: string) => { location.assign(`/Trip.html?trip=${encodeURIComponent(id)}`) } // legacy planner until Phase 2
+  const openTrip = (id: string) => { nav(`/trip/${encodeURIComponent(id)}`) } // new React planner (Phase 2); legacy /Trip.html stays as fallback
   const isTeaser = !!profile && profile.role !== 'founder' && (profile.credits ?? 0) < 1
 
   return (

@@ -2,15 +2,29 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ThemeToggle } from '../components/ThemeToggle'
 import { ShareSheet } from '../routes/ShareSheet'
+import { SyncIndicator } from './SyncIndicator'
 import { formatDateRange } from '../lib/trip-helpers'
 import type { Trip } from '../types'
 
 /**
- * Planner top bar: back to /trips, trip title in Fraunces + date range, a slot
- * for a sync indicator (placeholder until P8), a Share button, and the theme
- * toggle. The actual in-trip tab nav lives in PlannerLayout.
+ * Planner top bar: back to /trips, trip title in Fraunces + date range, the
+ * autosave SyncIndicator, a Share button, and the theme toggle. The actual
+ * in-trip tab nav lives in PlannerLayout. Sync state is owned by PlannerLayout's
+ * single useSaveTrip instance and passed down here.
  */
-export function TripHeader({ trip, canEdit }: { trip: Trip; canEdit: boolean }) {
+export function TripHeader({
+  trip,
+  canEdit,
+  saving = false,
+  lastSavedAt = null,
+  saveError = null,
+}: {
+  trip: Trip
+  canEdit: boolean
+  saving?: boolean
+  lastSavedAt?: string | null
+  saveError?: Error | null
+}) {
   const [shareOpen, setShareOpen] = useState(false)
   const dates = formatDateRange(trip)
 
@@ -31,8 +45,14 @@ export function TripHeader({ trip, canEdit }: { trip: Trip; canEdit: boolean }) 
         {dates && <p className="text-muted text-[12px] md:text-[13px] truncate">{dates}</p>}
       </div>
 
-      {/* Sync indicator slot — wired in P8 */}
-      <span data-sync-slot aria-hidden="true" className="hidden md:block" />
+      {/* Autosave status */}
+      <SyncIndicator
+        canEdit={canEdit}
+        saving={saving}
+        lastSavedAt={lastSavedAt}
+        saveError={saveError}
+        className="mr-1"
+      />
 
       {canEdit && (
         <button

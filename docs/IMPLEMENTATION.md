@@ -102,21 +102,21 @@ Definition-of-Done gates, and legacy `index.html` is routed through the new app.
 Surfaces: **Itinerary · Stop detail · Search/Add · Maps · Settings · Hotel/Weather/Prebook.**
 
 ### Itinerary (`/trip/:id`)
-- [ ] Day rail (chips mobile / vertical desktop); dense, scannable stop rows (planning-density rule).
-- [ ] Drag-reorder; tap opens stop detail via shared-element transition.
-- [ ] Inline add via smart search (existing AI + OSM); **add a stop in ≤3 taps.**
-- [ ] Empty day → one-tap "Suggest a day for me."
+- [x] Day rail (chips mobile / vertical desktop); dense, scannable stop rows (planning-density rule).
+- [x] Drag-reorder; tap opens stop detail via shared-element transition.
+- [x] Inline add via smart search (existing AI + OSM); **add a stop in ≤3 taps.**
+- [x] Empty day → one-tap "Suggest a day for me."
 
 ### Stop detail (`/trip/:id/stop/:n`)
-- [ ] Image, Fraunces title, AI history/facts/tips with skeletons (no fake delay).
-- [ ] Map peek + Navigate + Mark-done; gallery; "not the right place?" correction; wikiTitle/coords preserved.
+- [x] Image, Fraunces title, AI history/facts/tips with skeletons (no fake delay).
+- [x] Map peek + Navigate + Mark-done; wikiTitle/coords preserved. *(gallery + "not the right place?" correction deferred to Phase 3 per plan.)*
 
 ### Maps / Settings / extras
-- [ ] Route map + all-map (Leaflet) in React; inline/split map on desktop.
-- [ ] Settings: Trip · Data · AI · Units; members/invite + realtime + AI-proxy preserved.
-- [ ] Hotel, weather strip, prebook re-skinned and compact.
+- [x] Route map + all-map (Leaflet) in React; inline/split map on desktop.
+- [x] Settings: Trip · Data · AI · Units; members/invite + realtime + AI-proxy preserved.
+- [x] Hotel re-skinned and compact in Settings. *(weather strip + prebook are Phase 3.)*
 
-**Phase 2 exit:** full planning flow works on the new stack; `Trip.html` planning views retired.
+**Phase 2 exit:** full planning flow works on the new stack; Dashboard opens the React planner (`/trip/:id`); legacy `Trip.html` retained only as a fallback for shared `/<slug>` links.
 
 ---
 

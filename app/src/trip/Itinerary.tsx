@@ -4,7 +4,6 @@ import type { PlannerOutletContext } from './PlannerLayout'
 import { DayRail } from './DayRail'
 import { StopList } from './StopList'
 import { AddStop } from './AddStop'
-import { useSaveTrip } from './useSaveTrip'
 import { suggestDay } from './suggest'
 import { dayLabel, stopCount } from './helpers'
 import { Button } from '../components/ui/Button'
@@ -12,8 +11,7 @@ import { EmptyState } from '../components/EmptyState'
 import type { TripData } from '../types'
 
 export default function Itinerary() {
-  const { trip, canEdit } = useOutletContext<PlannerOutletContext>()
-  const { save } = useSaveTrip(trip.id, canEdit)
+  const { trip, canEdit, save } = useOutletContext<PlannerOutletContext>()
   const [activeDay, setActiveDay] = useState(0)
   const [adding, setAdding] = useState(false)
   const [suggestingDay, setSuggestingDay] = useState(false)

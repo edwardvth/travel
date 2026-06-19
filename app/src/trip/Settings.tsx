@@ -3,7 +3,6 @@ import { useOutletContext } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
 import { useAuth } from '../auth/useAuth'
 import { useProfile, isFounder } from '../data/useProfile'
-import { useSaveTrip } from './useSaveTrip'
 import { Segmented } from '../components/ui/Segmented'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
@@ -35,10 +34,9 @@ function readHotel(trip: Trip): HotelShape {
 }
 
 export default function Settings() {
-  const { trip, canEdit } = useOutletContext<PlannerOutletContext>()
+  const { trip, canEdit, save } = useOutletContext<PlannerOutletContext>()
   const { user } = useAuth()
   const { data: profile } = useProfile(user?.id)
-  const { save } = useSaveTrip(trip.id, canEdit)
   const [tab, setTab] = useState<Tab>('trip')
 
   const isOwner = !!user?.id && !!trip.owner_id && trip.owner_id === user.id
@@ -74,7 +72,7 @@ export default function Settings() {
   )
 }
 
-type SaveFn = ReturnType<typeof useSaveTrip>['save']
+type SaveFn = PlannerOutletContext['save']
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

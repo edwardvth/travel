@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
-import { useSaveTrip } from './useSaveTrip'
 import { generateStopDetail } from './enrich'
 import { isCompleted, stopTypeEmoji } from './helpers'
 import { remapCompletedAfterDelete, toggleCompleted } from './itinerary-helpers'
@@ -17,8 +16,7 @@ const STOP_TYPES = [
 ]
 
 export default function StopDetail() {
-  const { trip, canEdit } = useOutletContext<PlannerOutletContext>()
-  const { save } = useSaveTrip(trip.id, canEdit)
+  const { trip, canEdit, save } = useOutletContext<PlannerOutletContext>()
   const navigate = useNavigate()
   const { day: dayParam, n: nParam } = useParams<{ day: string; n: string }>()
 

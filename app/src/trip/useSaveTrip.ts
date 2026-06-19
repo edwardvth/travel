@@ -15,6 +15,8 @@ export interface SavePartial {
 
 export interface UseSaveTripResult {
   save: (partial: SavePartial) => void
+  /** Immediately write any pending debounced change (used on unmount / leaving the planner). */
+  flush: () => void
   saving: boolean
   lastSavedAt: string | null
   error: Error | null
@@ -33,30 +35,49 @@ export function useSaveTrip(tripId: string | undefined, canEdit: boolean): UseSa
 
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pending = useRef<Trip | null>(null)
+  const mounted = useRef(true)
 
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current) }, [])
-
-  const flush = useCallback(async () => {
+  const flush = useCallback(() => {
+    if (timer.current) {
+      clearTimeout(timer.current)
+      timer.current = null
+    }
     const next = pending.current
     pending.current = null
     if (!next || !tripId || !canEdit) return
-    setSaving(true)
-    setError(null)
-    try {
-      const { error: upsertError } = await supabase
-        .from('trips')
-        .upsert(
-          { id: tripId, title: next.title, subtitle: next.subtitle, config: next.config, data: next.data },
-          { onConflict: 'id' },
-        )
-      if (upsertError) throw new Error(upsertError.message)
-      setLastSavedAt(next.data?.savedAt ?? new Date().toISOString())
-    } catch (e) {
-      setError(e instanceof Error ? e : new Error(String(e)))
-    } finally {
-      setSaving(false)
+    if (mounted.current) {
+      setSaving(true)
+      setError(null)
     }
-  }, [tripId, canEdit, qc])
+    // Fire the upsert immediately. Awaited internally so it completes even when
+    // the component has unmounted (we just skip state updates in that case).
+    void (async () => {
+      try {
+        const { error: upsertError } = await supabase
+          .from('trips')
+          .upsert(
+            { id: tripId, title: next.title, subtitle: next.subtitle, config: next.config, data: next.data },
+            { onConflict: 'id' },
+          )
+        if (upsertError) throw new Error(upsertError.message)
+        if (mounted.current) setLastSavedAt(next.data?.savedAt ?? new Date().toISOString())
+      } catch (e) {
+        if (mounted.current) setError(e instanceof Error ? e : new Error(String(e)))
+      } finally {
+        if (mounted.current) setSaving(false)
+      }
+    })()
+  }, [tripId, canEdit])
+
+  // On unmount, flush any pending debounced change rather than dropping it.
+  // This prevents losing edits when the planner (or a sub-view) unmounts.
+  useEffect(() => {
+    mounted.current = true
+    return () => {
+      mounted.current = false
+      flush()
+    }
+  }, [flush])
 
   const save = useCallback((partial: SavePartial) => {
     if (!tripId || !canEdit) return
@@ -78,8 +99,8 @@ export function useSaveTrip(tripId: string | undefined, canEdit: boolean): UseSa
     pending.current = merged
 
     if (timer.current) clearTimeout(timer.current)
-    timer.current = setTimeout(() => { void flush() }, DEBOUNCE_MS)
+    timer.current = setTimeout(() => { flush() }, DEBOUNCE_MS)
   }, [tripId, canEdit, qc, flush])
 
-  return { save, saving, lastSavedAt, error }
+  return { save, flush, saving, lastSavedAt, error }
 }

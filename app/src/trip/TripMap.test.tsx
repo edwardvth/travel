@@ -10,7 +10,14 @@ import type { PlannerOutletContext } from './PlannerLayout'
 // the day selector and the no-stops overlay — without throwing.
 
 function renderWithTrip(trip: Trip) {
-  const ctx: PlannerOutletContext = { trip, canEdit: false }
+  const ctx: PlannerOutletContext = {
+    trip,
+    canEdit: false,
+    save: () => {},
+    saving: false,
+    lastSavedAt: null,
+    saveError: null,
+  }
   return render(
     <MemoryRouter>
       <Routes>

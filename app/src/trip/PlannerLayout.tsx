@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { useTrip } from './useTrip'
+import { useSaveTrip, type SavePartial } from './useSaveTrip'
 import { TripHeader } from './TripHeader'
 import { Skeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
@@ -11,6 +12,11 @@ import type { Trip } from '../types'
 export interface PlannerOutletContext {
   trip: Trip
   canEdit: boolean
+  /** Debounced, edit-gated autosave — single instance lifted to the layout. */
+  save: (partial: SavePartial) => void
+  saving: boolean
+  lastSavedAt: string | null
+  saveError: Error | null
 }
 
 interface NavItem {
@@ -71,6 +77,10 @@ export default function PlannerLayout() {
   const { user, loading: authLoading } = useAuth()
   const nav = useNavigate()
   const { trip, isLoading, error, canEdit } = useTrip(id)
+  // Single autosave instance for the whole planner. Lifted here (the layout stays
+  // mounted across sub-view navigation) so a pending debounced save survives moving
+  // between sub-views and is flushed when leaving the planner.
+  const { save, saving, lastSavedAt, error: saveError } = useSaveTrip(id, canEdit)
 
   // Auth guard — mirror the Dashboard pattern.
   useEffect(() => {
@@ -115,7 +125,7 @@ export default function PlannerLayout() {
 
   return (
     <div className="min-h-screen bg-base text-ink flex flex-col">
-      <TripHeader trip={trip} canEdit={canEdit} />
+      <TripHeader trip={trip} canEdit={canEdit} saving={saving} lastSavedAt={lastSavedAt} saveError={saveError} />
 
       {/* Desktop in-trip nav — top segmented row */}
       <nav aria-label="Trip sections" className="hidden md:block border-b border-hair">
@@ -153,7 +163,7 @@ export default function PlannerLayout() {
 
       {/* Sub-views; pad bottom on mobile so the tab bar never covers content */}
       <main className="flex-1 pb-24 md:pb-0">
-        <Outlet context={{ trip, canEdit } satisfies PlannerOutletContext} />
+        <Outlet context={{ trip, canEdit, save, saving, lastSavedAt, saveError } satisfies PlannerOutletContext} />
       </main>
 
       {/* Mobile in-trip nav — fixed bottom tab bar */}
