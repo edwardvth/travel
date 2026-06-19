@@ -44,11 +44,11 @@ export default function StopDetail() {
       <div className="px-5 md:px-8 py-16 max-w-3xl mx-auto text-center">
         <h2 className="font-serif text-2xl">We couldn’t find that stop</h2>
         <p className="text-muted text-[14px] mt-2">
-          It may have been removed or reordered. Head back to the itinerary to pick it up.
+          It may have been removed or reordered. Head back to your plan to pick it up.
         </p>
         <div className="mt-6">
           <Link to={`/trip/${trip.id}`}>
-            <Button variant="claret">Back to itinerary</Button>
+            <Button variant="claret">Back to your plan</Button>
           </Link>
         </div>
       </div>

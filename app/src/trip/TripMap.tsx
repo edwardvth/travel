@@ -29,7 +29,7 @@ export default function TripMap() {
   }
 
   return (
-    <div className="flex flex-col h-[calc(100vh-180px)] min-h-[420px]">
+    <div className="flex-1 min-h-0 flex flex-col">
       {/* Day selector */}
       <div className="px-4 md:px-8 py-3 border-b border-hair">
         <div className="flex items-center gap-2 overflow-x-auto pb-1" role="tablist" aria-label="Map day">

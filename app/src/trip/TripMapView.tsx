@@ -271,7 +271,7 @@ export default function TripMapView({
         `<div style="min-width:160px;font-family:system-ui,sans-serif;">` +
         `<div style="color:${GOLD};font-size:11px;font-weight:800;letter-spacing:.04em;">YOUR STAY</div>` +
         `<div style="font-size:14px;font-weight:700;margin-top:2px;">${esc(stay.name)}</div>` +
-        (stay.address ? `<div style="color:#888;font-size:11px;margin-top:2px;">${esc(stay.address)}</div>` : '') +
+        (stay.address ? `<div style="color:#555;font-size:11px;margin-top:2px;">${esc(stay.address)}</div>` : '') +
         `</div>`
       L.marker([stay.lat, stay.lng], { icon: stayIcon(L), zIndexOffset: -500 })
         .addTo(layer)
@@ -310,8 +310,8 @@ export default function TripMapView({
           `<div style="min-width:160px;font-family:system-ui,sans-serif;">` +
           `<div style="color:${color};font-size:11px;font-weight:800;">${label}</div>` +
           `<div style="font-size:14px;font-weight:700;margin-top:2px;">${esc(m.stop.name || 'Untitled stop')}</div>` +
-          (meta ? `<div style="color:#888;font-size:12px;margin-top:2px;">${meta}</div>` : '') +
-          (m.stop.address ? `<div style="color:#888;font-size:11px;margin-top:2px;">${esc(m.stop.address)}</div>` : '') +
+          (meta ? `<div style="color:#555;font-size:12px;margin-top:2px;">${meta}</div>` : '') +
+          (m.stop.address ? `<div style="color:#555;font-size:11px;margin-top:2px;">${esc(m.stop.address)}</div>` : '') +
           `<button type="button" data-open-stop style="margin-top:8px;width:100%;padding:7px 8px;` +
           `border:none;border-radius:8px;background:${color};color:#fff;font-size:12px;font-weight:700;cursor:pointer;">` +
           `Open stop &rsaquo;</button></div>`

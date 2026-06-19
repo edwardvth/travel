@@ -6,7 +6,11 @@
  * lucide icons accept the standard SVG props (size, strokeWidth, className,
  * aria-hidden) and inherit `currentColor`, so they theme automatically.
  */
-export {
+// Single source of truth: import once into local scope (the helpers below use
+// some of these directly), then re-export the same bindings. Names like Image /
+// Map / Calendar shadow DOM globals, but they're only ever referenced as icon
+// components here, so the shadowing is intentional and harmless.
+import {
   Sun,
   CloudSun,
   Cloud,
@@ -59,7 +63,58 @@ export {
   type LucideIcon,
 } from 'lucide-react'
 
-import { Landmark, MapPin, Utensils, Coffee, Beer, Wine, Church, ShoppingBag, Theater, Trees, ShoppingCart, Image, Building2, BedDouble, Sun, CloudSun, Cloud, CloudFog, CloudDrizzle, CloudRain, Snowflake, CloudLightning, type LucideIcon } from 'lucide-react'
+export {
+  Sun,
+  CloudSun,
+  Cloud,
+  CloudFog,
+  CloudDrizzle,
+  CloudRain,
+  Snowflake,
+  CloudLightning,
+  MapPin,
+  Clock,
+  Calendar,
+  CheckCircle2,
+  Circle,
+  Footprints,
+  Plus,
+  Bookmark,
+  Map,
+  Settings,
+  ChevronLeft,
+  ChevronRight,
+  Building2,
+  BedDouble,
+  Utensils,
+  Camera,
+  Check,
+  GripVertical,
+  Trash2,
+  CalendarDays,
+  Share2,
+  Sparkles,
+  Landmark,
+  Coffee,
+  Beer,
+  Wine,
+  Church,
+  ShoppingBag,
+  Theater,
+  Trees,
+  ShoppingCart,
+  Image,
+  ImagePlus,
+  X,
+  Loader2,
+  Upload,
+  Download,
+  Lightbulb,
+  Star,
+  Search,
+  ScrollText,
+}
+export type { LucideIcon }
 import type { Stop, StopKind } from '../types'
 
 /**

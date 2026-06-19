@@ -108,7 +108,7 @@ export function StopList({ trip, day, canEdit, save, selectedIndex, onSelect }: 
     <>
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={stops.map((_, i) => i)} strategy={verticalListSortingStrategy}>
-          <ul className="divide-y divide-hair" role="list">
+          <ul role="list">
             {stops.map((stop, i) => {
               // Subtle walk-time connector before this row, when both this stop
               // and the previous one have coords. Non-sortable separator: it sits
@@ -116,21 +116,24 @@ export function StopList({ trip, day, canEdit, save, selectedIndex, onSelect }: 
               const prev = i > 0 ? stops[i - 1] : null
               const a = prev ? stopCoords(prev) : null
               const b = stopCoords(stop)
-              const connector =
-                a && b ? (
-                  <li
-                    key={`walk-${i}`}
-                    aria-hidden="true"
-                    className="flex items-center gap-1.5 pl-1.5 py-0.5 text-[11.5px] text-muted/70"
-                  >
-                    <Footprints size={12} className="shrink-0 opacity-70" />
-                    <span>{formatWalk(walkMinutes(a, b))}</span>
-                  </li>
-                ) : null
+              const hasConnector = !!(a && b)
+              // Row separator sits above the *group* (connector + row). The first
+              // item has none; when a connector leads the group it carries the
+              // hairline so the connector + its row read as one seamless band.
+              const connector = hasConnector ? (
+                <li
+                  key={`walk-${i}`}
+                  aria-hidden="true"
+                  className="flex items-center gap-1.5 pl-1.5 py-0.5 text-[11.5px] text-muted/70 border-t border-hair"
+                >
+                  <Footprints size={12} className="shrink-0 opacity-70" />
+                  <span>{formatWalk(walkMinutes(a, b))}</span>
+                </li>
+              ) : null
 
               return [
                 connector,
-                <li key={i}>
+                <li key={i} className={!hasConnector && i > 0 ? 'border-t border-hair' : undefined}>
                   <StopRow
                     tripId={trip.id}
                     day={day}

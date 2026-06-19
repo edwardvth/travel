@@ -8,7 +8,7 @@ import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { ShareSheet } from '../routes/ShareSheet'
-import { AlertTriangle, Building2, Download, Trash2, Upload } from 'lucide-react'
+import { AlertTriangle, BedDouble, Download, Trash2, Upload } from 'lucide-react'
 import {
   applyTripBasics,
   daysBetween,
@@ -182,9 +182,9 @@ function TripTab({ trip, canEdit, canShare, save }:
 
       <Card>
         <p className="inline-flex items-center gap-1.5 text-[11px] font-bold text-muted uppercase tracking-wide">
-          <Building2 size={13} aria-hidden="true" /> Hotel
+          <BedDouble size={13} aria-hidden="true" /> Stay
         </p>
-        <Field label="Hotel name">
+        <Field label="Stay name">
           <Input value={hName} onChange={e => setHName(e.target.value)} disabled={!canEdit} placeholder="Hotel Edison NYC" />
         </Field>
         <Field label="Address">
@@ -244,7 +244,7 @@ function DataTab({ trip, canEdit, save }: { trip: Trip; canEdit: boolean; save: 
       try {
         const raw = JSON.parse(String(e.target?.result ?? ''))
         const parsed = parseImportedTrip(raw, trip)
-        if (!window.confirm('Import this file? It will replace the current trip’s days, hotel and completed state.')) return
+        if (!window.confirm('Import this file? It will replace the current trip’s days, stay and completed state.')) return
         save({ title: parsed.title, subtitle: parsed.subtitle, config: parsed.config, data: parsed.data })
         setMsg({ tone: 'ok', text: 'Imported successfully.' })
       } catch (err) {
@@ -285,7 +285,7 @@ function DataTab({ trip, canEdit, save }: { trip: Trip; canEdit: boolean; save: 
       {canEdit && (
         <Card>
           <p className="text-[11px] font-bold text-muted uppercase tracking-wide">Danger zone</p>
-          <p className="text-muted text-[13px]">Clear every stop, the hotel and all completed marks. The days stay, but they’ll be empty.</p>
+          <p className="text-muted text-[13px]">Clear every stop, the stay and all completed marks. The days stay, but they’ll be empty.</p>
           <Button
             variant="ghost"
             className="border-red-300 text-red-600 hover:bg-red-50"
@@ -299,7 +299,7 @@ function DataTab({ trip, canEdit, save }: { trip: Trip; canEdit: boolean; save: 
       <ConfirmDialog
         open={resetOpen}
         title="Reset this trip?"
-        body="This empties every day (stops, hotel and completed marks) for all your devices. The day count and titles are kept. This can’t be undone."
+        body="This empties every day (stops, stay and completed marks) for all your devices. The day count and titles are kept. This can’t be undone."
         confirmLabel="Reset trip"
         onCancel={() => setResetOpen(false)}
         onConfirm={() => {

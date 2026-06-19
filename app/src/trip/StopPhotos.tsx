@@ -194,6 +194,8 @@ function Lightbox({ src, alt, onClose }: { src: string; alt: string; onClose: ()
   const closeRef = useRef<HTMLButtonElement | null>(null)
 
   useEffect(() => {
+    // Cache the opener so focus returns there on close (not lost to <body>).
+    const opener = document.activeElement as HTMLElement | null
     closeRef.current?.focus()
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
@@ -209,6 +211,7 @@ function Lightbox({ src, alt, onClose }: { src: string; alt: string; onClose: ()
     return () => {
       document.removeEventListener('keydown', onKey)
       document.body.style.overflow = prev
+      opener?.focus?.()
     }
   }, [onClose])
 
