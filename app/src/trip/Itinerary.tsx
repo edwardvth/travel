@@ -6,23 +6,24 @@ import { StopList } from './StopList'
 import { AddStop } from './AddStop'
 import TripMapView, { type MapSelection } from './TripMapView'
 import { suggestDay } from './suggest'
-import { dayLabel, stopCount } from './helpers'
+import { dayCount as countDays, dayLabel, stopCount } from './helpers'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/EmptyState'
+import { Plus, Sparkles } from 'lucide-react'
 import { cn } from '../lib/utils'
 import type { TripData } from '../types'
 
 export default function Itinerary() {
-  const { trip, canEdit, save } = useOutletContext<PlannerOutletContext>()
+  // Day selection is lifted into the layout (mirrored to `?day=N`) so the
+  // desktop sidebar and these mobile day chips share one source of truth.
+  const { trip, canEdit, save, activeDay, setActiveDay } = useOutletContext<PlannerOutletContext>()
   const navigate = useNavigate()
-  const [activeDay, setActiveDay] = useState(0)
   const [selected, setSelected] = useState<MapSelection | null>(null)
   const [adding, setAdding] = useState(false)
   const [suggestingDay, setSuggestingDay] = useState(false)
   const [suggestError, setSuggestError] = useState<string | null>(null)
 
-  const dayCount = trip.data?.days?.length || trip.config?.numDays || 0
-  const day = Math.min(activeDay, Math.max(0, dayCount - 1))
+  const day = Math.min(activeDay, Math.max(0, countDays(trip) - 1))
   const count = stopCount(trip, day)
 
   // Clear any stale selection when switching days.
@@ -80,9 +81,7 @@ export default function Itinerary() {
 
   const addStopButton = (
     <Button variant="claret" onClick={() => setAdding(true)}>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-        <path d="M12 5v14M5 12h14" />
-      </svg>
+      <Plus size={16} aria-hidden="true" />
       Add a stop
     </Button>
   )
@@ -112,10 +111,13 @@ export default function Itinerary() {
         />
       </div>
 
-      {/* LEFT: day rail + stop list + add controls. Scrolls independently on desktop. */}
+      {/* LEFT: stop list + add controls. Scrolls independently on desktop.
+          Day selection lives in the layout sidebar on desktop; on mobile the
+          DayRail chips below drive the same lifted `activeDay`. */}
       <div className="md:basis-[55%] md:max-w-3xl md:overflow-y-auto md:min-h-0 px-5 md:px-8 py-6">
-        <div className="md:grid md:grid-cols-[180px_1fr] md:gap-7">
-          <div className="mb-4 md:mb-0">
+        <div>
+          {/* Mobile-only day chips — desktop shows days in the sidebar. */}
+          <div className="mb-4 md:hidden">
             <DayRail trip={trip} activeDay={day} onSelect={handleSelectDay} />
           </div>
 
@@ -148,9 +150,7 @@ export default function Itinerary() {
                       <div className="flex flex-wrap items-center justify-center gap-2.5">
                         {addStopButton}
                         <Button variant="soft" busy={suggestingDay} onClick={handleSuggestDay}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <path d="M12 3l1.9 4.6L19 9l-4.1 1.4L12 15l-1.9-4.6L6 9l4.1-1.4L12 3z" />
-                          </svg>
+                          <Sparkles size={16} aria-hidden="true" />
                           Suggest a day for me
                         </Button>
                       </div>

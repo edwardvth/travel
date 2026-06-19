@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
 import { generateStopDetail } from './enrich'
-import { isCompleted, stopTypeEmoji } from './helpers'
+import { isCompleted } from './helpers'
+import { Lightbulb, stopTypeIcon } from './icons'
 import { remapCompletedAfterDelete, toggleCompleted } from './itinerary-helpers'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
@@ -123,10 +124,13 @@ export default function StopDetail() {
         />
       ) : (
         <div
-          className="w-full h-44 md:h-56 grid place-items-center bg-sig-btn/10 text-[44px]"
+          className="w-full h-44 md:h-56 grid place-items-center bg-sig-btn/10 text-sig"
           aria-hidden="true"
         >
-          {stopTypeEmoji(stop.type)}
+          {(() => {
+            const TypeIcon = stopTypeIcon(stop.type)
+            return <TypeIcon size={44} strokeWidth={1.5} />
+          })()}
         </div>
       )}
 
@@ -244,8 +248,8 @@ export default function StopDetail() {
                     key={i}
                     className="flex gap-3 items-start rounded-card bg-fill px-3.5 py-2.5 text-[14px] leading-relaxed"
                   >
-                    <span aria-hidden="true" className="flex-none text-[15px]">
-                      {['💡', '🏛️', '⭐', '🔍', '🎭', '📜'][i % 6]}
+                    <span aria-hidden="true" className="flex-none text-sig mt-0.5">
+                      <Lightbulb size={15} />
                     </span>
                     <span className="text-ink/90">{fact}</span>
                   </li>

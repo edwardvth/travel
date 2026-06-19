@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { suggestPlaces } from './suggest'
-import { stopTypeEmoji } from './helpers'
+import { Check, stopTypeIcon } from './icons'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Sheet } from '../components/ui/Sheet'
@@ -125,7 +125,8 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
           role="status"
           className="mt-3 text-[13px] text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 rounded-card px-3.5 py-2"
         >
-          Added{lastAdded ? ` “${lastAdded}”` : ''} ✓
+          <Check size={14} strokeWidth={3} aria-hidden="true" className="inline-block align-[-2px] mr-1" />
+          Added{lastAdded ? ` “${lastAdded}”` : ''}
           {addedCount > 1 ? ` (${addedCount} so far)` : ''}
         </p>
       )}
@@ -163,9 +164,14 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
                 onClick={() => addStop(r)}
                 className="w-full text-left flex gap-3 items-start rounded-card border border-hair bg-fill hover:bg-fill-hover px-3.5 py-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
               >
-                <span aria-hidden="true" className="flex-none text-[20px] leading-none mt-0.5">
-                  {stopTypeEmoji(r.type)}
-                </span>
+                {(() => {
+                  const TypeIcon = stopTypeIcon(r.type)
+                  return (
+                    <span aria-hidden="true" className="flex-none grid place-items-center w-7 h-7 rounded-md bg-base text-muted mt-0.5">
+                      <TypeIcon size={16} />
+                    </span>
+                  )
+                })()}
                 <span className="min-w-0 flex-1">
                   <span className="block font-bold text-[15px] text-ink truncate">{r.name}</span>
                   {(r.type || r.address) && (

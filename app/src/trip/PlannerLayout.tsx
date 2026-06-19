@@ -1,5 +1,13 @@
 import { useEffect } from 'react'
-import { Link, NavLink, Outlet, useNavigate, useParams } from 'react-router-dom'
+import {
+  Link,
+  NavLink,
+  Outlet,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { useTrip } from './useTrip'
 import { useSaveTrip, type SavePartial } from './useSaveTrip'
@@ -7,6 +15,9 @@ import { TripHeader } from './TripHeader'
 import { Skeleton } from '../components/ui/Skeleton'
 import { Button } from '../components/ui/Button'
 import { cn } from '../lib/utils'
+import { dayCount, dayLabel } from './helpers'
+import { Bookmark, CalendarDays, Eye, LayoutList, Map, Settings } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import type { Trip } from '../types'
 
 export interface PlannerOutletContext {
@@ -17,45 +28,25 @@ export interface PlannerOutletContext {
   saving: boolean
   lastSavedAt: string | null
   saveError: Error | null
+  /** Selected day index (lifted to the layout, mirrored to `?day=N`). */
+  activeDay: number
+  setActiveDay: (day: number) => void
 }
 
-interface NavItem {
+interface SectionItem {
   to: string
   label: string
   end?: boolean
-  icon: React.ReactNode
+  Icon: LucideIcon
 }
 
-function navItems(id: string): NavItem[] {
+/** The named sections (Plan is implicit on desktop — a selected day — but is its
+ *  own tab on mobile). Bookings · Map · Settings live in the sidebar / tab bar. */
+function sectionItems(id: string): SectionItem[] {
   return [
-    {
-      to: `/trip/${id}`,
-      label: 'Itinerary',
-      end: true,
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
-        </svg>
-      ),
-    },
-    {
-      to: `/trip/${id}/map`,
-      label: 'Map',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M9 3 3 5.5v15L9 18l6 3 6-2.5v-15L15 6 9 3z" /><path d="M9 3v15M15 6v15" />
-        </svg>
-      ),
-    },
-    {
-      to: `/trip/${id}/settings`,
-      label: 'Settings',
-      icon: (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z" />
-        </svg>
-      ),
-    },
+    { to: `/trip/${id}/bookings`, label: 'Bookings', Icon: Bookmark },
+    { to: `/trip/${id}/map`, label: 'Map', Icon: Map },
+    { to: `/trip/${id}/settings`, label: 'Settings', Icon: Settings },
   ]
 }
 
@@ -76,6 +67,8 @@ export default function PlannerLayout() {
   const { id } = useParams()
   const { user, loading: authLoading } = useAuth()
   const nav = useNavigate()
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { trip, isLoading, error, canEdit } = useTrip(id)
   // Single autosave instance for the whole planner. Lifted here (the layout stays
   // mounted across sub-view navigation) so a pending debounced save survives moving
@@ -119,9 +112,35 @@ export default function PlannerLayout() {
     )
   }
 
-  const items = navItems(trip.id)
-  const linkBase =
-    'inline-flex items-center justify-center gap-2 min-h-[44px] rounded-btn text-[13px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link'
+  // ── Lifted day selection ──────────────────────────────────────────────────
+  // Single source of truth: `?day=N`, clamped to the trip's day count. The
+  // desktop sidebar day list and the mobile day chips both drive it through the
+  // outlet context. Selecting a day while on Bookings/Map/Settings returns to
+  // the Plan index so the chosen day actually shows.
+  const days = dayCount(trip)
+  const rawDay = Number.parseInt(searchParams.get('day') ?? '', 10)
+  const activeDay = Number.isFinite(rawDay) ? Math.min(Math.max(rawDay, 0), Math.max(0, days - 1)) : 0
+
+  // "Plan" is the index route (no /map, /settings, /bookings, /stop segment).
+  const planPath = `/trip/${trip.id}`
+  const onPlan = location.pathname === planPath || location.pathname === `${planPath}/`
+
+  function setActiveDay(day: number) {
+    const clamped = Math.min(Math.max(day, 0), Math.max(0, days - 1))
+    if (onPlan) {
+      // Stay on Plan — just update the query (preserve other params).
+      setSearchParams(prev => {
+        const next = new URLSearchParams(prev)
+        next.set('day', String(clamped))
+        return next
+      })
+    } else {
+      // From a section → go back to Plan for that day.
+      nav(`${planPath}?day=${clamped}`)
+    }
+  }
+
+  const items = sectionItems(trip.id)
 
   return (
     // Lock the planner shell to the dynamic viewport height (dvh dodges the mobile
@@ -130,67 +149,125 @@ export default function PlannerLayout() {
     <div className="h-[100dvh] min-h-0 bg-base text-ink flex flex-col overflow-hidden">
       <TripHeader trip={trip} canEdit={canEdit} saving={saving} lastSavedAt={lastSavedAt} saveError={saveError} />
 
-      {/* Desktop in-trip nav — top segmented row */}
-      <nav aria-label="Trip sections" className="hidden md:block border-b border-hair">
-        <div className="flex items-center gap-1 px-8 py-2">
-          {items.map(it => (
-            <NavLink
-              key={it.to}
-              to={it.to}
-              end={it.end}
-              className={({ isActive }) =>
-                cn(linkBase, 'px-4',
-                  isActive ? 'bg-sig-btn text-white' : 'text-muted hover:text-ink')
-              }
-            >
-              {({ isActive }) => (
-                <span aria-current={isActive ? 'page' : undefined} className="inline-flex items-center gap-2">
-                  {it.icon}{it.label}
-                </span>
-              )}
-            </NavLink>
-          ))}
-        </div>
-      </nav>
-
       {!canEdit && (
         <div className="px-4 md:px-8 py-2 bg-fill border-b border-hair text-center">
           <span className="inline-flex items-center gap-2 text-muted text-[12.5px] font-bold">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" /><circle cx="12" cy="12" r="3" />
-            </svg>
+            <Eye size={14} aria-hidden="true" />
             View only — you can browse this trip but not edit it.
           </span>
         </div>
       )}
 
-      {/* Sub-views fill the remaining height as a flex column. `min-h-0` lets a child
-          (the split view) own its own scroll; tall views (StopDetail/Settings/TripMap)
-          fall back to scrolling the page via this container's overflow.
-          Pad bottom on mobile so the fixed tab bar never covers content. */}
-      <main className="flex-1 min-h-0 flex flex-col overflow-y-auto pb-24 md:pb-0">
-        <Outlet context={{ trip, canEdit, save, saving, lastSavedAt, saveError } satisfies PlannerOutletContext} />
-      </main>
+      {/* Body: desktop = persistent left sidebar + main; mobile = main only. */}
+      <div className="flex-1 min-h-0 flex">
+        {/* Desktop sidebar — Day list (top) → hairline → Bookings · Map · Settings */}
+        <nav
+          aria-label="Voyage navigation"
+          className="hidden md:flex flex-col w-[200px] flex-none border-r border-hair overflow-y-auto py-3 px-2.5"
+        >
+          <div className="flex flex-col gap-0.5">
+            {Array.from({ length: Math.max(days, 1) }, (_, day) => {
+              const selected = onPlan && day === activeDay
+              return (
+                <button
+                  key={day}
+                  type="button"
+                  onClick={() => setActiveDay(day)}
+                  aria-current={selected ? 'page' : undefined}
+                  className={cn(
+                    'inline-flex items-center gap-2.5 min-h-[40px] px-3 rounded-btn text-left text-[13px] font-bold transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link',
+                    selected ? 'bg-sig-btn text-white' : 'text-muted hover:text-ink hover:bg-fill',
+                  )}
+                >
+                  <CalendarDays size={15} aria-hidden="true" className="flex-none" />
+                  <span className="truncate">{dayLabel(trip, day)}</span>
+                </button>
+              )
+            })}
+          </div>
 
-      {/* Mobile in-trip nav — fixed bottom tab bar */}
+          <div className="h-px bg-hair my-2.5 mx-1.5" role="presentation" />
+
+          <div className="flex flex-col gap-0.5">
+            {items.map(({ to, label, end, Icon }) => (
+              <NavLink
+                key={to}
+                to={to}
+                end={end}
+                className={({ isActive }) =>
+                  cn(
+                    'inline-flex items-center gap-2.5 min-h-[40px] px-3 rounded-btn text-left text-[13px] font-bold transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link',
+                    isActive ? 'bg-fill text-ink' : 'text-muted hover:text-ink hover:bg-fill',
+                  )
+                }
+              >
+                {({ isActive }) => (
+                  <span aria-current={isActive ? 'page' : undefined} className="inline-flex items-center gap-2.5">
+                    <Icon size={15} aria-hidden="true" className="flex-none" />
+                    {label}
+                  </span>
+                )}
+              </NavLink>
+            ))}
+          </div>
+        </nav>
+
+        {/* Sub-views fill the remaining height as a flex column. `min-h-0` lets a child
+            (the split view) own its own scroll; tall views (StopDetail/Settings/TripMap)
+            fall back to scrolling the page via this container's overflow.
+            Pad bottom on mobile so the fixed tab bar never covers content. */}
+        <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-y-auto pb-24 md:pb-0">
+          <Outlet
+            context={{ trip, canEdit, save, saving, lastSavedAt, saveError, activeDay, setActiveDay } satisfies PlannerOutletContext}
+          />
+        </main>
+      </div>
+
+      {/* Mobile bottom tab bar — Plan · Bookings · Map · Settings */}
       <nav
-        aria-label="Trip sections"
+        aria-label="Voyage navigation"
         className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-hair bg-base/95 backdrop-blur"
       >
         <div className="flex items-stretch">
-          {items.map(it => (
+          {/* Plan tab — index route, keeps the active day. */}
+          <NavLink
+            to={`${planPath}${activeDay ? `?day=${activeDay}` : ''}`}
+            end
+            className={({ isActive }) =>
+              cn(
+                'flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] py-2 text-[11px] font-bold transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sig-link',
+                isActive ? 'text-sig-link' : 'text-muted',
+              )
+            }
+          >
+            {({ isActive }) => (
+              <span aria-current={isActive ? 'page' : undefined} className="flex flex-col items-center gap-1">
+                <LayoutList size={18} aria-hidden="true" />
+                Plan
+              </span>
+            )}
+          </NavLink>
+
+          {items.map(({ to, label, end, Icon }) => (
             <NavLink
-              key={it.to}
-              to={it.to}
-              end={it.end}
+              key={to}
+              to={to}
+              end={end}
               className={({ isActive }) =>
-                cn('flex-1 flex flex-col items-center justify-center gap-1 min-h-[56px] py-2 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sig-link',
-                  isActive ? 'text-sig-link' : 'text-muted')
+                cn(
+                  'flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] py-2 text-[11px] font-bold transition-colors',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sig-link',
+                  isActive ? 'text-sig-link' : 'text-muted',
+                )
               }
             >
               {({ isActive }) => (
                 <span aria-current={isActive ? 'page' : undefined} className="flex flex-col items-center gap-1">
-                  {it.icon}{it.label}
+                  <Icon size={18} aria-hidden="true" />
+                  {label}
                 </span>
               )}
             </NavLink>

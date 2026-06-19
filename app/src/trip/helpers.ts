@@ -31,14 +31,3 @@ export function dayLabel(trip: Trip | null | undefined, day: number): string {
   const cfg = trip?.config
   return cfg?.dayLabels?.[day] || cfg?.dayTitles?.[day] || `Day ${day + 1}`
 }
-
-/** Emoji glyph for a stop type (mirrors legacy stopTypeEmoji). */
-export function stopTypeEmoji(type: string | undefined): string {
-  const t = (type || '').toLowerCase()
-  const map: Record<string, string> = {
-    restaurant: '🍽️', cafe: '☕', pub: '🍺', bar: '🍸', museum: '🏛️',
-    church: '⛪', hotel: '🏨', shop: '🛍️', theatre: '🎭', monument: '🗿',
-    park: '🌳', market: '🛒', gallery: '🖼️',
-  }
-  return map[t] || '📍'
-}

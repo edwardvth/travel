@@ -3,7 +3,7 @@ import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '../lib/utils'
-import { stopTypeEmoji } from './helpers'
+import { Check, ChevronRight, GripVertical, Trash2, stopTypeIcon } from './icons'
 import type { Stop } from '../types'
 
 export interface StopRowProps {
@@ -68,11 +68,7 @@ export function StopRow({
           {...attributes}
           {...listeners}
         >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <circle cx="9" cy="6" r="1.6" /><circle cx="15" cy="6" r="1.6" />
-            <circle cx="9" cy="12" r="1.6" /><circle cx="15" cy="12" r="1.6" />
-            <circle cx="9" cy="18" r="1.6" /><circle cx="15" cy="18" r="1.6" />
-          </svg>
+          <GripVertical size={16} aria-hidden="true" />
         </button>
       )}
 
@@ -89,9 +85,7 @@ export function StopRow({
             done ? 'bg-sig-btn border-sig-btn text-white' : 'border-hair-strong text-transparent hover:border-muted',
           )}
         >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
+          <Check size={11} strokeWidth={3.5} aria-hidden="true" />
         </button>
       ) : (
         <span
@@ -101,9 +95,7 @@ export function StopRow({
             done ? 'bg-sig-btn border-sig-btn text-white' : 'border-hair text-transparent',
           )}
         >
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 6 9 17l-5-5" />
-          </svg>
+          <Check size={11} strokeWidth={3.5} aria-hidden="true" />
         </span>
       )}
 
@@ -122,9 +114,14 @@ export function StopRow({
             className="flex-none w-11 h-11 rounded-[10px] object-cover bg-raised"
           />
         ) : (
-          <span className="flex-none grid place-items-center w-11 h-11 rounded-[10px] bg-fill text-[18px]" aria-hidden="true">
-            {stopTypeEmoji(stop.type)}
-          </span>
+          (() => {
+            const TypeIcon = stopTypeIcon(stop.type)
+            return (
+              <span className="flex-none grid place-items-center w-11 h-11 rounded-[10px] bg-fill text-muted" aria-hidden="true">
+                <TypeIcon size={18} />
+              </span>
+            )
+          })()
         )}
 
         <span className="min-w-0 flex-1">
@@ -147,9 +144,7 @@ export function StopRow({
         onClick={() => navigate(`/trip/${tripId}/stop/${day}/${index}`)}
         className="flex-none grid place-items-center w-8 h-8 rounded-md text-muted/60 hover:text-ink hover:bg-fill transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
       >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="m9 18 6-6-6-6" />
-        </svg>
+        <ChevronRight size={18} aria-hidden="true" />
       </button>
 
       {/* Delete — edit only */}
@@ -160,9 +155,7 @@ export function StopRow({
           onClick={() => onDelete(index)}
           className="flex-none grid place-items-center w-8 h-8 rounded-md text-muted/50 hover:text-sig opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
         >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-          </svg>
+          <Trash2 size={16} aria-hidden="true" />
         </button>
       )}
     </div>

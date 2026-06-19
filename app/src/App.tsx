@@ -5,6 +5,7 @@ import Dashboard from './routes/Dashboard'
 import SplashIntro from './components/SplashIntro'
 import PlannerLayout from './trip/PlannerLayout'
 import Itinerary from './trip/Itinerary'
+import Bookings from './trip/Bookings'
 import StopDetail from './trip/StopDetail'
 import TripMap from './trip/TripMap'
 import Settings from './trip/Settings'
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="/trips" element={<Dashboard />} />
         <Route path="/trip/:id" element={<PlannerLayout />}>
           <Route index element={<Itinerary />} />
+          <Route path="bookings" element={<Bookings />} />
           <Route path="stop/:day/:n" element={<StopDetail />} />
           <Route path="map" element={<TripMap />} />
           <Route path="settings" element={<Settings />} />

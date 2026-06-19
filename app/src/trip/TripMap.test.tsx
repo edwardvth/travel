@@ -17,6 +17,8 @@ function renderWithTrip(trip: Trip) {
     saving: false,
     lastSavedAt: null,
     saveError: null,
+    activeDay: 0,
+    setActiveDay: () => {},
   }
   return render(
     <MemoryRouter>

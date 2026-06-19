@@ -8,6 +8,7 @@ import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { ShareSheet } from '../routes/ShareSheet'
+import { AlertTriangle, Building2, Download, Trash2, Upload } from 'lucide-react'
 import {
   applyTripBasics,
   daysBetween,
@@ -21,9 +22,9 @@ import type { Trip } from '../types'
 type Tab = 'trip' | 'data' | 'ai' | 'units'
 
 const AI_MODELS: { value: string; label: string }[] = [
-  { value: 'claude-haiku-4-5-20251001', label: '⚡ Haiku 4.5 — fastest' },
-  { value: 'claude-sonnet-4-6', label: '✨ Sonnet 4.6 — balanced' },
-  { value: 'claude-opus-4-6', label: '🧠 Opus 4.6 — most capable' },
+  { value: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5 — fastest' },
+  { value: 'claude-sonnet-4-6', label: 'Sonnet 4.6 — balanced' },
+  { value: 'claude-opus-4-6', label: 'Opus 4.6 — most capable' },
 ]
 const DEFAULT_MODEL = 'claude-sonnet-4-6'
 
@@ -175,7 +176,9 @@ function TripTab({ trip, canEdit, canShare, save }:
       </Card>
 
       <Card>
-        <p className="text-[11px] font-bold text-muted uppercase tracking-wide">🏨 Hotel</p>
+        <p className="inline-flex items-center gap-1.5 text-[11px] font-bold text-muted uppercase tracking-wide">
+          <Building2 size={13} aria-hidden="true" /> Hotel
+        </p>
         <Field label="Hotel name">
           <Input value={hName} onChange={e => setHName(e.target.value)} disabled={!canEdit} placeholder="Hotel Edison NYC" />
         </Field>
@@ -251,8 +254,12 @@ function DataTab({ trip, canEdit, save }: { trip: Trip; canEdit: boolean; save: 
       <Card>
         <p className="text-muted text-[13px]">Back up this trip to a file, or restore from one.</p>
         <div className="flex flex-wrap gap-3">
-          <Button variant="soft" onClick={onExport}>📤 Export JSON</Button>
-          <Button variant="soft" disabled={!canEdit} onClick={() => fileRef.current?.click()}>📥 Import JSON</Button>
+          <Button variant="soft" onClick={onExport}>
+            <Upload size={16} aria-hidden="true" /> Export JSON
+          </Button>
+          <Button variant="soft" disabled={!canEdit} onClick={() => fileRef.current?.click()}>
+            <Download size={16} aria-hidden="true" /> Import JSON
+          </Button>
           <input
             ref={fileRef}
             type="file"
@@ -279,7 +286,7 @@ function DataTab({ trip, canEdit, save }: { trip: Trip; canEdit: boolean; save: 
             className="border-red-300 text-red-600 hover:bg-red-50"
             onClick={() => setResetOpen(true)}
           >
-            🗑 Reset all data
+            <Trash2 size={16} aria-hidden="true" /> Reset all data
           </Button>
         </Card>
       )}
@@ -350,8 +357,9 @@ function AITab({ trip, canEdit, save }: { trip: Trip; canEdit: boolean; save: Sa
             autoComplete="off"
           />
         </Field>
-        <p className="text-muted text-[12px]">
-          ⚠️ Stored with this trip’s settings (like the legacy app) and shared with anyone who can edit it. Leave blank to use the built-in AI.
+        <p className="flex items-start gap-1.5 text-muted text-[12px]">
+          <AlertTriangle size={13} aria-hidden="true" className="flex-none mt-0.5" />
+          <span>Stored with this trip’s settings (like the legacy app) and shared with anyone who can edit it. Leave blank to use the built-in AI.</span>
         </p>
         {canEdit && (
           <div className="flex gap-3">
