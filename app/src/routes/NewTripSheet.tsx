@@ -44,9 +44,9 @@ export function NewTripSheet({ open, onClose, onCreated, isTeaser }:
 
       {step === 1 ? (
         <div className="mt-5 space-y-2.5">
-          <Input placeholder="Trip ID (e.g. kyoto2026)" value={slug} onChange={e => setSlug(sanitizeSlug(e.target.value))} />
-          <Input placeholder="Title (e.g. Kyoto Spring 2026)" value={title} onChange={e => setTitle(e.target.value)} />
-          <Input placeholder="Subtitle (optional)" value={subtitle} onChange={e => setSubtitle(e.target.value)} />
+          <Input aria-label="Trip ID" placeholder="Trip ID (e.g. kyoto2026)" value={slug} onChange={e => setSlug(sanitizeSlug(e.target.value))} />
+          <Input aria-label="Trip title" placeholder="Title (e.g. Kyoto Spring 2026)" value={title} onChange={e => setTitle(e.target.value)} />
+          <Input aria-label="Subtitle (optional)" placeholder="Subtitle (optional)" value={subtitle} onChange={e => setSubtitle(e.target.value)} />
           {isTeaser && <p className="text-[12.5px] text-sig-link">Your first trip is a free teaser — plan all your days and fill Day 1.</p>}
         </div>
       ) : (
