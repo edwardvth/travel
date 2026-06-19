@@ -83,3 +83,20 @@ export function pickClips(
 
   return weightedShuffle(pool, rng)
 }
+
+/**
+ * Pick from ALL clips (ignoring time-of-day/season), weighted-shuffled.
+ * Recently-shown ids in `history` are excluded when doing so still leaves at
+ * least one clip — so the same clip never shows again too soon. Used when the
+ * hero rotates the whole library at random.
+ */
+export function pickAny(config: HeroVideoConfig, opts: PickOptions = {}): HeroClip[] {
+  const rng = opts.rng ?? Math.random
+  const history = opts.history ?? []
+  if (config.clips.length === 0) return []
+
+  const filtered = config.clips.filter((clip) => !history.includes(clip.id))
+  const pool = filtered.length > 0 ? filtered : config.clips
+
+  return weightedShuffle(pool, rng)
+}

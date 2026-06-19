@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { HERO_CONFIG } from './clips'
-import { pickClips, resolveSeason, resolveTimeOfDay } from './timeOfDay'
+import { pickAny, pickClips, resolveSeason, resolveTimeOfDay } from './timeOfDay'
 import type { HeroVideoConfig, Season, TimeOfDay } from './types'
 
 const W = HERO_CONFIG.windows
@@ -107,5 +107,26 @@ describe('pickClips', () => {
 
     expect(a.map((c) => c.id)).toEqual(b.map((c) => c.id))
     expect(a.length).toBeGreaterThan(1)
+  })
+})
+
+describe('pickAny', () => {
+  it('returns every clip (ignores time-of-day / season)', () => {
+    const ids = pickAny(HERO_CONFIG).map((c) => c.id).sort()
+    const all = HERO_CONFIG.clips.map((c) => c.id).sort()
+    expect(ids).toEqual(all)
+  })
+
+  it('excludes recently-shown ids when alternatives remain', () => {
+    const recent = HERO_CONFIG.clips[0]!.id
+    const result = pickAny(HERO_CONFIG, { history: [recent] })
+    expect(result.map((c) => c.id)).not.toContain(recent)
+    expect(result.length).toBe(HERO_CONFIG.clips.length - 1)
+  })
+
+  it('backs off to the full set if history would exclude everything', () => {
+    const allIds = HERO_CONFIG.clips.map((c) => c.id)
+    const result = pickAny(HERO_CONFIG, { history: allIds })
+    expect(result.length).toBe(HERO_CONFIG.clips.length)
   })
 })

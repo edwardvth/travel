@@ -10,8 +10,8 @@ import type { HeroVideoConfig } from './types'
  * licensed rather than hotlinked from the Pexels CDN.
  */
 export const HERO_CONFIG: HeroVideoConfig = {
-  crossfadeMs: 1000,
-  minClipDisplayMs: 4500,
+  crossfadeMs: 800,
+  minClipDisplayMs: 3000,
   windows: {
     morning: [5, 11],
     afternoon: [11, 17],

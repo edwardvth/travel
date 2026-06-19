@@ -1,7 +1,7 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import { useReducedMotion } from 'framer-motion'
 import { HERO_CONFIG } from './clips'
-import { resolveSeason, resolveTimeOfDay, pickClips } from './timeOfDay'
+import { pickAny } from './timeOfDay'
 import type { HeroClip, HeroVideoConfig } from './types'
 
 /**
@@ -135,13 +135,9 @@ export function HeroModeCinematic({
 
   /* ---- Selection: build playlist on mount ---- */
   useEffect(() => {
-    const now = new Date()
-    const tod = resolveTimeOfDay(now, config.windows)
-    const season = resolveSeason(now)
-
     const repick = (): HeroClip[] => {
-      const next = pickClips(config, { tod, season }, { history: historyRef.current })
-      // Defensive: if eligibility yields nothing, fall back to the whole list.
+      const next = pickAny(config, { history: historyRef.current })
+      // Defensive: if shuffling yields nothing, fall back to the whole list.
       return next.length > 0 ? next : config.clips
     }
 
@@ -171,20 +167,12 @@ export function HeroModeCinematic({
     let canplayTimer: ReturnType<typeof setTimeout> | undefined
     let cancelled = false
 
-    const now = new Date()
-    const tod = resolveTimeOfDay(now, config.windows)
-    const season = resolveSeason(now)
-
     const nextClip = (): HeroClip => {
       const list = playlistRef.current
       let idx = playlistIndexRef.current + 1
       if (idx >= list.length) {
-        // Exhausted — re-pick, excluding recent history.
-        const repicked = pickClips(
-          config,
-          { tod, season },
-          { history: historyRef.current },
-        )
+        // Exhausted — re-shuffle the whole library, excluding recent history.
+        const repicked = pickAny(config, { history: historyRef.current })
         playlistRef.current = repicked.length > 0 ? repicked : config.clips
         idx = 0
       }
