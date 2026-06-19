@@ -66,6 +66,24 @@ describe('setReservation', () => {
     expect(s.booking).toEqual({ status: 'booked', time: '8 PM', note: 'window seat' })
   })
 
+  it('clearing a field (empty string) removes the key rather than storing ""', () => {
+    const s = stop({ reservation: { status: 'reserved', time: '7:30 PM', confirmation: 'ABC123', note: 'table for 2' } })
+    const next = setReservation(s, { confirmation: '', note: '', time: '' })
+    // status survives; the cleared fields are omitted entirely (no empty strings)
+    expect(next.reservation).toEqual({ status: 'reserved' })
+    expect('confirmation' in next.reservation!).toBe(false)
+    expect('note' in next.reservation!).toBe(false)
+    expect('time' in next.reservation!).toBe(false)
+    // original untouched
+    expect(s.reservation).toEqual({ status: 'reserved', time: '7:30 PM', confirmation: 'ABC123', note: 'table for 2' })
+  })
+
+  it('clears a single field while carrying the others forward', () => {
+    const s = stop({ reservation: { status: 'reserved', time: '7:30 PM', confirmation: 'ABC123', note: 'table for 2' } })
+    const next = setReservation(s, { confirmation: '' })
+    expect(next.reservation).toEqual({ status: 'reserved', time: '7:30 PM', note: 'table for 2' })
+  })
+
   it('clears the reservation when patch is null (immutably) and removes legacy booking', () => {
     const s = stop({
       reservation: { status: 'reserved', time: '8 PM' },

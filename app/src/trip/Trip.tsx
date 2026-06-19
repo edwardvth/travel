@@ -341,7 +341,7 @@ function UpcomingSection({ trip, entries, onOpen }: {
 
   return (
     <section aria-labelledby="trip-upcoming-h">
-      <SectionHeader id="trip-upcoming-h" icon={Calendar} title="Upcoming" count={entries.length} />
+      <SectionHeader id="trip-upcoming-h" icon={Calendar} title="Upcoming" count={sorted.length} />
 
       {sorted.length === 0 ? (
         <EmptyState icon={Calendar} text="Your schedule is still empty" />

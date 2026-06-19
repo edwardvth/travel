@@ -50,9 +50,13 @@ export function setReservation(stop: Stop, patch: Partial<Reservation> | null): 
   const merged: Reservation = {
     status: patch.status ?? stop.reservation?.status ?? legacyStatus ?? 'to_reserve',
   }
-  const time = patch.time ?? stop.reservation?.time ?? stop.booking?.time
-  const confirmation = patch.confirmation ?? stop.reservation?.confirmation
-  const note = patch.note ?? stop.reservation?.note ?? stop.booking?.note
+  // Treat an explicitly-cleared field (empty string) as "remove": when the patch
+  // sets a field to '', the key is omitted from the merged reservation rather
+  // than persisted as ''. Fields absent from the patch carry their value forward.
+  const blankToUndef = (v: string | undefined): string | undefined => (v === '' ? undefined : v)
+  const time = 'time' in patch ? blankToUndef(patch.time) : stop.reservation?.time ?? stop.booking?.time
+  const confirmation = 'confirmation' in patch ? blankToUndef(patch.confirmation) : stop.reservation?.confirmation
+  const note = 'note' in patch ? blankToUndef(patch.note) : stop.reservation?.note ?? stop.booking?.note
   if (time !== undefined) merged.time = time
   if (confirmation !== undefined) merged.confirmation = confirmation
   if (note !== undefined) merged.note = note
