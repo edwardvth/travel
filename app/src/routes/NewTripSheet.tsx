@@ -3,7 +3,7 @@ import { Sheet } from '../components/ui/Sheet'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
 import { sanitizeSlug, isValidSlug, hasProfanity } from '../lib/trip-helpers'
-import { useCreateTrip } from '../data/useTrips'
+import { useCreateTrip, useBackfillCoverImage } from '../data/useTrips'
 
 const REASONS: Record<string, string> = {
   slug_taken: 'That Trip ID already exists — pick another.',
@@ -19,6 +19,7 @@ export function NewTripSheet({ open, onClose, onCreated, isTeaser }:
   const [start, setStart] = useState(''); const [end, setEnd] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const create = useCreateTrip()
+  const backfillCover = useBackfillCoverImage()
 
   // Fresh form each time the sheet opens (it stays mounted between opens).
   useEffect(() => {
@@ -33,7 +34,13 @@ export function NewTripSheet({ open, onClose, onCreated, isTeaser }:
   }
   const submit = async () => {
     setErr(null)
-    try { onCreated(await create.mutateAsync({ slug, title, subtitle, start, end })) }
+    try {
+      const id = await create.mutateAsync({ slug, title, subtitle, start, end })
+      // Fire-and-forget: grab a landmark cover for the destination. Never blocks
+      // creation — the home card backfills on-demand anyway if this misses.
+      backfillCover(id, title)
+      onCreated(id)
+    }
     catch (e) { setErr(REASONS[(e as Error).message] ?? "Couldn't create this trip. Try again.") }
   }
 

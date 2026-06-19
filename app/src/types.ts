@@ -54,6 +54,12 @@ export interface TripConfig {
   units?: 'metric' | 'imperial'
   aiModel?: string
   aiKey?: string
+  /**
+   * Cover photo for the trip card (home page). A representative landmark image
+   * for the destination, fetched once on trip creation (free Wikipedia/Wikimedia
+   * URL — see `landmark.ts`). Stored as a plain hotlink string, never a data URL.
+   */
+  coverImage?: string
   // Legacy config keys that may exist on imported/older trips; preserved on save.
   [key: string]: unknown
 }

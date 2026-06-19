@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { suggestPlaces } from './suggest'
 import { placeFromSuggestion } from './location'
+import { useLandmarkBackfill } from '../data/useLandmarkBackfill'
+import { destinationOf, stopLandmarkQuery } from './landmark-context'
 import { Check, kindIcon, kindLabel, stopTypeIcon } from './icons'
 import { cn } from '../lib/utils'
 import { Button } from '../components/ui/Button'
@@ -32,6 +34,7 @@ type Status = 'idle' | 'loading' | 'done' | 'error'
 const TITLE_ID = 'add-stop-title'
 
 export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
+  const { backfillStop } = useLandmarkBackfill(trip.id, save)
   const [kind, setKind] = useState<StopKind>('do')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<Status>('idle')
@@ -90,6 +93,15 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
     save({ data: next })
     setAddedCount(c => c + 1)
     setLastAdded(stop.name)
+    // Fire-and-forget: grab a landmark photo for this stop after it's saved.
+    if (!tagged.image && !(tagged.photos && tagged.photos.length)) {
+      backfillStop(
+        day,
+        tagged.name,
+        tagged.address,
+        stopLandmarkQuery(tagged.name, destinationOf(trip)),
+      )
+    }
   }
 
   function addTyped() {

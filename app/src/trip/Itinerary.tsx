@@ -6,6 +6,8 @@ import { StopList } from './StopList'
 import { AddStop } from './AddStop'
 import TripMapView, { type MapSelection } from './TripMapView'
 import { suggestDay } from './suggest'
+import { useLandmarkBackfill } from '../data/useLandmarkBackfill'
+import { destinationOf, stopLandmarkQuery } from './landmark-context'
 import { dayCount as countDays, dayLabel, stopCount } from './helpers'
 import { WeatherGlance } from './WeatherGlance'
 import { StayCard } from './StayCard'
@@ -19,6 +21,7 @@ export default function Itinerary() {
   // Day selection is lifted into the layout (mirrored to `?day=N`) so the
   // desktop sidebar and these mobile day chips share one source of truth.
   const { trip, canEdit, save, activeDay, setActiveDay } = useOutletContext<PlannerOutletContext>()
+  const { backfillStop } = useLandmarkBackfill(trip.id, save)
   const navigate = useNavigate()
   const [selected, setSelected] = useState<MapSelection | null>(null)
   const [adding, setAdding] = useState(false)
@@ -70,6 +73,13 @@ export default function Itinerary() {
         days: data.days.map((d, i) => (i === day ? { ...d, stops: [...d.stops, ...stops] } : d)),
       }
       save({ data: next })
+      // Fire-and-forget: backfill a landmark photo for each freshly-added stop.
+      const dest = destinationOf(trip)
+      for (const s of stops) {
+        if (!s.image && !(s.photos && s.photos.length)) {
+          backfillStop(day, s.name, s.address, stopLandmarkQuery(s.name, dest))
+        }
+      }
     } catch (e) {
       setSuggestError(
         e instanceof Error
