@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "travel",
+  "name": "voyager",
   "compatibility_date": "2026-06-11",
   "main": "worker.js",
   "observability": { "enabled": true },
