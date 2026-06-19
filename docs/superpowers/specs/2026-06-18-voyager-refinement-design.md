@@ -4,7 +4,7 @@
 **Status:** Draft for approval → then implementation plan
 **Scope:** Refine (not rebuild) the Landing (homepage) and Dashboard (/trips) into a luxurious, "alive" premium experience. Built on the existing Phase-1 design system; backend untouched. Branch `voyager-redesign` (restore point tag `phase-1-complete`).
 
-This complements the vision spec (`2026-06-18-voyager-redesign-design.md`) and the build tracker (`docs/IMPLEMENTATION.md`). The Design North Star, Voice, Anti-Patterns, and Competitive Rule from those docs still govern — "alive" must never become "busy."
+This complements the vision spec (`2026-06-18-voyager-redesign-design.md`) and the build tracker (`docs/IMPLEMENTATION.md`). The Design North Star, Voice, Anti-Patterns, and Competitive Rule from those docs still govern — "alive" must never become "busy", and **motion should guide attention, not demand attention.**
 
 ---
 
@@ -13,7 +13,7 @@ This complements the vision spec (`2026-06-18-voyager-redesign-design.md`) and t
 | Decision | Choice |
 |---|---|
 | Hero "Cinematic" background | **Real looping video** (config-driven, swappable), with poster-image fallback always rendered first |
-| Sequencing | **Homepage + Trips together**, one big review |
+| Sequencing | **Homepage + Trips** in this initiative, built in **phases with a visual checkpoint** after Hero → Homepage → Trips → Polish (hero approved before the homepage is built around it) |
 | Featured Voyages (future public-itinerary feature) | **Elegant "coming-soon" shell** — real component, graceful placeholder state, no fabricated stats |
 | "Future Ideas" in Trips timeline | Maps to **real undated trips** ("Someday"), not invented data |
 | Posters / section imagery | Curated **Unsplash** for now; swap for licensed assets later |
@@ -26,6 +26,7 @@ This complements the vision spec (`2026-06-18-voyager-redesign-design.md`) and t
 ### 2.1 Schema (`app/src/hero/types.ts`)
 ```ts
 export type TimeOfDay = 'morning' | 'afternoon' | 'evening' | 'night'
+export type Season = 'winter' | 'spring' | 'summer' | 'autumn'
 export type HeroCategory =
   | 'city' | 'mountains' | 'beach' | 'countryside'
   | 'historic' | 'nightlife' | 'desert' | 'snow' | 'luxury'
@@ -36,6 +37,7 @@ export interface HeroClip {
   label: string                  // human label (debug/credits)
   category: HeroCategory
   timeOfDay: TimeOfDay[]         // slots this clip is eligible for
+  season?: Season[]              // optional season eligibility (omit = all seasons)
   poster: string                 // always-rendered fallback image (instant paint)
   sources: { src: string; type: 'video/webm' | 'video/mp4' }[] // ordered: webm first
   dominantColor: string          // hex — tunes crossfade bg + text scrim for legibility
@@ -59,10 +61,12 @@ export interface HeroVideoConfig {
 - `crossfadeMs: 1200`, `minClipDisplayMs: 9000`
 - `windows`: morning `[5,11]`, afternoon `[11,17]`, evening `[17,20]`, night `[20,5]`
 - `enableVideoOnMobile: false`, `saveDataPosterOnly: true`
-- `clips`: the 10 curated entries (santorini-dawn, alps-lake-morning, kyoto-bamboo, tropical-aerial, tuscany-day, skyline-golden, cappadocia-balloons, amalfi-sunset, tokyo-neon, city-aerial-night). Each: Unsplash poster + placeholder CC0 MP4/WebM (Coverr/Pexels) + dominantColor + credit. **Footage is placeholder-grade; swap licensed cuts later by editing this file + dropping files in `app/public/video/`.**
+- `clips`: the 10 curated entries (santorini-dawn, alps-lake-morning, kyoto-bamboo, tropical-aerial, tuscany-day, skyline-golden, cappadocia-balloons, amalfi-sunset, tokyo-neon, city-aerial-night), each tagged with `timeOfDay[]` **and `season[]`** (winter favors Alps/Iceland/Japan-snow; summer favors Mediterranean/Rio/Santorini). Each: Unsplash poster + placeholder CC0 MP4/WebM (Coverr/Pexels) + dominantColor + credit. **Footage is placeholder-grade; swap licensed cuts later by editing this file + dropping files in `app/public/video/`.**
+
+**Curation rule — atmosphere, not the attraction:** background clips create *mood*, not focal points. Avoid recognizable landmarks that dominate the frame (no big Eiffel Tower / Statue of Liberty / Big Ben close-ups). Prefer skylines, streets, and landscapes — Tokyo skyline, Kyoto street, Swiss lake.
 
 ### 2.3 Behavior (`HeroModeCinematic`)
-- Resolve current `TimeOfDay` from local time → pick eligible clips (weighted), shuffle.
+- Resolve current `TimeOfDay` **and `Season`** from local time + month (northern-hemisphere default, configurable later) → pick clips matching both (weighted), shuffle.
 - Render a **poster `<img>` base layer** (instant). Above it, two `<video>` layers (A/B) for **crossfade**: play current, preload+decode next, crossfade on `minClipDisplayMs`, advance. `muted loop playsInline preload="metadata"`, no audio track.
 - **Legibility:** reuse Landing's layered scrims, tuned by `dominantColor`, so headline/typewriter stay ≥4.5:1.
 - **Perf/a11y guards (hard requirements):**
@@ -108,6 +112,7 @@ Order: **Hero → Travel Moods → Popular Destinations → Featured Voyages.** 
 
 - **`TravelMoods`** — cards: Wine Country, Mountain Escape, Big City Energy, Tropical Paradise, Luxury Retreat, Food Adventure, Adventure Travel, Cultural Journey. Editorial image cards, subtle hover lift/zoom. Built to support future filtering (each mood has a stable `key`).
 - **`PopularDestinations`** — horizontal scroll-snap rail of large image cards (Yerevan, Seoul, Kyoto, Istanbul, Rio, Singapore, Tokyo, Milan). Lift + subtle zoom on hover; keyboard/scroll accessible; momentum scroll; edge fade.
+  Future-proofed data model (`app/src/data/destinations.ts`): `{ slug, name, region, image, featured: boolean, seasonalWeight: number }` — so the rail can rotate by feature flag + season later (no UI change).
 - **`FeaturedVoyages`** — **coming-soon shell** designed for the future public-itinerary feature: card anatomy (title, creator, short description, save count, "save/duplicate" affordance) shown as an elegant placeholder/"coming soon" state. No fake counts.
 
 ---
@@ -120,7 +125,7 @@ Order: **Hero → Travel Moods → Popular Destinations → Featured Voyages.** 
 ---
 
 ## 9. Shared motion & microinteractions (`app/src/components/motion/`)
-Small reusable layer on existing tokens:
+**Guiding principle: motion should guide attention, not demand attention.** Small reusable layer on existing tokens:
 - `Reveal` (scroll-reveal via IntersectionObserver + Framer, once), `HoverLift` wrapper, image-zoom utility classes, refined `Skeleton` usage, premium button/press states.
 - All GPU-accelerated (`transform`/`opacity`), `prefers-reduced-motion` honored centrally.
 
@@ -131,7 +136,7 @@ Small reusable layer on existing tokens:
 app/src/hero/
   types.ts            HeroClip / HeroVideoConfig / TimeOfDay / HeroCategory
   clips.ts            default HeroVideoConfig + curated manifest
-  timeOfDay.ts        resolveTimeOfDay(date, windows), pickClips(config, tod)
+  timeOfDay.ts        resolveTimeOfDay + resolveSeason(date); pickClips(config, { tod, season })
   HeroModeCinematic.tsx
   HeroModeExplorer.tsx
   HeroToggle.tsx
@@ -164,24 +169,56 @@ data:
 
 ---
 
-## 12. Build sequence (one subagent-driven pass)
-1. Hero schema + config + time-of-day resolver (+ unit tests for resolver/pickClips).
+## 12. Build sequence — phased, with a visual checkpoint after each phase
+
+The hero is the keystone, so we **approve it visually before building the homepage around it.**
+
+**Phase A — Hero (→ visual checkpoint):**
+1. Hero schema + config + time-of-day/season resolver (+ unit tests for resolver/pickClips).
 2. Typewriter (+ reduced-motion path).
 3. HeroSearchPill (unify shape + microinteractions).
 4. HeroModeCinematic (video controller + poster fallback + guards).
 5. HeroModeExplorer (map + arcs) + HeroToggle.
 6. HeroMicroDetails.
-7. Shared motion layer (Reveal/HoverLift/motion.css).
-8. TravelMoods, PopularDestinations, FeaturedVoyages (+ curated data).
-9. Compose new Landing.
-10. TripsHero, TripTimeline (Upcoming/Someday/Past), TripsEmptyState; compose new Dashboard.
-11. Perf/a11y pass + build/test gate + visual QA checklist.
+→ **You review the hero live. We adjust before proceeding.**
 
-Each task: spec + quality review, commit; final holistic review; then your big visual review.
+**Phase B — Homepage sections (→ visual checkpoint):**
+7. Shared motion layer (Reveal/HoverLift/motion.css).
+8. TravelMoods, PopularDestinations (rotatable data model), FeaturedVoyages (coming-soon shell) + curated data.
+9. Compose new Landing around the approved hero.
+→ **You review the full homepage.**
+
+**Phase C — Trips (→ visual checkpoint):**
+10. TripsHero, TripTimeline (Upcoming/Someday/Past), TripsEmptyState; compose new Dashboard.
+→ **You review the Trips page.**
+
+**Phase D — Final polish (→ visual checkpoint):**
+11. Perf/a11y pass, microinteraction consistency, Design Acceptance Criteria (§13) sign-off, build/test gate, holistic review.
+→ **Final review.**
+
+Each task within a phase: implementer + spec review + quality review, commit. A holistic review closes each phase.
 
 ---
 
-## 13. Open items
+## 13. Design Acceptance Criteria
+
+The refinement succeeds when:
+
+**Hero** — background feels alive but not distracting · search pill reads as one component · typewriter is smooth · hero text stays readable over any clip.
+
+**Homepage** — no section feels empty; none feels crowded · scrolling feels natural.
+
+**Trips** — all existing functionality preserved · timeline is easy to understand · empty state is inviting.
+
+**Motion** — animations are smooth and **guide, not demand, attention** · reduced-motion respected · **no animation causes layout shift (CLS)**.
+
+**Performance** — hero never flashes blank (poster-first) · mobile stays fast (poster-only on phones / save-data) · Lighthouse performance stays high.
+
+**Overall** — a first-time visitor immediately feels **curious, inspired, relaxed, and excited to explore**; the experience feels premium and intentional.
+
+---
+
+## 14. Open items
 - **Final footage** — placeholder CC0 clips ship now; curate/license real cuts and drop into `app/public/video/` + update `clips.ts` (no code change).
 - **Featured Voyages backend** — real shared-itinerary data is a later phase; this pass ships the shell.
 - **Section imagery** — Unsplash now; licensed later.
