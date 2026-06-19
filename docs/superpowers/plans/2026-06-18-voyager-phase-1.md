@@ -94,6 +94,7 @@ app/
     "@testing-library/jest-dom": "^6.4.6",
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.5.2",
+    "@types/node": "^25.9.3",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^4.3.1",
@@ -108,9 +109,9 @@ app/
 }
 ```
 
-`app/vite.config.ts`:
+`app/vite.config.ts` (import `defineConfig` from `vitest/config` so the `test` field is typed — no cast needed):
 ```ts
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import path from 'node:path'
 
@@ -122,7 +123,7 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
   },
-} as any)
+})
 ```
 
 `app/tsconfig.json`:
@@ -255,6 +256,7 @@ export default {
         ink: 'var(--ink)', muted: 'var(--muted)',
         sig: 'var(--sig)', 'sig-btn': 'var(--sig-btn)', 'sig-link': 'var(--sig-link)',
         gold: 'var(--gold)',
+        fill: 'var(--fill)', 'fill-hover': 'var(--fill-hover)', skeleton: 'var(--skeleton)',
         hair: 'var(--hair)', 'hair-strong': 'var(--hair-strong)',
       },
       fontFamily: {
@@ -284,11 +286,16 @@ export default {
 @tailwind components;
 @tailwind utilities;
 
+/* Voyager is dark-first: :root holds the dark tokens so the app defaults to dark
+   before JS runs. `.light` opts into the light theme. ThemeToggle always sets an
+   explicit `dark` or `light` class on <html> (it never relies on a class being
+   absent). Components theme via these CSS variables, not Tailwind `dark:` variants. */
 :root, .dark {
   --base:#0A0A0C; --raised:#141417; --overlay:#1B1B20;
   --ink:#F4F3F0; --muted:#8E8E96;
   --hair:rgba(255,255,255,.10); --hair-strong:rgba(255,255,255,.16);
   --gold:#FFD9A8; --sig:#9C3D3A; --sig-btn:#B0473F; --sig-link:#C56A60;
+  --fill:rgba(255,255,255,.06); --fill-hover:rgba(255,255,255,.12); --skeleton:rgba(255,255,255,.08);
   --shadow-soft:0 1px 2px rgba(0,0,0,.4), 0 12px 40px -12px rgba(0,0,0,.7);
   --shadow-lift:0 2px 6px rgba(0,0,0,.45), 0 30px 80px -28px rgba(0,0,0,.8);
   color-scheme: dark;
@@ -298,6 +305,7 @@ export default {
   --ink:#14141A; --muted:#6A6A72;
   --hair:rgba(20,20,26,.10); --hair-strong:rgba(20,20,26,.16);
   --gold:#A86A2A; --sig:#9C3D3A; --sig-btn:#B0473F; --sig-link:#8A2F2C;
+  --fill:rgba(20,20,26,.05); --fill-hover:rgba(20,20,26,.09); --skeleton:rgba(20,20,26,.07);
   --shadow-soft:0 1px 2px rgba(36,28,20,.06), 0 18px 50px -20px rgba(36,28,20,.18);
   --shadow-lift:0 2px 8px rgba(36,28,20,.08), 0 36px 90px -32px rgba(36,28,20,.24);
   color-scheme: light;
@@ -766,7 +774,7 @@ export function ThemeToggle() {
       onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
       className="grid place-items-center w-9 h-9 rounded-btn border border-hair text-muted hover:text-ink transition-colors"
     >
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         {theme === 'dark'
           ? <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4 12H2M22 12h-2M5 5l1.5 1.5M17.5 17.5L19 19M19 5l-1.5 1.5M6.5 17.5L5 19" /></>
           : <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />}
@@ -952,8 +960,8 @@ type Variant = 'primary' | 'claret' | 'ghost' | 'soft'
 const styles: Record<Variant, string> = {
   primary: 'bg-ink text-base hover:shadow-lift',
   claret: 'bg-sig-btn text-white hover:brightness-110',
-  ghost: 'bg-transparent text-ink border border-hair hover:bg-[rgba(255,255,255,.06)]',
-  soft: 'bg-[rgba(255,255,255,.07)] text-ink hover:bg-[rgba(255,255,255,.12)]',
+  ghost: 'bg-transparent text-ink border border-hair hover:bg-fill',
+  soft: 'bg-fill text-ink hover:bg-fill-hover',
 }
 export function Button(
   { variant = 'primary', className, busy, children, ...props }:
@@ -985,7 +993,7 @@ export const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input
     {...props}
     className={cn(
-      'w-full rounded-btn bg-[rgba(255,255,255,.04)] border border-hair px-4 py-3 text-[15px] text-ink',
+      'w-full rounded-btn bg-fill border border-hair px-4 py-3 text-[15px] text-ink',
       'placeholder:text-muted outline-none focus:border-sig-link transition-colors', props.className,
     )}
   />
@@ -994,13 +1002,22 @@ export const Input = (props: React.InputHTMLAttributes<HTMLInputElement>) => (
 
 - [ ] **Step 3: Sheet (bottom sheet on mobile, centered on desktop), Skeleton, Segmented**
 
-`app/src/components/ui/Sheet.tsx`:
+`app/src/components/ui/Sheet.tsx` (Escape-to-close + optional `labelledBy` so the dialog has an accessible name):
 ```tsx
+import { useEffect } from 'react'
 import { cn } from '../../lib/utils'
-export function Sheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: React.ReactNode }) {
+export function Sheet({ open, onClose, children, labelledBy }:
+  { open: boolean; onClose: () => void; children: React.ReactNode; labelledBy?: string }) {
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onClose])
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
+      role="dialog" aria-modal="true" aria-labelledby={labelledBy}>
       <div className="absolute inset-0 bg-black/60" onClick={onClose} />
       <div className={cn('relative w-full md:max-w-lg bg-overlay border border-hair',
         'rounded-t-card md:rounded-card p-6 shadow-lift', 'max-h-[90vh] overflow-y-auto')}>
@@ -1015,7 +1032,7 @@ export function Sheet({ open, onClose, children }: { open: boolean; onClose: () 
 ```tsx
 import { cn } from '../../lib/utils'
 export const Skeleton = ({ className }: { className?: string }) => (
-  <div className={cn('animate-pulse rounded-md bg-[rgba(255,255,255,.07)]', className)} />
+  <div className={cn('animate-pulse rounded-md bg-skeleton', className)} />
 )
 ```
 
@@ -1026,7 +1043,7 @@ export function Segmented<T extends string>(
   { value, onChange, options }: { value: T; onChange: (v: T) => void; options: { value: T; label: string }[] }
 ) {
   return (
-    <div className="inline-flex p-1 rounded-btn bg-[rgba(255,255,255,.05)] border border-hair">
+    <div className="inline-flex p-1 rounded-btn bg-fill border border-hair">
       {options.map(o => (
         <button key={o.value} type="button" onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
@@ -1165,7 +1182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let active = true
     supabase.auth.getSession().then(({ data }) => {
       if (active) { setUser(data.session?.user ?? null); setLoading(false) }
-    })
+    }).catch(() => { if (active) setLoading(false) })
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null); setLoading(false)
       // scrub auth tokens from the URL hash after sign-in
@@ -1297,23 +1314,30 @@ export default function Auth() {
         <Logo className="mb-1" />
         <p className="text-muted text-[13px] mb-5">Sign in to see your trips.</p>
         <div className="space-y-2.5">
-          <Input placeholder="Your name (for new accounts)" autoComplete="name" value={name} onChange={e => setName(e.target.value)} />
-          <Input placeholder="Email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} />
-          <Input placeholder="Password" type="password" autoComplete="current-password" value={pw} onChange={e => setPw(e.target.value)} />
+          <Input aria-label="Your name (for new accounts)" placeholder="Your name (for new accounts)" autoComplete="name" value={name} onChange={e => setName(e.target.value)} />
+          <Input aria-label="Email address" placeholder="Email" type="email" autoComplete="email" value={email} onChange={e => setEmail(e.target.value)} />
+          <Input aria-label="Password" placeholder="Password" type="password" autoComplete="current-password" value={pw} onChange={e => setPw(e.target.value)} />
         </div>
         <div className="mt-4 space-y-2.5">
           <Button variant="claret" busy={busy} className="w-full" onClick={wrap(() => signIn(email, pw))}>Sign in</Button>
           <Button variant="ghost" busy={busy} className="w-full"
-            onClick={wrap(() => signUp(email, pw, name).then(r => r.needConfirm ? { error: undefined } : r) , 'Check your email to confirm, then come back here.')}>
+            onClick={async () => {
+              setBusy(true); setMsg(null)
+              const r = await signUp(email, pw, name)
+              setBusy(false)
+              if (r.error) setMsg({ text: r.error, err: true })
+              else if (r.needConfirm) setMsg({ text: 'Check your email to confirm, then come back here.' })
+              // else: auto-signed-in → the user effect redirects to /trips
+            }}>
             Create account
           </Button>
-          <Button variant="soft" className="w-full" onClick={wrap(() => signInGoogle())}>Continue with Google</Button>
+          <Button variant="soft" busy={busy} className="w-full" onClick={wrap(() => signInGoogle())}>Continue with Google</Button>
         </div>
-        <button className="mt-3 w-full text-center text-[13px] text-sig-link"
+        <button disabled={busy} className="mt-3 w-full text-center text-[13px] text-sig-link disabled:opacity-60"
           onClick={wrap(() => magicLink(email), 'Magic link sent — check your email.')}>
           Email me a magic link instead
         </button>
-        <div className="mt-3 min-h-[18px] text-center text-[13px]" style={{ color: msg?.err ? 'var(--sig-link)' : 'var(--muted)' }}>
+        <div aria-live="polite" className="mt-3 min-h-[18px] text-center text-[13px]" style={{ color: msg?.err ? 'var(--sig-link)' : 'var(--muted)' }}>
           {msg?.text}
         </div>
       </div>
@@ -1526,7 +1550,7 @@ import type { Trip } from '../types'
 export function TripRow({ trip, onOpen, actions }: { trip: Trip; onOpen: (id: string) => void; actions?: React.ReactNode }) {
   const cover = trip.data?.days?.flatMap(d => d.stops)?.find(s => s.image)?.image
   return (
-    <div className="flex w-full items-center gap-3.5 p-4 border border-hair rounded-card hover:bg-[rgba(255,255,255,.03)] transition-colors">
+    <div className="flex w-full items-center gap-3.5 p-4 border border-hair rounded-card hover:bg-fill transition-colors">
       <button onClick={() => onOpen(trip.id)} className="flex flex-1 items-center gap-3.5 text-left min-w-0" aria-label={`Open ${trip.title}`}>
         <span className="h-[54px] w-[54px] flex-none rounded-[12px] bg-raised bg-cover bg-center"
           style={cover ? { backgroundImage: `url(${cover})` } : undefined} />
@@ -1578,7 +1602,7 @@ git commit -m "feat: TripCard (editorial) + TripRow (dense) + EmptyState"
 
 `app/src/routes/NewTripSheet.tsx`:
 ```tsx
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Sheet } from '../components/ui/Sheet'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
@@ -1600,6 +1624,11 @@ export function NewTripSheet({ open, onClose, onCreated, isTeaser }:
   const [err, setErr] = useState<string | null>(null)
   const create = useCreateTrip()
 
+  // Fresh form each time the sheet opens (it stays mounted between opens).
+  useEffect(() => {
+    if (open) { setStep(1); setSlug(''); setTitle(''); setSubtitle(''); setStart(''); setEnd(''); setErr(null) }
+  }, [open])
+
   const next = () => {
     if (!slug || !title) return setErr('Trip ID and title are required.')
     if (!isValidSlug(slug)) return setErr('Trip ID can only contain letters, numbers, and dashes.')
@@ -1613,15 +1642,15 @@ export function NewTripSheet({ open, onClose, onCreated, isTeaser }:
   }
 
   return (
-    <Sheet open={open} onClose={onClose}>
-      <h2 className="font-serif text-2xl">{step === 1 ? 'Where to?' : 'When are you going?'}</h2>
+    <Sheet open={open} onClose={onClose} labelledBy="newtrip-title">
+      <h2 id="newtrip-title" className="font-serif text-2xl">{step === 1 ? 'Where to?' : 'When are you going?'}</h2>
       <p className="text-muted text-[13px] mt-1">{step === 1 ? "Name your trip — you'll add days next." : 'Pick your dates, or skip and set them later.'}</p>
 
       {step === 1 ? (
         <div className="mt-5 space-y-2.5">
-          <Input placeholder="Trip ID (e.g. kyoto2026)" value={slug} onChange={e => setSlug(sanitizeSlug(e.target.value))} />
-          <Input placeholder="Title (e.g. Kyoto Spring 2026)" value={title} onChange={e => setTitle(e.target.value)} />
-          <Input placeholder="Subtitle (optional)" value={subtitle} onChange={e => setSubtitle(e.target.value)} />
+          <Input aria-label="Trip ID" placeholder="Trip ID (e.g. kyoto2026)" value={slug} onChange={e => setSlug(sanitizeSlug(e.target.value))} />
+          <Input aria-label="Trip title" placeholder="Title (e.g. Kyoto Spring 2026)" value={title} onChange={e => setTitle(e.target.value)} />
+          <Input aria-label="Subtitle (optional)" placeholder="Subtitle (optional)" value={subtitle} onChange={e => setSubtitle(e.target.value)} />
           {isTeaser && <p className="text-[12.5px] text-sig-link">Your first trip is a free teaser — plan all your days and fill Day 1.</p>}
         </div>
       ) : (
@@ -1730,8 +1759,8 @@ export function ShareSheet({ tripId, open, onClose }: { tripId: string; open: bo
   const remove = async (e: string) => { try { await removeMember(tripId, e); setMembers(await listMembers(tripId)) } catch { /* ignore */ } }
 
   return (
-    <Sheet open={open} onClose={onClose}>
-      <h2 className="font-serif text-2xl">Share “{tripId}”</h2>
+    <Sheet open={open} onClose={onClose} labelledBy="share-title">
+      <h2 id="share-title" className="font-serif text-2xl">Share “{tripId}”</h2>
       <Button variant="soft" className="w-full mt-4" onClick={copyLink}>Copy invite link</Button>
       <div className="my-4 flex items-center gap-3 text-muted text-[12px]"><div className="flex-1 h-px bg-hair" />or invite by email<div className="flex-1 h-px bg-hair" /></div>
       <div className="flex gap-2">
@@ -1932,8 +1961,8 @@ import { Button } from './ui/Button'
 export function ConfirmDialog({ open, title, body, confirmLabel, busy, onCancel, onConfirm }:
   { open: boolean; title: string; body: string; confirmLabel: string; busy?: boolean; onCancel: () => void; onConfirm: () => void }) {
   return (
-    <Sheet open={open} onClose={onCancel}>
-      <h2 className="font-serif text-2xl">{title}</h2>
+    <Sheet open={open} onClose={onCancel} labelledBy="confirm-title">
+      <h2 id="confirm-title" className="font-serif text-2xl">{title}</h2>
       <p className="text-muted text-[14px] mt-2">{body}</p>
       <div className="mt-6 flex gap-2.5">
         <Button variant="soft" className="flex-1" onClick={onCancel}>Cancel</Button>
@@ -2023,7 +2052,7 @@ Visual reference (match closely): `.superpowers/brainstorm/5545-1781812780/conte
 `app/src/routes/Landing.tsx`:
 ```tsx
 import { useNavigate } from 'react-router-dom'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Logo } from '../components/Logo'
 import { Button } from '../components/ui/Button'
 
@@ -2031,6 +2060,7 @@ const HERO = 'https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=160
 
 export default function Landing() {
   const nav = useNavigate()
+  const reduce = useReducedMotion()
   const go = () => nav('/auth')
   return (
     <div className="bg-base text-ink">
@@ -2048,7 +2078,7 @@ export default function Landing() {
           </div>
         </nav>
 
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        <motion.div initial={reduce ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
           className="absolute z-10 top-[24%] inset-x-0 text-center px-5 text-white">
           <div className="font-mono text-[12px] tracking-[4px] uppercase text-white/85">Plan · Walk · Remember</div>
           <h1 className="font-serif font-medium text-5xl md:text-6xl tracking-tight mt-4" style={{ textShadow: '0 2px 30px rgba(0,0,0,.65)' }}>
@@ -2069,7 +2099,7 @@ export default function Landing() {
           { k: 'Walk', d: 'A calm live guide narrates each landmark as you approach it, hands-free.' },
           { k: 'Remember', d: 'Turn the trip into a beautiful story you’ll actually want to share.' },
         ].map((b, i) => (
-          <motion.div key={b.k} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+          <motion.div key={b.k} initial={reduce ? false : { opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
             transition={{ duration: 0.4, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}>
             <div className="font-serif text-2xl">{b.k}</div>
             <p className="text-muted text-[14px] mt-2 leading-relaxed">{b.d}</p>
@@ -2118,18 +2148,15 @@ git commit -m "feat: Landing hero (search CTA in the sky) + below-fold story"
 
 - [ ] **Step 2: Link manifest + register the (already-copied) service worker**
 
-In `app/index.html` `<head>` add:
+In `app/index.html` `<head>` add the manifest link:
 ```html
 <link rel="manifest" href="/manifest.webmanifest" />
 ```
-Before `</body>` add:
-```html
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}))
-  }
-</script>
-```
+**Do NOT register a service worker from the SPA in Phase 1.** The legacy `sw.js` was written
+for the old multi-page app (it treats `/` as an app shell and force-navigates open tabs on
+activate), which breaks a client-routed SPA. PWA hardening — including an SPA-appropriate
+service worker — is deferred to **Phase 3** per the spec. The legacy `Trip.html` continues to
+register `/sw.js` itself for its notification feature; the new app simply doesn't.
 
 - [ ] **Step 3: Full build + preview**
 
