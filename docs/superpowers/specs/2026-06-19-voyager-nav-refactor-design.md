@@ -1,6 +1,6 @@
 # Voyager Navigation Refactor — Three-Tab Architecture (Plan · Guide · Trip)
 
-> **Status:** Design (awaiting review) · **Date:** 2026-06-19 · **Supersedes** the Option C four-tab nav (`Plan · Bookings · Map · Settings`) shipped in `phase-2-planner-c`.
+> **Status:** Approved — ready to implement · **Date:** 2026-06-19 · **Supersedes** the Option C four-tab nav (`Plan · Bookings · Map · Settings`) shipped in `phase-2-planner-c`.
 
 ## Goal
 
@@ -14,6 +14,7 @@ Refactor the in-Voyage navigation from four feature-tabs to **three intent-tabs*
 2. **One data model, many lenses.** Plan and Trip are different views on the *same* stop/stay/reservation objects. No duplication, no sync layer — they share `data` and save immutably.
 3. **Inside a Voyage, every primary screen helps the user plan, experience, or manage *this* trip.** Anything that doesn't serve the specific trip lives at the account/Dashboard level instead.
 4. **The stop is the atomic object.** Voyager models a trip as a sequence of stops. Plan, Guide, and Trip are different lenses on those same stops. New features should prefer enriching stops over introducing parallel object systems.
+5. **Duplication is allowed in UI, never in data.** If something appears in multiple tabs, it is always the same underlying object rendered differently.
 
 ## The three tabs
 
@@ -67,18 +68,23 @@ The **logistics and reassurance lens**: everything you've committed to, plus the
 - **Stay** — hotel name, address, **check-in / check-out**, notes. The hotel anchors the trip and is often the first practical thing a traveler needs, so it leads. Source-of-truth for the Stay card shown in Plan.
 - **Upcoming** — reservations sorted by date+time. During the trip this leads with "Today"; pre-trip it's the chronological list of what's reserved. Tapping an item deep-links to that stop in Plan.
 - **Still to arrange** — reservations with status "Need to reserve". The actionable part.
-- **Trip Details** — dates, length, travel notes, and an **Edit trip…** action (title editing lives inside Edit trip rather than as a primary surface).
-- **Manage this trip** — export, duplicate, archive, delete. **Visually de-emphasized and collapsed by default** — these are maintenance actions, not primary surfaces.
+- **Trip Details** — a read/edit interface over trip-level `config` (dates, length, travel notes; title via **Edit trip…**). Not a second store.
+- **Manage this trip** — export, duplicate, archive, delete. **Visually de-emphasized and collapsed by default; expands only via explicit user action (no automatic expansion)** — these are maintenance actions, not primary surfaces.
 
-**Lens relationship:** stops and stays are the source of truth; Plan and Trip are simply different lenses over the same underlying data. Edits in either write the same `data` objects and reflect instantly in both — a reservation toggled "Reserved" in Plan updates the Trip list, and vice-versa.
+**Lens relationship:** stops and stays are the **single source of truth**; Plan and Trip are **read/write projections** of that same dataset. Edits in either write the same `data` objects and reflect instantly in both — a reservation toggled "Reserved" in Plan updates the Trip list, and vice-versa.
+
+**Guardrail — Trip must never become a planning surface.** It is strictly a reflection + management layer: no stop reordering, no itinerary-flow editing, no add-stop / AI-suggest. Anything that *shapes* the itinerary belongs in Plan; Trip only reflects and manages what's already there.
+
+**Empty states must be meaningful** (never a blank panel): no stay → "Add your hotel"; nothing reserved → "Nothing reserved yet"; no upcoming → "Your schedule is still empty".
 
 ---
 
 ## Settings — split by scope, no in-Voyage Settings tab
 
 **Account / Dashboard level** (above any single trip, reached from the Dashboard via a profile/account menu):
-- AI preferences (model) · API key · units · theme · account/subscription · privacy · help.
-- *Rationale:* these are global; the AI key especially must stay reachable since AI features depend on it. New: a Dashboard-level account settings surface (panel or page).
+- **Now (minimal stopgap):** a small Dashboard account menu holding **AI model · API key · units · theme**. The AI key especially must stay reachable — AI suggestions break without it.
+- **Later (its own effort):** the full account surface — subscription · privacy · help, and a proper settings page. Stub these as "coming soon" for now; don't invent those screens yet.
+- *Rationale:* these are global, not trip-scoped; they belong above any single Voyage.
 
 **Trip-specific** (in the **Trip** tab):
 - Title · dates · stay details · reservations · export this trip · duplicate / archive / delete.
@@ -89,9 +95,11 @@ The dedicated Settings *tab inside a Voyage is removed.* Trip-scoped config move
 
 ## Data model (additive; backward-compatible — all in JSONB `data`/`config`)
 
-- **Reservation (per stop)** — extend the existing per-stop reservation object: `{ status: 'to_reserve' | 'reserved'; time?: string; confirmation?: string; note?: string }`. Read legacy `booking` (`to_book`/`booked`) as a fallback so existing trips keep working. **Voyager uses "Reserved" language throughout the UI to reinforce the premium travel experience** — all user-facing "To book / Booked / Booking / Commitment" become **"Need to reserve" / "Reserved" / "Reservation"**. Confirmation number optional.
+- **Reservation (per stop)** — each stop **may optionally** contain a reservation object; stops without one are valid. Shape: `{ status: 'to_reserve' | 'reserved'; time?: string; confirmation?: string; note?: string }`. Read legacy `booking` (`to_book`/`booked`) as a fallback so existing trips keep working. Confirmation number optional.
+
+  **UI language contract (branding, not just copy):** all reservation-status UI must use exactly **"Need to reserve"** and **"Reserved"**. No alternative verbs — "book", "booked", "booking", "commitment" — are allowed in user-facing UI.
 - **Stay (`data.hotel`)** — extend with `checkIn?: string` and `checkOut?: string` (ISO date or date-time). Keep `normalizeHotel` tolerant of legacy shapes.
-- **Trip details** — already in `config` (`title`, `startDate`, `numDays`/`dayLabels`/`dayTitles`); Trip edits these. Add a trip-level **`notes`** field (travel notes) on `config`. Title edits live inside the **Edit trip…** action.
+- **Trip details** — already in `config` (`title`, `startDate`, `numDays`/`dayLabels`/`dayTitles`); Trip edits these. Add a trip-level **`notes`** field (travel notes) on `config`. Title edits live inside the **Edit trip…** action. **All Trip Details fields map directly to `config`; no separate storage exists.**
 - No schema/backend change; no new tables. Realtime + RLS intact.
 
 **Reservations are stop-tied (decided).** v1 treats reservations as a **property of itinerary stops** (keeps the "stop is the atomic object" model clean).
@@ -110,7 +118,7 @@ Future logistics should first be evaluated as **new stop types** before introduc
 
 **Mobile — bottom tab bar (3 tabs, 44px):** Plan · Guide · Trip. Day selection = chips atop Plan. Account settings remain accessible from the Dashboard and may also be reached from an account/avatar affordance within a trip — but they stay clearly **global**, never trip-scoped.
 
-**Routes** (`App.tsx`): index `/trip/:id` = Plan · `/trip/:id/guide` = Guide · `/trip/:id/trip` = Trip · keep `/trip/:id/stop/:day/:n`. Redirect legacy `/bookings` → `/trip/:id/trip`, `/map` → Plan, `/settings` → `/trip/:id/trip` (trip-scoped) / account menu (global).
+**Routes** (`App.tsx`): index `/trip/:id` = Plan · `/trip/:id/guide` = Guide · `/trip/:id/trip` = Trip · keep `/trip/:id/stop/:day/:n`. Redirects (each single-meaning, no dual routes): legacy `/bookings` → `/trip/:id/trip`; `/map` → Plan (`/trip/:id`); `/settings` → the Dashboard account settings (global). Trip-scoped settings live only at `/trip/:id/trip` — never at a `/settings` route.
 
 ---
 
@@ -119,11 +127,11 @@ Future logistics should first be evaluated as **new stop types** before introduc
 - `PlannerLayout.tsx` — nav from 4 → 3 (sidebar + bottom tabs); add account affordance.
 - `Bookings.tsx` → **`Trip.tsx`** — expand the checklist into the Trip dashboard (Upcoming / Still to arrange / Stay / Trip details / Manage).
 - `Map` tab/route — **removed** (the split map stays in Plan via `TripMapView`; keep a fullscreen-map affordance inside Plan if desired).
-- `Settings.tsx` — **split**: trip-scoped pieces → Trip; account-scoped pieces → new Dashboard account settings; in-Voyage Settings route removed.
+- `Settings.tsx` — **split**: trip-scoped pieces → Trip; account-scoped pieces → new minimal Dashboard account menu; in-Voyage Settings route removed.
 - Reservation copy/helpers — rename user-facing "book/booked" → "reserve/reserved"; add `confirmation`; keep `booking` read-compat in `booking.ts`.
 - `StayCard` / `data.hotel` — add check-in/out (edited in Trip, shown in Plan).
 - New **`Guide.tsx`** teaser surface + route.
-- New **account settings** surface at the Dashboard level.
+- New **minimal account menu** at the Dashboard level (AI model · API key · units · theme); subscription / privacy / help stubbed "coming soon".
 
 ## Acceptance criteria
 
@@ -139,4 +147,5 @@ Future logistics should first be evaluated as **new stop types** before introduc
 
 - Real Guide functionality (GPS turn-by-turn, narration, audio, wander) — Phase 3.
 - Expense tracking, document vault, passport/boarding-pass upload — explicitly excluded.
-- Free-standing (non-stop) reservations — fast-follow, pending the review decision above.
+- Free-standing (non-stop) reservations — excluded; future logistics are evaluated as new stop *types* first (see Data model).
+- Full account/settings surface (subscription, privacy, help, dedicated settings page) — its own later effort; only the minimal stopgap ships now.
