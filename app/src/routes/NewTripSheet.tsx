@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Sheet } from '../components/ui/Sheet'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
@@ -19,6 +19,11 @@ export function NewTripSheet({ open, onClose, onCreated, isTeaser }:
   const [start, setStart] = useState(''); const [end, setEnd] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const create = useCreateTrip()
+
+  // Fresh form each time the sheet opens (it stays mounted between opens).
+  useEffect(() => {
+    if (open) { setStep(1); setSlug(''); setTitle(''); setSubtitle(''); setStart(''); setEnd(''); setErr(null) }
+  }, [open])
 
   const next = () => {
     if (!slug || !title) return setErr('Trip ID and title are required.')
