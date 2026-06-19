@@ -19,6 +19,11 @@ export interface Day { title: string; note?: string; stops: Stop[] }
 export interface TripConfig {
   title?: string; subtitle?: string; numDays?: number
   dayLabels?: string[]; dayTitles?: string[]; startDate?: string
+  units?: 'metric' | 'imperial'
+  aiModel?: string
+  aiKey?: string
+  // Legacy config keys that may exist on imported/older trips; preserved on save.
+  [key: string]: unknown
 }
 export interface TripData {
   days: Day[]; completed: string[]; hotel: unknown | null; savedAt?: string
