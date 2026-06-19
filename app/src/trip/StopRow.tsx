@@ -54,8 +54,8 @@ export function StopRow({
       style={style}
       aria-selected={selected}
       className={cn(
-        'group relative flex items-center gap-3 py-2.5 pr-1 px-2 -mx-2 rounded-card transition-colors',
-        selected && 'bg-sig/5 ring-1 ring-inset ring-sig/30',
+        'group relative flex items-center gap-3 py-2.5 pr-1 px-2 -mx-2 rounded-card transition-[background-color,box-shadow] duration-200',
+        selected && 'bg-sig/8 ring-2 ring-inset ring-sig/45 shadow-[0_0_0_3px_rgba(139,41,66,0.10)]',
         isDragging && 'opacity-50 z-10',
       )}
     >

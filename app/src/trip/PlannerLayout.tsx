@@ -124,7 +124,10 @@ export default function PlannerLayout() {
     'inline-flex items-center justify-center gap-2 min-h-[44px] rounded-btn text-[13px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link'
 
   return (
-    <div className="min-h-screen bg-base text-ink flex flex-col">
+    // Lock the planner shell to the dynamic viewport height (dvh dodges the mobile
+    // address-bar jump) and let the <main> flex child own the remaining space, so the
+    // split view can scroll its own column without the whole page overflowing.
+    <div className="h-[100dvh] min-h-0 bg-base text-ink flex flex-col overflow-hidden">
       <TripHeader trip={trip} canEdit={canEdit} saving={saving} lastSavedAt={lastSavedAt} saveError={saveError} />
 
       {/* Desktop in-trip nav — top segmented row */}
@@ -161,8 +164,11 @@ export default function PlannerLayout() {
         </div>
       )}
 
-      {/* Sub-views; pad bottom on mobile so the tab bar never covers content */}
-      <main className="flex-1 pb-24 md:pb-0">
+      {/* Sub-views fill the remaining height as a flex column. `min-h-0` lets a child
+          (the split view) own its own scroll; tall views (StopDetail/Settings/TripMap)
+          fall back to scrolling the page via this container's overflow.
+          Pad bottom on mobile so the fixed tab bar never covers content. */}
+      <main className="flex-1 min-h-0 flex flex-col overflow-y-auto pb-24 md:pb-0">
         <Outlet context={{ trip, canEdit, save, saving, lastSavedAt, saveError } satisfies PlannerOutletContext} />
       </main>
 

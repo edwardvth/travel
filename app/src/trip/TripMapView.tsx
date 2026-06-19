@@ -97,6 +97,8 @@ export default function TripMapView({
   const mapRef = useRef<Leaflet.Map | null>(null)
   const layerRef = useRef<Leaflet.LayerGroup | null>(null)
   const leafletRef = useRef<typeof Leaflet | null>(null)
+  // Latest fitted bounds, so a resize can re-fit without recomputing markers.
+  const boundsRef = useRef<Leaflet.LatLngBounds | null>(null)
   // Keep the latest callbacks in refs so popup/marker handlers never go stale.
   const onSelectRef = useRef(onSelect)
   onSelectRef.current = onSelect
@@ -174,6 +176,41 @@ export default function TripMapView({
     }
   }, [])
 
+  // When the container reflows (responsive breakpoint, address-bar resize, etc.),
+  // Leaflet's cached size goes stale — tiles clip and bounds drift. Observe the
+  // container and re-sync size + bounds. Cleaned up on unmount.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+
+    let frame = 0
+    const resync = () => {
+      cancelAnimationFrame(frame)
+      // Defer to the next frame so layout has settled before we measure.
+      frame = requestAnimationFrame(() => {
+        const map = mapRef.current
+        if (!map) return
+        try {
+          map.invalidateSize()
+          const bounds = boundsRef.current
+          if (bounds && bounds.isValid()) map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 })
+        } catch {
+          /* invalidateSize/fitBounds can throw mid-teardown — ignore. */
+        }
+      })
+    }
+
+    const ro = new ResizeObserver(resync)
+    ro.observe(el)
+    window.addEventListener('resize', resync)
+
+    return () => {
+      cancelAnimationFrame(frame)
+      ro.disconnect()
+      window.removeEventListener('resize', resync)
+    }
+  }, [ready])
+
   // Render markers + polylines whenever scope/trip/selection changes (or the map appears).
   useEffect(() => {
     const map = mapRef.current
@@ -182,7 +219,10 @@ export default function TripMapView({
     if (!map || !L || !layer) return
 
     layer.clearLayers()
-    if (mapped.length === 0) return
+    if (mapped.length === 0) {
+      boundsRef.current = null
+      return
+    }
 
     const bounds = L.latLngBounds([])
     let selectedMarker: Leaflet.Marker | null = null
@@ -243,6 +283,9 @@ export default function TripMapView({
       })
     }
 
+    // Remember the bounds so a later resize can re-fit without recomputing.
+    boundsRef.current = bounds.isValid() ? bounds : null
+
     // Fit bounds to everything shown.
     try {
       map.invalidateSize()
@@ -251,11 +294,11 @@ export default function TripMapView({
       /* fitBounds can throw on degenerate bounds — ignore. */
     }
 
-    // Pan to + open the selected marker's popup after fitBounds settles.
+    // Smoothly pan to + open the selected marker's popup after fitBounds settles.
     if (selectedMarker) {
       const mk = selectedMarker as Leaflet.Marker
       try {
-        map.panTo(mk.getLatLng(), { animate: true })
+        map.panTo(mk.getLatLng(), { animate: true, duration: 0.4 })
         mk.openPopup()
       } catch {
         /* panTo/openPopup can throw on a not-yet-laid-out map — ignore. */

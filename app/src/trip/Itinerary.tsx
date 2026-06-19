@@ -9,6 +9,7 @@ import { suggestDay } from './suggest'
 import { dayLabel, stopCount } from './helpers'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/EmptyState'
+import { cn } from '../lib/utils'
 import type { TripData } from '../types'
 
 export default function Itinerary() {
@@ -87,9 +88,20 @@ export default function Itinerary() {
   )
 
   return (
-    <div className="flex flex-col md:flex-row md:items-stretch">
-      {/* Mobile: map pinned on top. Desktop: map lives in the right column below. */}
-      <div className="md:hidden sticky top-0 z-10 h-[40vh] min-h-[260px] border-b border-hair">
+    // One responsive split: column on mobile (map on top), row on desktop (list left,
+    // map right). `min-h-0` lets the desktop LEFT column scroll independently while the
+    // map fills its column. `flex-1` makes this fill the height handed down by the layout.
+    <div className="flex-1 min-h-0 flex flex-col md:flex-row md:items-stretch">
+      {/* SINGLE map instance — reflows responsively (no second hidden copy).
+          Mobile: pinned to the top, ~40dvh. Desktop: the right column, full height. */}
+      <div
+        className={cn(
+          'order-first md:order-none',
+          'sticky top-0 z-10 md:static',
+          'h-[40dvh] min-h-[240px] md:h-auto md:min-h-0',
+          'md:flex-1 md:basis-[45%] border-b border-hair md:border-b-0 md:border-l md:border-hair',
+        )}
+      >
         <TripMapView
           trip={trip}
           scope={day}
@@ -100,8 +112,8 @@ export default function Itinerary() {
         />
       </div>
 
-      {/* LEFT: day rail + stop list + add controls (scrollable). ~55% on desktop. */}
-      <div className="md:w-[55%] md:max-w-3xl px-5 md:px-8 py-6">
+      {/* LEFT: day rail + stop list + add controls. Scrolls independently on desktop. */}
+      <div className="md:basis-[55%] md:max-w-3xl md:overflow-y-auto md:min-h-0 px-5 md:px-8 py-6">
         <div className="md:grid md:grid-cols-[180px_1fr] md:gap-7">
           <div className="mb-4 md:mb-0">
             <DayRail trip={trip} activeDay={day} onSelect={handleSelectDay} />
@@ -153,20 +165,6 @@ export default function Itinerary() {
               </>
             )}
           </section>
-        </div>
-      </div>
-
-      {/* RIGHT: persistent, full-height map of the active day (desktop only). ~45%. */}
-      <div className="hidden md:block md:flex-1 md:border-l md:border-hair">
-        <div className="sticky top-0 h-[calc(100vh-118px)] min-h-[420px]">
-          <TripMapView
-            trip={trip}
-            scope={day}
-            selected={selected}
-            onSelect={handleMapSelect}
-            onOpen={handleOpenStop}
-            className="h-full"
-          />
         </div>
       </div>
 
