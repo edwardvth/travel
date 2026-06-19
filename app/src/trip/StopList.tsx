@@ -28,11 +28,15 @@ import type { Trip, TripData } from '../types'
  * Dense, scannable list of the active day's stops with drag-reorder,
  * mark-done, and delete. All mutations are immutable and persisted via `save`.
  */
-export function StopList({ trip, day, canEdit, save }: {
+export function StopList({ trip, day, canEdit, save, selectedIndex, onSelect }: {
   trip: Trip
   day: number
   canEdit: boolean
   save: (partial: { data: TripData }) => void
+  /** Index of the selected stop on this day (synced with the map), if any. */
+  selectedIndex?: number | null
+  /** Select a stop on this day → focuses the map on it. */
+  onSelect?: (index: number) => void
 }) {
   const stops = trip.data?.days?.[day]?.stops ?? []
   const [pendingDelete, setPendingDelete] = useState<number | null>(null)
@@ -102,6 +106,8 @@ export function StopList({ trip, day, canEdit, save }: {
                   stop={stop}
                   done={isCompleted(trip.data?.completed, day, i)}
                   canEdit={canEdit}
+                  selected={selectedIndex === i}
+                  onSelect={onSelect}
                   onToggleDone={handleToggleDone}
                   onDelete={setPendingDelete}
                 />

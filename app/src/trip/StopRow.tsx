@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useNavigate } from 'react-router-dom'
@@ -12,22 +13,32 @@ export interface StopRowProps {
   stop: Stop
   done: boolean
   canEdit: boolean
+  /** True when this row is the selected stop (synced with the map). */
+  selected?: boolean
+  /** Select this stop → focuses the map on its marker. */
+  onSelect?: (index: number) => void
   onToggleDone: (index: number) => void
   onDelete: (index: number) => void
 }
 
 /**
- * A dense, sortable itinerary row. Tapping the row navigates to the stop
- * detail. Edit affordances (drag handle, done toggle, delete) are hidden when
- * `!canEdit`.
+ * A dense, sortable itinerary row. The row body selects the stop (focusing the
+ * map); an explicit "details" chevron opens the stop detail page. Edit
+ * affordances (drag handle, done toggle, delete) are hidden when `!canEdit`.
  */
 export function StopRow({
-  tripId, day, index, stop, done, canEdit, onToggleDone, onDelete,
+  tripId, day, index, stop, done, canEdit, selected = false, onSelect, onToggleDone, onDelete,
 }: StopRowProps) {
   const navigate = useNavigate()
+  const rowRef = useRef<HTMLDivElement | null>(null)
   const {
     attributes, listeners, setNodeRef, transform, transition, isDragging,
   } = useSortable({ id: index, disabled: !canEdit })
+
+  // When selected from the map, scroll this row into view.
+  useEffect(() => {
+    if (selected) rowRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [selected])
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -36,10 +47,15 @@ export function StopRow({
 
   return (
     <div
-      ref={setNodeRef}
+      ref={(node) => {
+        setNodeRef(node)
+        rowRef.current = node
+      }}
       style={style}
+      aria-selected={selected}
       className={cn(
-        'group relative flex items-center gap-3 py-2.5 pr-1',
+        'group relative flex items-center gap-3 py-2.5 pr-1 px-2 -mx-2 rounded-card transition-colors',
+        selected && 'bg-sig/5 ring-1 ring-inset ring-sig/30',
         isDragging && 'opacity-50 z-10',
       )}
     >
@@ -91,10 +107,10 @@ export function StopRow({
         </span>
       )}
 
-      {/* Tappable body → stop detail */}
+      {/* Tappable body → select stop (focuses the map) */}
       <button
         type="button"
-        onClick={() => navigate(`/trip/${tripId}/stop/${day}/${index}`)}
+        onClick={() => onSelect?.(index)}
         className="flex-1 min-w-0 flex items-center gap-3 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
       >
         {/* Thumbnail */}
@@ -122,6 +138,18 @@ export function StopRow({
             {[stop.time, stop.type].filter(Boolean).join(' · ') || 'Tap to add details'}
           </span>
         </span>
+      </button>
+
+      {/* Details affordance → stop detail page */}
+      <button
+        type="button"
+        aria-label={`Open details for ${stop.name}`}
+        onClick={() => navigate(`/trip/${tripId}/stop/${day}/${index}`)}
+        className="flex-none grid place-items-center w-8 h-8 rounded-md text-muted/60 hover:text-ink hover:bg-fill transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+      >
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="m9 18 6-6-6-6" />
+        </svg>
       </button>
 
       {/* Delete — edit only */}

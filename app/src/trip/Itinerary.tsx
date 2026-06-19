@@ -1,9 +1,10 @@
-import { useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
 import { DayRail } from './DayRail'
 import { StopList } from './StopList'
 import { AddStop } from './AddStop'
+import TripMapView, { type MapSelection } from './TripMapView'
 import { suggestDay } from './suggest'
 import { dayLabel, stopCount } from './helpers'
 import { Button } from '../components/ui/Button'
@@ -12,7 +13,9 @@ import type { TripData } from '../types'
 
 export default function Itinerary() {
   const { trip, canEdit, save } = useOutletContext<PlannerOutletContext>()
+  const navigate = useNavigate()
   const [activeDay, setActiveDay] = useState(0)
+  const [selected, setSelected] = useState<MapSelection | null>(null)
   const [adding, setAdding] = useState(false)
   const [suggestingDay, setSuggestingDay] = useState(false)
   const [suggestError, setSuggestError] = useState<string | null>(null)
@@ -20,6 +23,32 @@ export default function Itinerary() {
   const dayCount = trip.data?.days?.length || trip.config?.numDays || 0
   const day = Math.min(activeDay, Math.max(0, dayCount - 1))
   const count = stopCount(trip, day)
+
+  // Clear any stale selection when switching days.
+  useEffect(() => {
+    setSelected((s) => (s && s.day === day ? s : null))
+  }, [day])
+
+  function handleSelectDay(next: number) {
+    setActiveDay(next)
+    setSelected(null)
+  }
+
+  /** Row body / marker click → select + focus map on this stop. */
+  function handleSelectStop(index: number) {
+    setSelected({ day, n: index })
+  }
+
+  /** Marker click from the map → select that stop (and follow the day if needed). */
+  function handleMapSelect(sel: MapSelection) {
+    if (sel.day !== day) setActiveDay(sel.day)
+    setSelected(sel)
+  }
+
+  /** Explicit "open detail" affordance → navigate to the stop page. */
+  function handleOpenStop(sel: MapSelection) {
+    navigate(`/trip/${trip.id}/stop/${sel.day}/${sel.n}`)
+  }
 
   async function handleSuggestDay() {
     if (!canEdit || suggestingDay) return
@@ -58,51 +87,87 @@ export default function Itinerary() {
   )
 
   return (
-    <div className="px-5 md:px-8 py-6 max-w-5xl mx-auto">
-      <div className="md:grid md:grid-cols-[200px_1fr] md:gap-8">
-        <div className="mb-4 md:mb-0">
-          <DayRail trip={trip} activeDay={day} onSelect={setActiveDay} />
-        </div>
+    <div className="flex flex-col md:flex-row md:items-stretch">
+      {/* Mobile: map pinned on top. Desktop: map lives in the right column below. */}
+      <div className="md:hidden sticky top-0 z-10 h-[40vh] min-h-[260px] border-b border-hair">
+        <TripMapView
+          trip={trip}
+          scope={day}
+          selected={selected}
+          onSelect={handleMapSelect}
+          onOpen={handleOpenStop}
+          className="h-full"
+        />
+      </div>
 
-        <section aria-label={`Stops for ${dayLabel(trip, day)}`}>
-          <div className="flex items-center justify-between gap-3 mb-1">
-            <h2 className="font-serif text-2xl">{dayLabel(trip, day)}</h2>
-            {canEdit && count > 0 && addStopButton}
+      {/* LEFT: day rail + stop list + add controls (scrollable). ~55% on desktop. */}
+      <div className="md:w-[55%] md:max-w-3xl px-5 md:px-8 py-6">
+        <div className="md:grid md:grid-cols-[180px_1fr] md:gap-7">
+          <div className="mb-4 md:mb-0">
+            <DayRail trip={trip} activeDay={day} onSelect={handleSelectDay} />
           </div>
 
-          {count > 0 ? (
-            <StopList trip={trip} day={day} canEdit={canEdit} save={save} />
-          ) : (
-            <>
-              <EmptyState
-                title="No stops yet"
-                body={
-                  canEdit
-                    ? 'Start shaping this day — add a place you want to visit, or let Voyager suggest a full day for you.'
-                    : 'This day doesn’t have any stops yet.'
-                }
-                action={
-                  canEdit ? (
-                    <div className="flex flex-wrap items-center justify-center gap-2.5">
-                      {addStopButton}
-                      <Button variant="soft" busy={suggestingDay} onClick={handleSuggestDay}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                          <path d="M12 3l1.9 4.6L19 9l-4.1 1.4L12 15l-1.9-4.6L6 9l4.1-1.4L12 3z" />
-                        </svg>
-                        Suggest a day for me
-                      </Button>
-                    </div>
-                  ) : undefined
-                }
+          <section aria-label={`Stops for ${dayLabel(trip, day)}`}>
+            <div className="flex items-center justify-between gap-3 mb-1">
+              <h2 className="font-serif text-2xl">{dayLabel(trip, day)}</h2>
+              {canEdit && count > 0 && addStopButton}
+            </div>
+
+            {count > 0 ? (
+              <StopList
+                trip={trip}
+                day={day}
+                canEdit={canEdit}
+                save={save}
+                selectedIndex={selected?.day === day ? selected.n : null}
+                onSelect={handleSelectStop}
               />
-              {suggestError && (
-                <p className="mx-auto max-w-sm text-center text-[13px] text-sig bg-sig/5 border border-sig/20 rounded-card px-4 py-3">
-                  {suggestError}
-                </p>
-              )}
-            </>
-          )}
-        </section>
+            ) : (
+              <>
+                <EmptyState
+                  title="No stops yet"
+                  body={
+                    canEdit
+                      ? 'Start shaping this day — add a place you want to visit, or let Voyager suggest a full day for you.'
+                      : 'This day doesn’t have any stops yet.'
+                  }
+                  action={
+                    canEdit ? (
+                      <div className="flex flex-wrap items-center justify-center gap-2.5">
+                        {addStopButton}
+                        <Button variant="soft" busy={suggestingDay} onClick={handleSuggestDay}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M12 3l1.9 4.6L19 9l-4.1 1.4L12 15l-1.9-4.6L6 9l4.1-1.4L12 3z" />
+                          </svg>
+                          Suggest a day for me
+                        </Button>
+                      </div>
+                    ) : undefined
+                  }
+                />
+                {suggestError && (
+                  <p className="mx-auto max-w-sm text-center text-[13px] text-sig bg-sig/5 border border-sig/20 rounded-card px-4 py-3">
+                    {suggestError}
+                  </p>
+                )}
+              </>
+            )}
+          </section>
+        </div>
+      </div>
+
+      {/* RIGHT: persistent, full-height map of the active day (desktop only). ~45%. */}
+      <div className="hidden md:block md:flex-1 md:border-l md:border-hair">
+        <div className="sticky top-0 h-[calc(100vh-118px)] min-h-[420px]">
+          <TripMapView
+            trip={trip}
+            scope={day}
+            selected={selected}
+            onSelect={handleMapSelect}
+            onOpen={handleOpenStop}
+            className="h-full"
+          />
+        </div>
       </div>
 
       {canEdit && (
