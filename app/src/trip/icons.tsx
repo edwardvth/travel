@@ -63,6 +63,7 @@ import {
   Compass,
   Navigation,
   Volume2,
+  RotateCcw,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -119,6 +120,7 @@ export {
   Compass,
   Navigation,
   Volume2,
+  RotateCcw,
 }
 export type { LucideIcon }
 import type { Stop, StopKind } from '../types'

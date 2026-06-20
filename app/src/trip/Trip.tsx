@@ -18,7 +18,8 @@ import {
 } from './settings-helpers'
 import { tripNotes } from '../lib/trip-helpers'
 import { DestinationInput } from '../components/DestinationInput'
-import { BedDouble, Calendar, CheckCircle2, Clock, MapPin, type LucideIcon } from './icons'
+import { coverPreview, resizeToDataUrl } from './photo'
+import { BedDouble, Calendar, CheckCircle2, Clock, MapPin, Image as ImageIcon, RotateCcw, type LucideIcon } from './icons'
 import {
   AlertTriangle,
   CalendarDays,
@@ -747,6 +748,7 @@ function ManageSection({ trip, canEdit, canDelete, save }: {
   const [open, setOpen] = useState(false) // collapsed by default; opens only on click.
   const navigate = useNavigate()
   const fileRef = useRef<HTMLInputElement>(null)
+  const coverRef = useRef<HTMLInputElement>(null)
   const [msg, setMsg] = useState<{ tone: 'ok' | 'err'; text: string } | null>(null)
   const [resetOpen, setResetOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -781,6 +783,28 @@ function ManageSection({ trip, canEdit, canDelete, save }: {
     reader.readAsText(file)
   }
 
+  // Cover photo. The thumbnail mirrors the first two (synchronous) priorities of
+  // useTripCover; `hasManualCover` gates "Reset to automatic" on a stored key.
+  const coverThumb = coverPreview(trip)
+  const hasManualCover = typeof trip.config?.coverImage === 'string' && trip.config.coverImage.length > 0
+
+  const onCoverFile = async (file: File) => {
+    try {
+      const dataUrl = await resizeToDataUrl(file)
+      save({ config: { ...trip.config, coverImage: dataUrl } })
+      setMsg({ tone: 'ok', text: 'Cover photo updated.' })
+    } catch (err) {
+      setMsg({ tone: 'err', text: err instanceof Error ? err.message : 'Couldn’t set that cover.' })
+    }
+  }
+
+  const onResetCover = () => {
+    const config: TripConfig = { ...trip.config }
+    delete config.coverImage
+    save({ config })
+    setMsg({ tone: 'ok', text: 'Cover reset — using the destination automatically.' })
+  }
+
   return (
     <section aria-labelledby="trip-manage-h">
       {/* Disclosure header — collapsed by default, toggles only on click. */}
@@ -805,6 +829,43 @@ function ManageSection({ trip, canEdit, canDelete, save }: {
 
       {open && (
         <div id={panelId} className="mt-3 space-y-5">
+          {/* Cover photo — manual override; wins over the destination auto-pick
+              because config.coverImage is top-priority in useTripCover/TripRow. */}
+          {canEdit && (
+            <div className="rounded-card border border-hair bg-base px-4 py-4 space-y-3">
+              <p className="text-muted text-[13px]">Set the photo shown for this trip on the dashboard, or let it pick one from your destination.</p>
+              <div className="flex items-center gap-3.5">
+                {/* Reserve a fixed box so a loading/late thumbnail never shifts layout. */}
+                <span className="relative h-[54px] w-[54px] flex-none overflow-hidden rounded-[12px] bg-raised grid place-items-center">
+                  {coverThumb
+                    ? <img src={coverThumb} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                    : <ImageIcon size={20} className="text-muted" aria-hidden="true" />}
+                </span>
+                <div className="flex flex-wrap gap-3">
+                  <Button variant="soft" onClick={() => coverRef.current?.click()}>
+                    <Upload size={16} aria-hidden="true" /> Upload cover…
+                  </Button>
+                  {hasManualCover && (
+                    <Button variant="ghost" onClick={onResetCover}>
+                      <RotateCcw size={16} aria-hidden="true" /> Reset to automatic
+                    </Button>
+                  )}
+                  <input
+                    ref={coverRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => {
+                      const f = e.target.files?.[0]
+                      if (f) onCoverFile(f)
+                      e.target.value = ''
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Export / Import — verbatim from the old Settings Data tab. */}
           <div className="rounded-card border border-hair bg-base px-4 py-4 space-y-3">
             <p className="text-muted text-[13px]">Back up this trip to a file, or restore from one.</p>
@@ -827,10 +888,18 @@ function ManageSection({ trip, canEdit, canDelete, save }: {
                 }}
               />
             </div>
-            {msg && (
-              <p className={msg.tone === 'ok' ? 'text-sig-link text-[12.5px]' : 'text-red-600 dark:text-red-400 text-[12.5px]'}>{msg.text}</p>
-            )}
           </div>
+
+          {/* Shared status line for the cards above (cover / export / import). */}
+          {msg && (
+            <p
+              role="status"
+              aria-live="polite"
+              className={msg.tone === 'ok' ? 'text-sig-link text-[12.5px]' : 'text-red-600 dark:text-red-400 text-[12.5px]'}
+            >
+              {msg.text}
+            </p>
+          )}
 
           {/* Danger zone — Reset + Delete. Both edit/owner-gated and confirmed. */}
           {(canEdit || canDelete) && (

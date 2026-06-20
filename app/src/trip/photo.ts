@@ -100,6 +100,22 @@ export function coverPhoto(stop: Pick<Stop, 'photos' | 'image'>): string | undef
   return stop.photos?.[0] ?? stop.image
 }
 
+/**
+ * The trip cover image we can resolve *synchronously*, cheapest source first:
+ * a stored `config.coverImage`, else the first stop that has an `.image`. Mirrors
+ * the first two priorities of `useTripCover`/`TripRow`; the third (an on-demand
+ * Wikipedia landmark lookup for the destination) is async and lives in the hook,
+ * so this returns `undefined` when neither is present — a caller then shows a
+ * placeholder. Pure + unit-tested. Used by the Cover-photo card to preview the
+ * current cover without re-running the async backfill.
+ */
+export function coverPreview(trip: {
+  config?: { coverImage?: string } | null
+  data?: { days?: { stops?: { image?: string }[] }[] } | null
+}): string | undefined {
+  return trip.config?.coverImage ?? trip.data?.days?.flatMap(d => d.stops ?? [])?.find(s => s.image)?.image ?? undefined
+}
+
 /** Rough byte weight of an array of data URLs (decoded base64 length). */
 export function photoBytes(photos: string[] | undefined): number {
   if (!photos?.length) return 0

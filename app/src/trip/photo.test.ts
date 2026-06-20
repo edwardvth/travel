@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { scaledDims, coverPhoto, photoBytes, MAX_EDGE } from './photo'
+import { scaledDims, coverPhoto, coverPreview, photoBytes, MAX_EDGE } from './photo'
 
 describe('scaledDims', () => {
   it('clamps the longest edge to max (landscape)', () => {
@@ -62,6 +62,37 @@ describe('coverPhoto', () => {
   it('returns undefined when neither photos nor image exist', () => {
     expect(coverPhoto({})).toBeUndefined()
     expect(coverPhoto({ photos: [] })).toBeUndefined()
+  })
+})
+
+describe('coverPreview', () => {
+  it('prefers a stored config.coverImage', () => {
+    const trip = {
+      config: { coverImage: 'manual' },
+      data: { days: [{ stops: [{ image: 'stop' }] }] },
+    }
+    expect(coverPreview(trip)).toBe('manual')
+  })
+
+  it('falls back to the first stop image when no coverImage', () => {
+    const trip = {
+      config: {},
+      data: { days: [{ stops: [{}, { image: 'stop' }] }] },
+    }
+    expect(coverPreview(trip)).toBe('stop')
+  })
+
+  it('scans across days for the first stop image', () => {
+    const trip = {
+      data: { days: [{ stops: [{}] }, { stops: [{ image: 'second-day' }] }] },
+    }
+    expect(coverPreview(trip)).toBe('second-day')
+  })
+
+  it('returns undefined when nothing synchronous resolves', () => {
+    expect(coverPreview({})).toBeUndefined()
+    expect(coverPreview({ config: {}, data: { days: [] } })).toBeUndefined()
+    expect(coverPreview({ data: { days: [{ stops: [{}] }] } })).toBeUndefined()
   })
 })
 
