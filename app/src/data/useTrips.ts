@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import type { Trip, TripConfig, Profile } from '../types'
-import { byTripDate, isPastTrip, buildNewTripPayload, type NewTripInput } from '../lib/trip-helpers'
+import { byTripDate, isPastTrip, buildNewTripPayload, slugify, type NewTripInput } from '../lib/trip-helpers'
 import { fetchLandmarkImage } from '../trip/landmark'
 import { coverImageQueries } from '../trip/landmark-context'
 import { isFounder } from './useProfile'
@@ -43,19 +43,39 @@ export function useTrips(userId: string | undefined, profile: Profile | null | u
   })
 }
 
+/** Max insert attempts before giving up on a slug collision. */
+const SLUG_RETRY_LIMIT = 5
+
 export function useCreateTrip() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (input: NewTripInput) => {
-      const p = buildNewTripPayload(input)
-      const { data, error } = await supabase.rpc('create_trip', {
-        p_id: p.id, p_title: p.title, p_subtitle: p.subtitle, p_config: p.config, p_data: p.data,
-      })
-      if (error) throw new Error(error.message)
-      if (!data || data.ok !== true) throw new Error(data?.reason || 'create_failed')
-      return p.id
+      // The slug/id is derived from the title (never shown). On a PK collision
+      // (`slug_taken`) we retry with a bounded suffix sequence — `-2`, `-3`, …
+      // then a random base-36 token — so a clean URL is used when free and only
+      // suffixed when taken; the id PK guarantees the insert eventually succeeds.
+      const base = slugify(input.title)
+      let lastReason = 'create_failed'
+      for (let attempt = 0; attempt < SLUG_RETRY_LIMIT; attempt++) {
+        const slug =
+          attempt === 0 ? base
+          : attempt < SLUG_RETRY_LIMIT - 1 ? `${base}-${attempt + 1}`
+          : `${base}-${Math.random().toString(36).slice(2, 8)}`
+        const p = buildNewTripPayload({ ...input, slug })
+        const { data, error } = await supabase.rpc('create_trip', {
+          p_id: p.id, p_title: p.title, p_subtitle: p.subtitle, p_config: p.config, p_data: p.data,
+        })
+        if (error) throw new Error(error.message)
+        if (data && data.ok === true) {
+          qc.invalidateQueries({ queryKey: ['trips'] })
+          return p.id
+        }
+        lastReason = data?.reason || 'create_failed'
+        // Only a slug collision is retryable — any other reason fails fast.
+        if (lastReason !== 'slug_taken') throw new Error(lastReason)
+      }
+      throw new Error(lastReason)
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['trips'] }),
   })
 }
 

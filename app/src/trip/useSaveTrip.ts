@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import type { Trip, TripConfig, TripData } from '../types'
+import { sanitizeConfig } from '../lib/trip-helpers'
 import { tripKey } from './useTrip'
 
 const DEBOUNCE_MS = 800
@@ -68,10 +69,13 @@ export function useSaveTrip(tripId: string | undefined, canEdit: boolean): UseSa
       let ok = false
       let failure: Error | null = null
       try {
+        // Scrub secret keys from config on every persist — the client must
+        // never write an API key into the public-readable trips table.
+        const safeConfig = next.config ? sanitizeConfig(next.config) : next.config
         const { error: upsertError } = await supabase
           .from('trips')
           .upsert(
-            { id: tripId, title: next.title, subtitle: next.subtitle, config: next.config, data: next.data },
+            { id: tripId, title: next.title, subtitle: next.subtitle, config: safeConfig, data: next.data },
             { onConflict: 'id' },
           )
         if (upsertError) throw new Error(upsertError.message)

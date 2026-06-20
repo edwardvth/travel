@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { Sheet } from '../components/ui/Sheet'
 import { Input } from '../components/ui/Input'
 import { Button } from '../components/ui/Button'
-import { sanitizeSlug, isValidSlug, hasProfanity } from '../lib/trip-helpers'
+import { DestinationInput } from '../components/DestinationInput'
+import { hasProfanity } from '../lib/trip-helpers'
 import { useCreateTrip, useBackfillCoverImage } from '../data/useTrips'
 
 const REASONS: Record<string, string> = {
-  slug_taken: 'That Trip ID already exists — pick another.',
+  slug_taken: "Couldn't find a free trip address — try a slightly different title.",
   no_credits: "You're out of trip credits. Credit packs are coming soon.",
   invalid_name: 'Please choose a different name.',
   no_profile: 'No account profile found — sign out and back in.',
@@ -15,7 +16,7 @@ const REASONS: Record<string, string> = {
 export function NewTripSheet({ open, onClose, onCreated, isTeaser }:
   { open: boolean; onClose: () => void; onCreated: (id: string) => void; isTeaser?: boolean }) {
   const [step, setStep] = useState<1 | 2>(1)
-  const [slug, setSlug] = useState(''); const [title, setTitle] = useState(''); const [subtitle, setSubtitle] = useState('')
+  const [title, setTitle] = useState(''); const [destination, setDestination] = useState(''); const [notes, setNotes] = useState('')
   const [start, setStart] = useState(''); const [end, setEnd] = useState('')
   const [err, setErr] = useState<string | null>(null)
   const create = useCreateTrip()
@@ -23,24 +24,27 @@ export function NewTripSheet({ open, onClose, onCreated, isTeaser }:
 
   // Fresh form each time the sheet opens (it stays mounted between opens).
   useEffect(() => {
-    if (open) { setStep(1); setSlug(''); setTitle(''); setSubtitle(''); setStart(''); setEnd(''); setErr(null) }
+    if (open) { setStep(1); setTitle(''); setDestination(''); setNotes(''); setStart(''); setEnd(''); setErr(null) }
   }, [open])
 
   const next = () => {
-    if (!slug || !title) return setErr('Trip ID and title are required.')
-    if (!isValidSlug(slug)) return setErr('Trip ID can only contain letters, numbers, and dashes.')
-    if (hasProfanity(slug, title, subtitle)) return setErr('Please choose a different name.')
+    if (!title.trim()) return setErr('A trip title is required.')
+    if (hasProfanity(title, destination, notes)) return setErr('Please choose a different name.')
     setErr(null); setStep(2)
   }
   const submit = async () => {
     setErr(null)
     try {
-      const id = await create.mutateAsync({ slug, title, subtitle, start, end })
+      // Subtitle is retired from the form but kept in the model, defaulted ''.
+      // The id/slug is derived from the title inside useCreateTrip.
+      const id = await create.mutateAsync({ slug: '', title, subtitle: '', start, end, destination, notes })
       // Fire-and-forget: grab a landmark cover for the destination. Never blocks
-      // creation — the home card backfills on-demand anyway if this misses. A
-      // brand-new trip has no stops yet, so this falls through to the (now
-      // abbreviation-aware) destination query.
-      void backfillCover({ id, title, config: { title, subtitle }, data: { days: [], completed: [] } })
+      // creation — the home card backfills on-demand anyway if this misses.
+      void backfillCover({
+        id, title,
+        config: { title, ...(destination.trim() ? { destination: destination.trim() } : null) },
+        data: { days: [], completed: [] },
+      })
       onCreated(id)
     }
     catch (e) { setErr(REASONS[(e as Error).message] ?? "Couldn't create this trip. Try again.") }
@@ -53,9 +57,9 @@ export function NewTripSheet({ open, onClose, onCreated, isTeaser }:
 
       {step === 1 ? (
         <div className="mt-5 space-y-2.5">
-          <Input aria-label="Trip ID" placeholder="Trip ID (e.g. kyoto2026)" value={slug} onChange={e => setSlug(sanitizeSlug(e.target.value))} />
           <Input aria-label="Trip title" placeholder="Title (e.g. Kyoto Spring 2026)" value={title} onChange={e => setTitle(e.target.value)} />
-          <Input aria-label="Subtitle (optional)" placeholder="Subtitle (optional)" value={subtitle} onChange={e => setSubtitle(e.target.value)} />
+          <DestinationInput value={destination} onChange={setDestination} />
+          <Input aria-label="Notes (optional)" placeholder="Notes (optional)" value={notes} onChange={e => setNotes(e.target.value)} />
           {isTeaser && <p className="text-[12.5px] text-sig-link">Your first trip is a free teaser — plan all your days and fill Day 1.</p>}
         </div>
       ) : (

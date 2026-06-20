@@ -49,6 +49,8 @@ export interface Hotel {
 export interface TripConfig {
   title?: string; subtitle?: string; numDays?: number
   dayLabels?: string[]; dayTitles?: string[]; startDate?: string
+  /** Destination (clean place label, e.g. "St. Louis, Missouri, United States"). Drives cover-image queries. */
+  destination?: string
   /** Free-form trip-level travel notes (edited in Trip → Trip details). */
   notes?: string
   units?: 'metric' | 'imperial'
