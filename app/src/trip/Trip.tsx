@@ -16,6 +16,8 @@ import {
   parseImportedTrip,
   resetTripData,
 } from './settings-helpers'
+import { tripNotes } from '../lib/trip-helpers'
+import { DestinationInput } from '../components/DestinationInput'
 import { BedDouble, Calendar, CheckCircle2, Clock, MapPin, type LucideIcon } from './icons'
 import {
   AlertTriangle,
@@ -509,11 +511,12 @@ type SaveFn = PlannerOutletContext['save']
  * Trip Details — a pure **read/edit projection over `config`**, never a second
  * store. It surfaces the three trip-level facts that live on `config`: the
  * **dates** (first day `config.startDate` → last day via `endDateFor`), the
- * derived **length** (day count), and free-form **travel notes** (`config.notes`,
- * the one place that field lives). The notes textarea writes `config.notes`
- * immutably and is edit-gated. "Edit trip…" opens a small sheet for title +
- * first/last day, reusing `applyTripBasics` and the day-drop confirm flow — so
- * every field here maps directly back to `config`/`data`, with no duplicate state.
+ * derived **length** (day count), and free-form **travel notes** (read via
+ * `tripNotes` — `config.notes`, falling back to legacy `config.travelerNotes`).
+ * The notes textarea writes `config.notes` immutably and is edit-gated. "Edit
+ * trip…" opens a small sheet for title + destination + first/last day, reusing
+ * `applyTripBasics` and the day-drop confirm flow — so every field here maps
+ * directly back to `config`/`data`, with no duplicate state.
  */
 function TripDetailsSection({ trip, canEdit, save }: {
   trip: TripT
@@ -528,9 +531,11 @@ function TripDetailsSection({ trip, canEdit, save }: {
   const firstFriendly = formatDayDate(startDate || null)
   const lastFriendly = formatDayDate(endDate || null)
 
-  // Notes is a projection of config.notes — local state is just the in-flight
-  // edit buffer, re-seeded whenever the persisted value changes (no second store).
-  const persistedNotes = typeof trip.config?.notes === 'string' ? trip.config.notes : ''
+  // Notes is a projection of config.notes (with legacy config.travelerNotes
+  // back-compat via tripNotes) — local state is just the in-flight edit buffer,
+  // re-seeded whenever the persisted value changes (no second store). New writes
+  // below always go to config.notes only.
+  const persistedNotes = tripNotes(trip.config)
   const [notes, setNotes] = useState(persistedNotes)
   useEffect(() => { setNotes(persistedNotes) }, [persistedNotes])
   const notesId = useId()
@@ -619,9 +624,11 @@ function TripDetailsSection({ trip, canEdit, save }: {
 }
 
 /**
- * A small editor sheet for the trip's title + first/last day. Reuses
- * `applyTripBasics` (recomputes day labels + resyncs `data.days`) and
- * `daysBetween`/`endDateFor`. If shortening drops days that still have stops
+ * A small editor sheet for the trip's title + destination + first/last day.
+ * Reuses `applyTripBasics` (recomputes day labels + resyncs `data.days`) and
+ * `daysBetween`/`endDateFor`; destination is layered onto the returned `config`
+ * immutably (set when present, removed when cleared) via the same `DestinationInput`
+ * used at creation. If shortening drops days that still have stops
  * (`droppingDaysWithStops`), it raises the existing "Remove days with stops?"
  * ConfirmDialog before persisting. Everything maps to `config`/`data`.
  */
@@ -633,8 +640,10 @@ function TripBasicsEditor({ trip, save, onClose }: {
   const startDate = trip.config?.startDate || ''
   const numDays = trip.data?.days?.length || trip.config?.numDays || 1
   const initialEnd = startDate ? endDateFor(startDate, numDays) : ''
+  const initialDestination = typeof trip.config?.destination === 'string' ? trip.config.destination : ''
 
   const [title, setTitle] = useState(trip.title || '')
+  const [destination, setDestination] = useState(initialDestination)
   const [start, setStart] = useState(startDate)
   const [end, setEnd] = useState(initialEnd)
   const [confirm, setConfirm] = useState(false)
@@ -647,6 +656,10 @@ function TripBasicsEditor({ trip, save, onClose }: {
       startDate: start,
       numDays: newCount,
     })
+    // Layer destination onto config immutably — set when present, clear when emptied.
+    const dest = destination.trim()
+    if (dest) config.destination = dest
+    else delete config.destination
     save({ title: config.title || trip.title, config, data })
     onClose()
   }
@@ -668,7 +681,7 @@ function TripBasicsEditor({ trip, save, onClose }: {
     <Sheet open onClose={onClose} labelledBy="trip-basics-h">
       <h2 id="trip-basics-h" className="font-serif text-2xl">Edit trip</h2>
       <p className="text-muted text-[13.5px] mt-1.5">
-        Title and dates. These live on the trip itself.
+        Title, destination and dates. These live on the trip itself.
       </p>
 
       <div className="mt-5 space-y-4">
@@ -676,6 +689,10 @@ function TripBasicsEditor({ trip, save, onClose }: {
           <span className="block text-[12px] font-bold text-muted uppercase tracking-wide mb-1.5">Title</span>
           <Input id={titleId} value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. NYC 2026" autoFocus />
         </label>
+        <div className="block">
+          <span className="block text-[12px] font-bold text-muted uppercase tracking-wide mb-1.5">Destination</span>
+          <DestinationInput value={destination} onChange={setDestination} />
+        </div>
         <div className="grid grid-cols-2 gap-3">
           <label className="block" htmlFor={startId}>
             <span className="block text-[12px] font-bold text-muted uppercase tracking-wide mb-1.5">First day</span>

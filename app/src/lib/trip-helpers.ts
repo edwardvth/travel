@@ -66,6 +66,18 @@ export function sanitizeConfig(config: TripConfig): TripConfig {
   return clean
 }
 
+/**
+ * Read a trip's travel notes for display, with legacy back-compat. New trips
+ * write `config.notes`; trips created by the legacy single-file app stored them
+ * under `config.travelerNotes`. Prefer `notes`, fall back to `travelerNotes`,
+ * else empty. (New writes still go to `config.notes` only — never travelerNotes.)
+ */
+export function tripNotes(config: TripConfig | undefined): string {
+  if (typeof config?.notes === 'string') return config.notes
+  const legacy = config?.travelerNotes
+  return typeof legacy === 'string' ? legacy : ''
+}
+
 export interface NewTripInput { slug: string; title: string; subtitle: string; start: string; end: string; destination?: string; notes?: string }
 export interface NewTripPayload { id: string; title: string; subtitle: string; config: TripConfig; data: TripData }
 
