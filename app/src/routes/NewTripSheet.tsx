@@ -37,8 +37,10 @@ export function NewTripSheet({ open, onClose, onCreated, isTeaser }:
     try {
       const id = await create.mutateAsync({ slug, title, subtitle, start, end })
       // Fire-and-forget: grab a landmark cover for the destination. Never blocks
-      // creation — the home card backfills on-demand anyway if this misses.
-      backfillCover(id, title)
+      // creation — the home card backfills on-demand anyway if this misses. A
+      // brand-new trip has no stops yet, so this falls through to the (now
+      // abbreviation-aware) destination query.
+      void backfillCover({ id, title, config: { title, subtitle }, data: { days: [], completed: [] } })
       onCreated(id)
     }
     catch (e) { setErr(REASONS[(e as Error).message] ?? "Couldn't create this trip. Try again.") }

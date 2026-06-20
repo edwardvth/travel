@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { useProfile } from '../data/useProfile'
-import { useTrips, splitTrips } from '../data/useTrips'
+import { useTrips, splitTrips, useBackfillCoverImage } from '../data/useTrips'
 import { AppShell } from '../components/AppShell'
 import { Button } from '../components/ui/Button'
 import { Segmented } from '../components/ui/Segmented'
@@ -30,6 +30,36 @@ export default function Dashboard() {
 
   const { upcoming, past } = useMemo(() => splitTrips(trips ?? []), [trips])
   const del = useDeleteTrip()
+  const backfillCover = useBackfillCoverImage()
+
+  // One-time, best-effort cover backfill for existing trips that predate cover
+  // storage (or whose abbreviated titles never resolved). For each trip the user
+  // can manage that has no usable cover (no stored `coverImage` and no stop with
+  // an `.image`), we try once — tracked in `attemptedCovers` so a re-render or a
+  // `['trips']` re-validation never re-fires the same trip this session. Runs
+  // sequentially (awaited one at a time) to stay gentle on Wikipedia/Supabase,
+  // and is fully silent: failures just leave the placeholder.
+  const attemptedCovers = useRef<Set<string>>(new Set())
+  useEffect(() => {
+    if (!user || !trips) return
+    const canBackfill = (t: typeof trips[number]) =>
+      isFounder(profile) || (!!t.owner_id && t.owner_id === user.id)
+    const hasUsableCover = (t: typeof trips[number]) =>
+      !!t.config?.coverImage || !!t.data?.days?.flatMap(d => d.stops ?? [])?.find(s => s.image)
+    const pending = trips.filter(
+      t => canBackfill(t) && !hasUsableCover(t) && !attemptedCovers.current.has(t.id),
+    )
+    if (pending.length === 0) return
+    let cancelled = false
+    void (async () => {
+      for (const t of pending) {
+        if (cancelled) return
+        attemptedCovers.current.add(t.id)
+        try { await backfillCover(t) } catch { /* best-effort, ignore */ }
+      }
+    })()
+    return () => { cancelled = true }
+  }, [trips, user, profile, backfillCover])
   const [shareId, setShareId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const canManage = (t: typeof upcoming[number]) => isFounder(profile) || (!!t.owner_id && t.owner_id === user?.id)

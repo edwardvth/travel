@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import type { Trip, TripConfig, Profile } from '../types'
 import { byTripDate, isPastTrip, buildNewTripPayload, type NewTripInput } from '../lib/trip-helpers'
 import { fetchLandmarkImage } from '../trip/landmark'
+import { coverImageQueries } from '../trip/landmark-context'
 import { isFounder } from './useProfile'
 
 export function splitTrips(trips: Trip[]) {
@@ -58,36 +59,51 @@ export function useCreateTrip() {
   })
 }
 
+/** A trip (or just the parts) we can derive cover-image queries from. */
+type CoverableTrip = Pick<Trip, 'id' | 'title' | 'config' | 'data'>
+
 /**
- * Fire-and-forget: fetch a landmark cover image for a newly-created trip's
- * destination and persist it to `config.coverImage`. Non-blocking and silent —
- * any miss (no image, network, write failure) is swallowed so trip creation is
- * never affected. Re-reads the row first so it only sets `coverImage` when the
- * trip still has none (never clobbers a user-set cover). Invalidates the trips
- * list on success so the home card picks up the cover.
+ * Fire-and-forget: fetch a landmark cover image for a trip and persist it to
+ * `config.coverImage`. Tries `coverImageQueries(trip)` in order — the first
+ * few stop names alone (famous landmarks resolve best by name) then the trip's
+ * destination with abbreviations expanded ("stl" → "St. Louis") — and keeps the
+ * first query that returns a URL.
+ *
+ * Non-blocking and silent — any miss (no image, network, write failure) is
+ * swallowed so the caller is never affected. Re-reads the row first so it only
+ * sets `coverImage` when the trip still has none (never clobbers a user-set
+ * cover); the write is owner/RLS-gated by the `trips` policy. Resolves to true
+ * when a cover was persisted, false otherwise, and invalidates the trips list
+ * on success so cards pick up the new cover.
  */
 export function useBackfillCoverImage() {
   const qc = useQueryClient()
   return useCallback(
-    (tripId: string, destination: string) => {
-      const dest = destination.trim()
-      if (!tripId || !dest) return
-      void (async () => {
-        try {
-          const url = await fetchLandmarkImage(dest)
-          if (!url) return
-          const { data: row } = await supabase.from('trips').select('config').eq('id', tripId).maybeSingle()
-          const config = (row?.config ?? {}) as TripConfig
-          if (config.coverImage) return // don't clobber an existing cover
-          const { error } = await supabase
-            .from('trips')
-            .update({ config: { ...config, coverImage: url } })
-            .eq('id', tripId)
-          if (!error) qc.invalidateQueries({ queryKey: ['trips'] })
-        } catch {
-          /* cover is best-effort — the home card backfills on-demand if this misses */
+    async (trip: CoverableTrip): Promise<boolean> => {
+      if (!trip.id) return false
+      const queries = coverImageQueries(trip)
+      if (queries.length === 0) return false
+      try {
+        let url: string | null = null
+        for (const q of queries) {
+          url = await fetchLandmarkImage(q)
+          if (url) break
         }
-      })()
+        if (!url) return false
+        const { data: row } = await supabase.from('trips').select('config').eq('id', trip.id).maybeSingle()
+        const config = (row?.config ?? {}) as TripConfig
+        if (config.coverImage) return false // don't clobber an existing cover
+        const { error } = await supabase
+          .from('trips')
+          .update({ config: { ...config, coverImage: url } })
+          .eq('id', trip.id)
+        if (error) return false
+        qc.invalidateQueries({ queryKey: ['trips'] })
+        return true
+      } catch {
+        /* cover is best-effort — the home card backfills on-demand if this misses */
+        return false
+      }
     },
     [qc],
   )
