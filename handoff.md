@@ -19,6 +19,13 @@ To resume: `cd app && npm install && npm run dev`. To deploy: `cd app && npm run
 
 Everything above is committed, pushed to `voyager-redesign`, and deployed to the live URL.
 
+- **New-trip flow + destination-driven covers** (`5d7f6a0`, `a305408`, `5b01746` — **pushed, NOT yet deployed**) — spec `docs/superpowers/specs/2026-06-20-voyager-new-trip-flow-and-destination-covers.md`. Fixes the "stl → suitcase" cover bug at the root:
+  - New-trip flow is now **Title · Destination · Notes** (dates on step 2); the technical "Trip ID" and "Subtitle" fields are gone — the slug/id is auto-derived from the title (`slugify`) with a bounded collision-retry in `useCreateTrip`.
+  - **Destination** is captured via a **Photon (komoot) autocomplete** (`lib/photon.ts`, `data/usePlaceSearch.ts`, `components/DestinationInput.tsx` — no API key, debounced, cached, full a11y) and stored in `config.destination` (additive JSONB; **no migration**). Editable later in the "Edit trip…" sheet.
+  - `destinationOf()` now prefers `config.destination`; the `expandDestination` abbreviation map is **deleted**. Covers query the real city.
+  - **Manual "Change cover" override** in *Manage this trip* — Upload (`resizeToDataUrl` → `config.coverImage`) + Reset to automatic. Manual always wins.
+  - **Secret hygiene:** `sanitizeConfig()` strips `anthropicKey`/`aiKey` on every persist (creation + autosave), so trips self-scrub and the client can never write a per-trip key again. Notes back-compat: `tripNotes()` falls back to legacy `config.travelerNotes`.
+
 ## Specs & plans (read these to understand decisions)
 
 - `docs/superpowers/specs/2026-06-19-voyager-nav-refactor-design.md` — the Plan/Guide/Trip architecture + the 6 product principles + the locked decisions (Reserved language, Trip-not-a-planner guardrail, projection model, minimal account stopgap).
@@ -28,13 +35,19 @@ Everything above is committed, pushed to `voyager-redesign`, and deployed to the
 
 ## Known issues / bugs
 
-1. **Landmark cover auto-pick can be wrong** (the "stl → suitcase" case). The Wikipedia search accepts the **first result's thumbnail with no relevance threshold**, so a weak query (an abbreviation, or a non-landmark stop name) can resolve to a generic article (e.g. a luggage/travel image) instead of the city's landmark. Root cause is in `trip/landmark.ts` + `trip/landmark-context.ts` (`fetchLandmarkImage` / `coverImageQueries`).
-   - **Recommended fix (next):** (a) add a small **relevance guard** — only accept a Wikipedia page that looks place-like (e.g. has geo-coordinates `prop=coordinates`, or whose title fuzzy-matches the query), and skip generic pages; and (b) add a **manual "Change cover" override** on the trip (a small affordance to pick/replace the cover, storing `config.coverImage`) so the user always has the final say. The manual override is the higher-value, more reliable fix.
+1. **~~Landmark cover auto-pick can be wrong (the "stl → suitcase" case).~~** ✅ **RESOLVED** (`5d7f6a0`+`a305408`+`5b01746`, pushed, pending deploy). Root cause wasn't a missing relevance threshold — the trip never captured a **destination**, so covers searched the literal title ("stl"). Fixed structurally: creation now captures a real destination (Photon autocomplete → `config.destination`), `destinationOf` prefers it, the abbreviation hack is gone, and a manual cover override is the final-say fallback. **No relevance guard was needed** (the destination field + manual override solve it cleanly).
+   - **Existing trips still show the old cover** until their destination is set (Edit trip…) or the cover is overridden/reset — see the operator cleanup below.
+
+2. 🔴 **SECURITY — wide-open RLS + leaked API keys** (pre-existing; see memory `voyager-rls-ownership-gap`).
+   - `trips` RLS is fully permissive (`qual=true`, incl. an "allow anon delete") — ownership is enforced only in client code, not the DB. Hardening is **entangled with the legacy `Trip.html`** (invite links + `/<slug>` URLs rely on anonymous public read), so it needs its own spec + a decision on the Trip.html sharing future before any policy change. **Do not flip the policies naively** — it breaks sharing/legacy URLs.
+   - **Leaked keys:** existing trips had plaintext `config.anthropicKey` (publicly readable). The app now strips `anthropicKey`/`aiKey` on every save (`sanitizeConfig`), but the already-leaked keys must be **rotated at console.anthropic.com** and bulk-stripped from the DB (operator SQL in the spec). Status: **pending operator action.**
 
 ## Next up (suggested priority)
 
-1. **Manual trip-cover override + landmark relevance guard** (fixes the suitcase issue above). Small, user-visible, high value.
-2. **Phase 3 — the *real* Guide** (currently a teaser): live walking companion — Google-Maps-style turn-by-turn to the next stop, walking directions, arrival narration / audio, "what's nearby," optional wander mode. This is the signature experience. Boundary already decided: *Guide moves you; Trip reassures you.*
+0. **Operator cleanup (do now):** rotate the leaked Anthropic keys, then run the bulk `config - 'anthropicKey'` / `config - 'aiKey'` strip (SQL in the spec). Optionally set `config.destination` on existing trips (or just open each in Edit trip… and pick a destination) so their covers re-resolve. **Deploy** the new-trip/cover work to the live URL (`cd app && npm run build && npx wrangler deploy`) — it's pushed but not yet deployed.
+1. **~~Manual trip-cover override + landmark relevance guard~~** — ✅ done (shipped to branch; see above). Superseded by the destination-driven approach.
+2. **Security: RLS ownership hardening + Trip.html sharing decision** — own spec/task (see memory `voyager-rls-ownership-gap`). Decide whether to migrate sharing fully into the React app (token → React route → membership) and retire Trip.html's anonymous read, then scope owner/member/founder/`share_token`-scoped policies. Backfill NULL `owner_id`s first.
+3. **Phase 3 — the *real* Guide** (currently a teaser): live walking companion — Google-Maps-style turn-by-turn to the next stop, walking directions, arrival narration / audio, "what's nearby," optional wander mode. This is the signature experience. Boundary already decided: *Guide moves you; Trip reassures you.*
 3. **Full account/settings page** — only a minimal stopgap shipped (AI model/key, units, theme in the `AccountMenu`). Subscription, privacy, help, and a proper settings surface are stubbed "coming soon."
 4. **Wikimedia attribution** (optional/legal-nicety) — a single "Cover photos via Wikimedia Commons" line in an About/footer if covers stay.
 5. **Merge `voyager-redesign` → main** when the user is ready to make the redesign the canonical branch.
