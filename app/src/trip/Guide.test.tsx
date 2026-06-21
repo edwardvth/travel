@@ -109,7 +109,9 @@ describe('Guide orchestrator', () => {
     // Museum starts as a collapsed upcoming row; tapping opens it (expanded card
     // shows the Directions action).
     await user.click(screen.getByRole('button', { name: /Open Museum/i }))
-    expect(screen.getByRole('button', { name: /Mark Museum complete/i })).toBeInTheDocument()
+    // The focused card flips in (AnimatePresence mode="wait"), so the new card's
+    // controls appear after the prior card's exit — await rather than read sync.
+    expect(await screen.findByRole('button', { name: /Mark Museum complete/i })).toBeInTheDocument()
   })
 
   it('does not surface (un)complete controls for view-only users', () => {

@@ -70,7 +70,9 @@ export function CompletedSection({
               const stop = stops[c.index]
               if (!stop) return null
               if (c.index === focusedStopIndex) {
-                return <div key={c.index}>{focusedCard}</div>
+                // Stable key (see StopList) so the focused card's flip survives a
+                // focus change between completed stops instead of remounting.
+                return <div key="focused-card">{focusedCard}</div>
               }
               return (
                 <UpcomingRow

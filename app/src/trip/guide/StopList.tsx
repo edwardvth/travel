@@ -47,7 +47,10 @@ export function StopList({
         const stop = stops[row.index]
         if (!stop) return null
         if (row.index === focusedStopIndex) {
-          return <div key={row.index}>{focusedCard}</div>
+          // Stable key (not the row index) so the focused slot persists when the
+          // focus advances to another stop — that lets the card's own
+          // AnimatePresence run its flip instead of remounting silently.
+          return <div key="focused-card">{focusedCard}</div>
         }
         return (
           <UpcomingRow

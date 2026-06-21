@@ -486,30 +486,48 @@ export default function Guide() {
     return `${walkMinutes(prev, here)} MIN`
   }
 
+  // When the focused stop changes *within* a day (completing the current stop
+  // advances focus to the next), the card does a horizontal flip — the old stop
+  // turns edge-on and the next turns in. `mode="wait"` plays them in sequence so
+  // it reads as one card flipping over; the stable slot key (StopList /
+  // CompletedSection) keeps this AnimatePresence mounted across the advance.
+  // Day changes remount this whole subtree (the outer day AnimatePresence), so
+  // they slide rather than flip. Reduced motion collapses the flip to a swap.
   const focusedCard = (
-    <div ref={focusedCardRef} className="scroll-mt-20">
-      {enriching && !stop.history ? (
-        <CardSkeleton />
-      ) : (
-        <CurrentStopCard
-          stop={stop}
-          heroUrl={heroUrl}
-          distanceM={focusedCompleted ? null : distanceM}
-          etaMin={focusedCompleted ? null : etaMin ?? staticEta}
-          headingLabel={focusedCompleted ? null : headingLabel}
-          story={story}
-          notice={notice}
-          experience={experience}
-          voiceId={voiceId}
-          onDirections={onDirections}
-          onComplete={onComplete}
-          completed={focusedCompleted}
-          canComplete={canEdit}
-          stopNumber={stopIndex + 1}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
-      )}
+    <div ref={focusedCardRef} className="scroll-mt-20" style={{ perspective: 1400 }}>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={stopIndex}
+          initial={{ rotateY: reduce ? 0 : -90, opacity: 0, scale: reduce ? 1 : 0.96 }}
+          animate={{ rotateY: 0, opacity: 1, scale: 1 }}
+          exit={{ rotateY: reduce ? 0 : 90, opacity: 0, scale: reduce ? 1 : 0.96 }}
+          transition={{ duration: reduce ? 0 : 0.2, ease: [0.4, 0, 0.2, 1] }}
+          style={{ transformOrigin: 'center', backfaceVisibility: 'hidden', transformStyle: 'preserve-3d' }}
+        >
+          {enriching && !stop.history ? (
+            <CardSkeleton />
+          ) : (
+            <CurrentStopCard
+              stop={stop}
+              heroUrl={heroUrl}
+              distanceM={focusedCompleted ? null : distanceM}
+              etaMin={focusedCompleted ? null : etaMin ?? staticEta}
+              headingLabel={focusedCompleted ? null : headingLabel}
+              story={story}
+              notice={notice}
+              experience={experience}
+              voiceId={voiceId}
+              onDirections={onDirections}
+              onComplete={onComplete}
+              completed={focusedCompleted}
+              canComplete={canEdit}
+              stopNumber={stopIndex + 1}
+              activeTab={activeTab}
+              onTabChange={setActiveTab}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   )
 
