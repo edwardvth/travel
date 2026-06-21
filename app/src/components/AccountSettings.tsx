@@ -1,11 +1,16 @@
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { Sheet } from './ui/Sheet'
 import { Input } from './ui/Input'
 import { Button } from './ui/Button'
 import { Segmented } from './ui/Segmented'
 import { ThemeToggle } from './ThemeToggle'
-import { AlertTriangle, ChevronRight } from 'lucide-react'
+import { AlertTriangle, Check, ChevronRight, Loader2, Play } from 'lucide-react'
 import { useAccountSettings, type Units } from '../data/useAccountSettings'
+import { NARRATION_VOICES, DEFAULT_VOICE_ID, voiceLabel } from '../trip/guide/voices'
+import { fetchNarrationUrl, speakFallback } from '../trip/guide/narrate'
+
+/** One-line sample narrated when previewing a voice. */
+const VOICE_SAMPLE = 'This is how your tour guide will sound as you explore each stop.'
 
 /** AI model options — copied from the retired in-Voyage Settings. */
 const AI_MODELS: { value: string; label: string }[] = [
@@ -61,6 +66,56 @@ export function AccountSettings({
   const clearKey = () => {
     setSettings({ aiKey: undefined })
     setKeyDraft('')
+  }
+
+  const voiceId = settings.voiceId ?? DEFAULT_VOICE_ID
+  // null = nothing playing; otherwise the voice id whose preview is loading/playing.
+  const [previewing, setPreviewing] = useState<string | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  const stopPreview = () => {
+    if (audioRef.current) {
+      audioRef.current.pause()
+      audioRef.current = null
+    }
+    if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel()
+    setPreviewing(null)
+  }
+
+  const previewVoice = async (id: string) => {
+    // Tapping the active preview stops it; otherwise restart from a clean state.
+    if (previewing === id) {
+      stopPreview()
+      return
+    }
+    stopPreview()
+    setPreviewing(id)
+    const url = await fetchNarrationUrl(VOICE_SAMPLE, id)
+    if (url) {
+      const audio = new Audio(url)
+      audioRef.current = audio
+      audio.onended = () => {
+        URL.revokeObjectURL(url)
+        if (audioRef.current === audio) audioRef.current = null
+        setPreviewing(p => (p === id ? null : p))
+      }
+      audio.onerror = () => {
+        URL.revokeObjectURL(url)
+        if (audioRef.current === audio) audioRef.current = null
+        setPreviewing(p => (p === id ? null : p))
+      }
+      try {
+        await audio.play()
+      } catch {
+        URL.revokeObjectURL(url)
+        audioRef.current = null
+        setPreviewing(p => (p === id ? null : p))
+      }
+    } else {
+      // No proxy audio — fall back to on-device Web Speech (no URL to revoke).
+      speakFallback(VOICE_SAMPLE)
+      setPreviewing(p => (p === id ? null : p))
+    }
   }
 
   if (!open) return null
@@ -132,6 +187,55 @@ export function AccountSettings({
             ]}
           />
           <p className="text-muted text-[12.5px] mt-1.5">Controls temperature and distance display across your trips.</p>
+        </div>
+
+        {/* Narration voice */}
+        <div>
+          <span className="block text-[12px] font-bold text-muted uppercase tracking-wide mb-1.5">Narration voice</span>
+          <ul className="rounded-card border border-hair divide-y divide-hair overflow-hidden">
+            {NARRATION_VOICES.map(v => {
+              const selected = v.id === voiceId
+              const isPreviewing = previewing === v.id
+              return (
+                <li key={v.id} className="flex items-stretch">
+                  <button
+                    type="button"
+                    onClick={() => setSettings({ voiceId: v.id })}
+                    aria-pressed={selected}
+                    className={`flex flex-1 items-center gap-2.5 px-4 py-3 min-h-[44px] text-left transition-colors cursor-pointer ${
+                      selected ? 'bg-fill' : 'bg-base hover:bg-fill'
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`grid place-items-center w-4 h-4 flex-none rounded-full border ${
+                        selected ? 'border-sig-btn bg-sig-btn text-white' : 'border-hair'
+                      }`}
+                    >
+                      {selected && <Check size={11} strokeWidth={3} />}
+                    </span>
+                    <span className={`text-[14px] ${selected ? 'font-semibold text-sig-link' : 'text-ink'}`}>
+                      {voiceLabel(v)}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void previewVoice(v.id)}
+                    aria-label={isPreviewing ? `Stop preview of ${voiceLabel(v)}` : `Preview ${voiceLabel(v)}`}
+                    aria-pressed={isPreviewing}
+                    className="grid place-items-center w-11 flex-none border-l border-hair text-muted hover:text-ink hover:bg-fill transition-colors cursor-pointer"
+                  >
+                    {isPreviewing ? (
+                      <Loader2 size={16} aria-hidden="true" className="motion-safe:animate-spin" />
+                    ) : (
+                      <Play size={16} aria-hidden="true" />
+                    )}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+          <p className="text-muted text-[12.5px] mt-1.5">The voice used to read stop stories aloud in Guide. Syncs across your devices.</p>
         </div>
 
         {/* Theme */}
