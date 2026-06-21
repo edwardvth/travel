@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useReducedMotion, useMotionValue, useTransform, animate } from 'framer-motion'
 import { Check, Undo2 } from 'lucide-react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
@@ -64,35 +63,30 @@ interface GhostSnap {
 }
 interface GhostState {
   dir: 'left' | 'right'
-  rect: { left: number; top: number; width: number; height: number } | null
+  /** The drag offset (px) and tilt (deg) the card was released at, so the throw
+   *  picks up seamlessly from the finger instead of snapping. */
+  startX: number
   startRotate: number
   snap: GhostSnap
 }
 
 /**
- * The outgoing card's "throw" — a fixed-position clone of the focused card that
- * flies off diagonally while the real card re-renders the next/previous stop and
- * slides in beneath it. Rendered via a portal to `document.body` (and
- * `aria-hidden`) so it never depends on the list layout — which matters because
- * stepping back to a completed stop moves the real card between the StopList and
- * CompletedSection subtrees. Pure visual; `onDone` clears it when the throw ends.
+ * The outgoing card's "throw" — an absolutely-positioned clone that overlays the
+ * stable hero slot and flies off diagonally while the real card re-renders the
+ * next/previous stop and slides in beneath it. It starts at the card's exact
+ * release transform (`startX`/`startRotate`) so the hand-off from the drag is
+ * seamless (no jump). Lives inside the slot (not a portal) — the slot is a single
+ * stable subtree now, so no fixed-position math is needed. `onDone` clears it.
  */
 function SwipeGhost({ ghost, reduce, onDone }: { ghost: GhostState; reduce: boolean; onDone: () => void }) {
-  const { dir, rect, startRotate, snap } = ghost
+  const { dir, startX, startRotate, snap } = ghost
   const target = reduce ? { opacity: 0 } : SWIPE.exit[dir]
-  return createPortal(
+  return (
     <motion.div
       aria-hidden="true"
-      className="pointer-events-none"
-      style={{
-        position: 'fixed',
-        left: rect?.left ?? 0,
-        top: rect?.top ?? 0,
-        width: rect?.width,
-        height: rect?.height,
-        zIndex: 60,
-      }}
-      initial={{ x: 0, y: 0, rotate: reduce ? 0 : startRotate, opacity: 1 }}
+      className="pointer-events-none absolute inset-0"
+      style={{ zIndex: 30 }}
+      initial={{ x: startX, y: 0, rotate: reduce ? 0 : startRotate, opacity: 1 }}
       animate={target}
       transition={reduce ? { duration: SWIPE.reducedFadeSec } : { duration: SWIPE.throwSec, ease: SWIPE.ease }}
       onAnimationComplete={onDone}
@@ -115,8 +109,7 @@ function SwipeGhost({ ghost, reduce, onDone }: { ghost: GhostState; reduce: bool
         activeTab={snap.activeTab}
         onTabChange={() => {}}
       />
-    </motion.div>,
-    document.body,
+    </motion.div>
   )
 }
 
@@ -178,7 +171,6 @@ export default function Guide() {
   // After completing a stop auto-advances focus, scroll the new activity to the
   // top so the user lands on its start (not mid-card). Set on completion only.
   const focusedCardRef = useRef<HTMLDivElement>(null)
-  const scrollPendingRef = useRef(false)
   const reduce = useReducedMotion() ?? false
 
   // ── Swipe-to-progress state (the focused card is a Tinder-style draggable) ──
@@ -389,11 +381,10 @@ export default function Guide() {
   // square. Caller then changes focus + sets `enterFromRef`.
   const launchGhost = useCallback(
     (dir: 'left' | 'right') => {
-      const r = focusedCardRef.current?.getBoundingClientRect()
       busyRef.current = true
       setGhost({
         dir,
-        rect: r ? { left: r.left, top: r.top, width: r.width, height: r.height } : null,
+        startX: x.get(),
         startRotate: rotate.get(),
         snap: {
           stop: stop!,
@@ -439,7 +430,6 @@ export default function Guide() {
     onToggleCompleteAt(stopIndex)
     if (willAdvance) {
       setFocusedStopIndex(nextIdx)
-      scrollPendingRef.current = true
     }
   }, [focusedCompleted, onToggleCompleteAt, stopIndex, currentIndex, dayIndex, data?.completed, stopNames, launchGhost])
 
@@ -481,17 +471,6 @@ export default function Guide() {
     },
     [isLeftNoop, isRightNoop, onSwipeNext, onSwipePrev, x, reduce],
   )
-
-  // When focus advances after a completion, snap the new card to the top
-  // (instant — a smooth scroll here raced the layout change and felt laggy).
-  useEffect(() => {
-    if (!scrollPendingRef.current) return
-    scrollPendingRef.current = false
-    const id = requestAnimationFrame(() => {
-      focusedCardRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' })
-    })
-    return () => cancelAnimationFrame(id)
-  }, [stopIndex])
 
   const onBannerOpen = useCallback(() => {
     clearTimer()
@@ -543,11 +522,12 @@ export default function Guide() {
   const completed = completedStops(dayIndex, stopNames, data?.completed)
   const completedIndices = completed.map(c => c.index)
   const completedNames = completed.map(c => c.name)
-  // The disclosure toggle lives on the progress header's "n complete" line. A
-  // focused completed stop force-opens the section so its card stays viewable.
+  // The disclosure toggle lives on the progress header's "n complete" line. It is
+  // purely user-controlled — the focused card lives in its own stable hero slot
+  // (below), so focusing/swiping back onto a completed stop never force-opens (or
+  // re-opens) this summary.
   const completedPanelId = useId()
-  const focusedIsCompleted = completed.some(c => c.index === stopIndex)
-  const completedOpen = completedExpanded || focusedIsCompleted
+  const completedOpen = completedExpanded
 
   // Day-switch transition: slide/fade direction (+1 next, -1 prev). The ref holds
   // the previous day so the content can animate in from the correct side.
@@ -683,16 +663,24 @@ export default function Guide() {
           ? { opacity: 0 }
           : false
   const focusedCard = (
-    <div ref={focusedCardRef} className="scroll-mt-20">
+    <div ref={focusedCardRef} className="relative scroll-mt-20">
+      {ghost && (
+        <SwipeGhost
+          ghost={ghost}
+          reduce={reduce}
+          onDone={() => {
+            setGhost(null)
+            busyRef.current = false
+          }}
+        />
+      )}
       <motion.div
         drag={canEdit && !ghost ? 'x' : false}
         dragDirectionLock
         dragMomentum={false}
-        dragConstraints={{ left: isLeftNoop ? 0 : -1000, right: isRightNoop ? 0 : 1000 }}
-        dragElastic={0.32}
         onDragEnd={onCardDragEnd}
         style={{ x, rotate, touchAction: 'pan-y' }}
-        className={'relative ' + (canEdit ? 'cursor-grab active:cursor-grabbing' : '')}
+        className={'relative z-10 ' + (canEdit ? 'cursor-grab active:cursor-grabbing' : '')}
       >
         <motion.div
           key={stopIndex}
@@ -758,16 +746,6 @@ export default function Guide() {
 
   return (
     <div className="px-5 md:px-8 py-6 md:py-8">
-      {ghost && (
-        <SwipeGhost
-          ghost={ghost}
-          reduce={reduce}
-          onDone={() => {
-            setGhost(null)
-            busyRef.current = false
-          }}
-        />
-      )}
       <div className="mx-auto w-full max-w-md">
         {phase === 'arriving' && (
           <div className="mb-4">
@@ -807,20 +785,23 @@ export default function Guide() {
           completed={completed}
           open={completedOpen}
           panelId={completedPanelId}
-          focusedStopIndex={stopIndex}
-          focusedCard={focusedCard}
           rowMeta={rowMeta}
           onFocus={onFocusStop}
           onToggleComplete={onToggleCompleteAt}
           canComplete={canEdit}
         />
 
+        {/* Stable hero slot — the focused stop's card always renders here, between
+            the completed summary (above) and the upcoming list (below), whatever
+            its status. One slot = one DOM subtree, so the swipe throw animates
+            cleanly and stepping back never disturbs the summary disclosure. */}
+        {focusedCard}
+
         <StopList
           stops={stops}
           rows={rows}
           focusedStopIndex={stopIndex}
           rowMeta={rowMeta}
-          focusedCard={focusedCard}
           onFocus={onFocusStop}
         />
         </motion.div>
