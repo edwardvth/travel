@@ -9,8 +9,16 @@ export function narrationCacheKey(text: string, voiceId: string): string {
   return (h >>> 0).toString(16)
 }
 
+/**
+ * Slug of the deployed ElevenLabs TTS edge function. Supabase auto-named the
+ * function `hyper-function` at creation (the display title was renamed to
+ * "narrate" afterward, but the invoke-URL slug is fixed at create time). To use
+ * a clean `narrate` slug, recreate the function under that name and change this.
+ */
+const NARRATE_FN_SLUG = 'hyper-function'
+
 export function narrateProxyUrl(base = SUPABASE_URL): string {
-  return `${base.replace(/\/$/, '')}/functions/v1/narrate`
+  return `${base.replace(/\/$/, '')}/functions/v1/${NARRATE_FN_SLUG}`
 }
 
 async function authToken(): Promise<string> {

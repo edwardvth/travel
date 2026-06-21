@@ -11,8 +11,8 @@ describe('narrationCacheKey', () => {
 })
 
 describe('narrateProxyUrl', () => {
-  it('points at the narrate function', () => {
-    expect(narrateProxyUrl('https://x.supabase.co/')).toBe('https://x.supabase.co/functions/v1/narrate')
+  it('points at the deployed TTS function slug', () => {
+    expect(narrateProxyUrl('https://x.supabase.co/')).toBe('https://x.supabase.co/functions/v1/hyper-function')
   })
 })
 
