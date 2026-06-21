@@ -67,29 +67,30 @@ Core flow: **Open Guide → current stop → Directions (hand off to Maps) → w
 - **Distance/ETA** to the active stop via `walk.ts` (`haversineKm` / `walkMinutes`). **Heading** via a new pure `bearing(from,to)` + 8-point compass label ("NE"); arrow oriented to bearing (north-up; device-compass is a future nicety).
 - **Arrival** — pure `isArrived(pos, stopCoords, radiusM)` (default ~40 m, with hysteresis to avoid flapping). On first arrival for the current stop → transition to **Arrival** state + (optional) auto-start narration. Manual "I'm here" available when geolocation is off.
 
-## Navigation hand-off (`maps.ts`, pure + tested)
+## Navigation hand-off — "Directions" opens the device's default maps app (`maps.ts`, pure + tested)
 
-Device-aware deep links (no key, no SDK):
-- **Apple Maps** (iOS default): `https://maps.apple.com/?daddr=<lat>,<lng>&dirflg=w` (or `&q=<name>`).
-- **Google Maps**: `https://www.google.com/maps/dir/?api=1&destination=<lat>,<lng>&travelmode=walking`.
-- **Waze**: `https://waze.com/ul?ll=<lat>,<lng>&navigate=yes`.
-- Default to Apple on iOS, Google elsewhere; a small menu offers all three. Coordinate-less stops fall back to a name+destination query.
+**There is no embedded map in Guide.** The single **Directions** action opens the **device's default maps app** in one tap (no provider menu), via the right URL per platform (no key, no SDK):
+- **iOS** → Apple Maps: `https://maps.apple.com/?daddr=<lat>,<lng>&dirflg=w` (or `&q=<name>`).
+- **Android** → `geo:<lat>,<lng>?q=<lat>,<lng>(<name>)` so the OS opens whatever maps app is set as default.
+- **Desktop / other** → Google Maps web: `https://www.google.com/maps/dir/?api=1&destination=<lat>,<lng>&travelmode=walking`.
+- Coordinate-less stops fall back to a `?q=<name>, <destination>` query. `maps.ts` picks the URL from a small platform check (pure + unit-tested).
 
 ## Narration (ElevenLabs, cached, fallback)
 
 - **`narrate` Supabase edge function** (mirrors `ai-proxy`): holds **`ELEVENLABS_API_KEY`** (the only manual secret), receives `{ text, voiceId }`, calls ElevenLabs TTS, returns `audio/mpeg`. CORS + per-IP rate limiting.
 - **Cache** generated clips in **Supabase Storage**, keyed by `hash(text + voiceId + modelVersion)` — synthesized **once per story+voice, ever** (the key cost lever). The function uses the auto-injected `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` for Storage.
-- **Voice selection** — curated client constant `NARRATION_VOICES: { id, name, description? }[]` + `DEFAULT_VOICE_ID`. Selected in **`AccountSettings`** (opened from the Dashboard `AccountMenu`) with a **▶ preview**; stored in `profiles.settings.voiceId` (cross-device). Voice IDs are **not** secrets. Owner-supplied set:
+- **Voice selection** — curated client constant `NARRATION_VOICES: { id, name, accent, gender }[]` + `DEFAULT_VOICE_ID`. Selected in **`AccountSettings`** (opened from the Dashboard `AccountMenu`) with a **▶ preview**; stored in `profiles.settings.voiceId` (cross-device). Voice IDs are **not** secrets. Owner-supplied set:
   ```ts
   export const NARRATION_VOICES = [
-    { id: 'pXgsayqpmuFfzTsJw2ni', name: 'Matthew',   note: 'American · clear, friendly' },
-    { id: 'jg80CzGPSxCeNz7dJVDZ', name: 'Tom',       note: 'Balanced, clean' },
-    { id: 'xzZRXG86mSM3naOyL9fa', name: 'Rowan',     note: 'Soothing, calming' },
-    { id: '8Ln42OXYupYsag45MAUy', name: 'Jay Wayne', note: 'American · warm, professorial' }, // DEFAULT
-    { id: 'wScwPA1qCkWo5R2dmlS8', name: 'Charlotte', note: 'Storytelling & narration' },
+    { id: 'pXgsayqpmuFfzTsJw2ni', name: 'Matthew',   accent: 'American', gender: 'Male' },
+    { id: 'jg80CzGPSxCeNz7dJVDZ', name: 'Tom',       accent: 'Neutral',  gender: 'Male' },
+    { id: 'xzZRXG86mSM3naOyL9fa', name: 'Rowan',     accent: 'British',  gender: 'Male' },
+    { id: '8Ln42OXYupYsag45MAUy', name: 'Jay Wayne', accent: 'American', gender: 'Male' }, // DEFAULT
+    { id: 'wScwPA1qCkWo5R2dmlS8', name: 'Charlotte', accent: 'English',  gender: 'Female' }, // accent: confirm
   ] as const
   export const DEFAULT_VOICE_ID = '8Ln42OXYupYsag45MAUy' // Jay Wayne
   ```
+  **Selector display format:** `${name} - ${accent}, ${gender}` → e.g. "Rowan - British, Male" / "Jay Wayne - American, Male". The voice picker (and the whole Guide) follows the owner's `docs/design/Guide - Premium Modern.html` styling.
 - **Fallback** — if the function/key/quota is unavailable, `narrate.ts` falls back to the free on-device **Web Speech** (`speechSynthesis`). Listen always works.
 - `narrate.ts` exposes play/pause/stop + "playing" state to drive the equalizer-bar animation. Reads the **active tab's** text.
 
