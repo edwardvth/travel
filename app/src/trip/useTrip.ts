@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../auth/useAuth'
 import { useProfile, isFounder } from '../data/useProfile'
+import { mergeRealtimeTrip } from './realtime-merge'
 import type { Trip } from '../types'
 
 export interface UseTripResult {
@@ -62,7 +63,20 @@ export function useTrip(tripId: string | undefined): UseTripResult {
 
   const canEdit = isFounder(profile) || isOwner || memberQuery.data === true
 
-  // Realtime: refetch on any remote change to this trip row (last-write-wins).
+  // Realtime: apply remote changes to this trip row with real last-write-wins.
+  //
+  // A blind `invalidateQueries` here clobbers the cache: Supabase echoes the
+  // client's own debounced saves back, and a full refetch then replaces our
+  // *newer* optimistic edits (e.g. a just-marked `completed`) with the older
+  // committed server row — the Guide "checkmark snaps back" race. Instead we
+  // patch the cache directly via `mergeRealtimeTrip`, which keeps the row only
+  // when its `data.savedAt` is strictly newer than what we hold (so own/older
+  // echoes are dropped, genuine remote edits from another device still apply).
+  //
+  // `payload.new` carries the full new row for INSERT/UPDATE under Postgres'
+  // default replica identity (FULL only changes the `old` record), so no schema
+  // change is needed. We keep a defensive `invalidate` fallback for the unlikely
+  // case the row arrives without `data`, and for DELETE (rare; refetch → null).
   useEffect(() => {
     if (!tripId) return
     const channel = supabase
@@ -70,7 +84,14 @@ export function useTrip(tripId: string | undefined): UseTripResult {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'trips', filter: 'id=eq.' + tripId },
-        () => { qc.invalidateQueries({ queryKey: tripKey(tripId) }) },
+        payload => {
+          const row = payload.new as Trip | undefined
+          if (payload.eventType === 'DELETE' || !row?.data) {
+            qc.invalidateQueries({ queryKey: tripKey(tripId) })
+            return
+          }
+          qc.setQueryData<Trip | null>(tripKey(tripId), prev => mergeRealtimeTrip(prev, row))
+        },
       )
       .subscribe()
     return () => { supabase.removeChannel(channel) }
