@@ -23,7 +23,7 @@ function HeroPlaceholder() {
  * full-bleed hero photo (or striped placeholder) blooms behind a `vySonar` ✓
  * "YOU'VE ARRIVED" badge; the Fraunces place name + a mono telemetry line settle
  * at its base. Below, a content sheet carries the ListenButton (row variant), the
- * Story/Notice/Experience tabs, and the body; the footer holds "Mark complete &
+ * Story/Interesting Facts/Experience tabs, and the body; the footer holds "Mark complete &
  * continue →" with an advancing toast that slides in once tapped.
  *
  * LOCKED: no embedded map; narration never auto-plays. Pure presentation — the

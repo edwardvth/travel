@@ -28,8 +28,9 @@ function HeroPlaceholder() {
  * The image-forward current-stop card — the primary "traveling" surface, built
  * to the Premium Modern reference. A hero photo (or striped placeholder) carries
  * a live claret chip ("NOW · {dist} · {eta} · {heading}" with a `vyPulse` dot),
- * then a Fraunces place name, a subtitle, the ListenButton, the Story/Notice/
- * Experience tabs, and the Directions (claret) + ✓ complete actions.
+ * then a Fraunces place name, a subtitle, the ListenButton, the Story/
+ * Interesting Facts/Experience tabs, and the Directions (claret) + ✓ complete
+ * actions.
  *
  * LOCKED: there is no embedded map here — Directions hands off to the device's
  * maps app (the parent wires `onDirections`). Pure presentation: props in,
