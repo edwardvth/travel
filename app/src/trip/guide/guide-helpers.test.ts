@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { activeDayIndex, currentStopIndex, dayNavModel, stopHeroQuery } from './guide-helpers'
+import { activeDayIndex, currentStopIndex, dayNavModel, dayStopRows, stopHeroQuery } from './guide-helpers'
 
 describe('currentStopIndex', () => {
   it('returns the first not-completed stop index', () => {
@@ -10,6 +10,43 @@ describe('currentStopIndex', () => {
   })
   it('returns 0 when nothing complete', () => {
     expect(currentStopIndex(2, ['A'], [])).toBe(0)
+  })
+})
+
+describe('dayStopRows', () => {
+  it('classifies done / current / upcoming with current = first not-done', () => {
+    const rows = dayStopRows(0, 4, ['0-0'])
+    expect(rows).toEqual([
+      { index: 0, status: 'done' },
+      { index: 1, status: 'current' },
+      { index: 2, status: 'upcoming' },
+      { index: 3, status: 'upcoming' },
+    ])
+  })
+
+  it('marks every stop done with no current when the day is complete', () => {
+    const rows = dayStopRows(1, 2, ['1-0', '1-1'])
+    expect(rows.map(r => r.status)).toEqual(['done', 'done'])
+  })
+
+  it('first stop is current when nothing is complete', () => {
+    const rows = dayStopRows(0, 3, [])
+    expect(rows.map(r => r.status)).toEqual(['current', 'upcoming', 'upcoming'])
+  })
+
+  it('keeps a jumped-ahead completed stop as done while current stays the first gap', () => {
+    // The traveller completed stop 2 out of order; stop 0 is still current.
+    const rows = dayStopRows(0, 3, ['0-2'])
+    expect(rows.map(r => r.status)).toEqual(['current', 'upcoming', 'done'])
+  })
+
+  it('keys completion by the given day index', () => {
+    const rows = dayStopRows(2, 2, ['0-0', '2-1'])
+    expect(rows.map(r => r.status)).toEqual(['current', 'done'])
+  })
+
+  it('returns an empty list for a day with no stops', () => {
+    expect(dayStopRows(0, 0, [])).toEqual([])
   })
 })
 

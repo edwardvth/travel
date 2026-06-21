@@ -47,6 +47,8 @@ export function CurrentStopCard({
   voiceId,
   onDirections,
   onComplete,
+  completed = false,
+  canComplete = true,
   activeTab,
   onTabChange,
 }: {
@@ -61,6 +63,10 @@ export function CurrentStopCard({
   voiceId: string
   onDirections: () => void
   onComplete: () => void
+  /** When true this (focused) stop is already done — the ✓ becomes un-complete. */
+  completed?: boolean
+  /** Edit-gate: view-only users can browse/Listen/Directions but not (un)complete. */
+  canComplete?: boolean
   activeTab: StoryTab
   onTabChange: (tab: StoryTab) => void
 }) {
@@ -68,8 +74,10 @@ export function CurrentStopCard({
   const eta = etaMin != null && Number.isFinite(etaMin) ? `${Math.round(etaMin)} MIN` : null
   const heading = headingLabel || null
 
-  // The live chip: "NOW · {dist} · {eta} · {heading}" — whatever telemetry is known.
-  const chipParts = ['NOW', dist, eta, heading].filter(Boolean) as string[]
+  // The chip leads with the stop's standing — "VISITED" once done, otherwise the
+  // live "NOW" — then whatever telemetry is known (dist · eta · heading).
+  const lead = completed ? 'VISITED' : 'NOW'
+  const chipParts = [lead, dist, eta, heading].filter(Boolean) as string[]
 
   // Subtitle: type (heading lives in the chip). Keep it calm; fall back gracefully.
   const subtitleParts = [stop.type].filter(Boolean) as string[]
@@ -93,7 +101,7 @@ export function CurrentStopCard({
         <div className="absolute left-[13px] bottom-[11px] inline-flex items-center gap-[7px] font-mono text-[10px] tracking-[0.07em] text-white bg-sig-btn/85 px-2.5 py-[5px] rounded-full backdrop-blur-[4px]">
           <span
             className="w-[6px] h-[6px] rounded-full bg-white"
-            style={{ animation: 'vyPulse 1.4s ease-in-out infinite' }}
+            style={completed ? undefined : { animation: 'vyPulse 1.4s ease-in-out infinite' }}
             aria-hidden="true"
           />
           {chipParts.join(' · ')}
@@ -127,14 +135,22 @@ export function CurrentStopCard({
           >
             Directions
           </button>
-          <button
-            type="button"
-            onClick={onComplete}
-            aria-label={`Mark ${stop.name} complete`}
-            className="flex-none grid place-items-center w-11 min-h-[44px] rounded-[12px] border border-hair-strong bg-transparent text-ink/80 cursor-pointer transition-colors hover:bg-fill focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
-          >
-            <Check size={16} strokeWidth={2.5} aria-hidden="true" />
-          </button>
+          {canComplete && (
+            <button
+              type="button"
+              onClick={onComplete}
+              aria-label={completed ? `Mark ${stop.name} not complete` : `Mark ${stop.name} complete`}
+              aria-pressed={completed}
+              className={
+                'flex-none grid place-items-center w-11 min-h-[44px] rounded-[12px] cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link ' +
+                (completed
+                  ? 'border border-sig/40 bg-sig/[0.1] text-sig hover:bg-sig/[0.18]'
+                  : 'border border-hair-strong bg-transparent text-ink/80 hover:bg-fill')
+              }
+            >
+              <Check size={16} strokeWidth={2.5} aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
     </div>

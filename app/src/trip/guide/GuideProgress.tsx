@@ -10,19 +10,28 @@ import { Check } from 'lucide-react'
  *
  * `stopNumber` is 1-based (the current stop's position); `completedCount` and
  * `completedNames` describe the stops already done on this day.
+ *
+ * Completion is non-linear (stops can be done out of order and un-done), so the
+ * segmented bar fills per-stop from `completedIndices` when provided (each done
+ * stop's segment is claret); the *current* stop's segment breathes. Without it we
+ * fall back to the legacy positional fill (everything up to `stopNumber`).
  */
 export function GuideProgress({
   stopNumber,
   stopCount,
   completedCount,
   completedNames,
+  completedIndices,
 }: {
   stopNumber: number
   stopCount: number
   completedCount: number
   completedNames: string[]
+  /** 0-based indices of completed stops on this day; enables per-stop fill. */
+  completedIndices?: number[]
 }) {
   const segments = Array.from({ length: Math.max(stopCount, 0) })
+  const doneSet = completedIndices ? new Set(completedIndices) : null
 
   return (
     <div>
@@ -34,8 +43,8 @@ export function GuideProgress({
 
       <div className="flex gap-1 mb-3.5" aria-hidden="true">
         {segments.map((_, i) => {
-          const done = i < stopNumber - 1
-          const current = i === stopNumber - 1
+          const done = doneSet ? doneSet.has(i) : i < stopNumber - 1
+          const current = i === stopNumber - 1 && !(doneSet?.has(i))
           return (
             <div
               key={i}

@@ -9,6 +9,45 @@ export function currentStopIndex(dayIndex: number, stopNames: string[], complete
   return -1
 }
 
+/** How a stop in the day list reads relative to progress. */
+export type StopStatus = 'done' | 'current' | 'upcoming'
+
+/** One classified row in the full-day stop list. */
+export interface DayStopRow {
+  index: number
+  status: StopStatus
+}
+
+/**
+ * Classify every stop in `dayIndex` as done / current / upcoming, where the
+ * single **current** stop is the first not-completed one (matching
+ * `currentStopIndex`). Completed stops read `done` (even when they sit after the
+ * current one, e.g. the traveller jumped ahead); everything else not-yet-done
+ * after current is `upcoming`. When the whole day is complete there is no
+ * `current` row. Pure + unit-tested — the orchestrator renders from this.
+ */
+export function dayStopRows(
+  dayIndex: number,
+  stopCount: number,
+  completed: string[] | undefined,
+): DayStopRow[] {
+  const current = currentStopIndex(
+    dayIndex,
+    Array.from({ length: stopCount }, () => ''),
+    completed,
+  )
+  const rows: DayStopRow[] = []
+  for (let i = 0; i < stopCount; i++) {
+    const status: StopStatus = isCompleted(completed, dayIndex, i)
+      ? 'done'
+      : i === current
+        ? 'current'
+        : 'upcoming'
+    rows.push({ index: i, status })
+  }
+  return rows
+}
+
 /** Wikipedia query for a stop's hero image — ALWAYS name + city. Pure. */
 export function stopHeroQuery(stopName: string, destination: string): string {
   return stopLandmarkQuery(stopName, destination)

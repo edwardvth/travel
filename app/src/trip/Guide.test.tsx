@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createMemoryRouter, RouterProvider, Outlet } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -37,14 +38,19 @@ function renderGuide(trip: Trip, ctx: Partial<PlannerOutletContext> = {}) {
   )
 }
 
-function tripWith(days: { stops: { name: string }[] }[], completed: string[] = []): Trip {
+function tripWith(days: { stops: { name: string; history?: string }[] }[], completed: string[] = []): Trip {
   return {
     id: 't1',
     owner_id: 'u1',
     title: 'St. Louis Weekend',
     subtitle: null,
     config: { destination: 'St. Louis, Missouri, United States' },
-    data: { days: days.map(d => ({ title: '', stops: d.stops })), completed },
+    // Default `history` so the focused card renders its body (not the enrichment
+    // skeleton) — enrichment-on-demand is exercised elsewhere.
+    data: {
+      days: days.map(d => ({ title: '', stops: d.stops.map(s => ({ history: 'x', ...s })) })),
+      completed,
+    },
   } as unknown as Trip
 }
 
@@ -59,8 +65,51 @@ describe('Guide orchestrator', () => {
     expect(screen.getByText(/No stops on this day yet/i)).toBeInTheDocument()
   })
 
-  it('shows the restrained "day complete" state when every stop is done', () => {
+  it('shows the restrained "day complete" note when every stop is done', () => {
     renderGuide(tripWith([{ stops: [{ name: 'Gateway Arch' }] }], ['0-0']))
-    expect(screen.getByText(/complete/i)).toBeInTheDocument()
+    // The day-complete note still surfaces, and the completed stop stays
+    // reopenable in the list below it (never a forward-only dead end).
+    expect(screen.getByText(/every stop on this day is done/i)).toBeInTheDocument()
+    expect(screen.getByText('Gateway Arch')).toBeInTheDocument()
+  })
+
+  it('renders ALL stops for the focused day (done / current / upcoming)', () => {
+    renderGuide(
+      tripWith([{ stops: [{ name: 'Arch' }, { name: 'Museum' }, { name: 'Park' }] }], ['0-0']),
+    )
+    // Done + current + upcoming all present at once (not just current + next).
+    expect(screen.getByText('Arch')).toBeInTheDocument()
+    expect(screen.getByText('Museum')).toBeInTheDocument()
+    expect(screen.getByText('Park')).toBeInTheDocument()
+  })
+
+  it('un-completes a stop through the edit-gated save path', async () => {
+    const user = userEvent.setup()
+    const save = vi.fn()
+    renderGuide(tripWith([{ stops: [{ name: 'Arch' }, { name: 'Museum' }] }], ['0-0']), { save })
+    // Arch is done + the current view auto-advances to Museum, so Arch is a
+    // collapsed completed row; its ✓ un-marks it.
+    await user.click(screen.getByRole('button', { name: /Mark Arch not complete/i }))
+    expect(save).toHaveBeenCalledTimes(1)
+    const arg = save.mock.calls[0][0]
+    expect(arg.data.completed).toEqual([]) // toggled off
+  })
+
+  it('lets the traveller focus an upcoming stop and expand it', async () => {
+    const user = userEvent.setup()
+    renderGuide(tripWith([{ stops: [{ name: 'Arch' }, { name: 'Museum' }] }], []))
+    // Museum starts as a collapsed upcoming row; tapping opens it (expanded card
+    // shows the Directions action).
+    await user.click(screen.getByRole('button', { name: /Open Museum/i }))
+    expect(screen.getByRole('button', { name: /Mark Museum complete/i })).toBeInTheDocument()
+  })
+
+  it('does not surface (un)complete controls for view-only users', () => {
+    renderGuide(tripWith([{ stops: [{ name: 'Arch' }, { name: 'Museum' }] }], ['0-0']), {
+      canEdit: false,
+    })
+    // The completed Arch row shows a plain ✓ marker, not an un-complete button.
+    expect(screen.queryByRole('button', { name: /Mark Arch not complete/i })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Mark .* complete/i })).toBeNull()
   })
 })

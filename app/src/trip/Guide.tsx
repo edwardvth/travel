@@ -9,14 +9,14 @@ import { useLandmarkImage } from '../data/useLandmarkImage'
 import { GuideProgress } from './guide/GuideProgress'
 import { DayNav } from './guide/DayNav'
 import { CurrentStopCard } from './guide/CurrentStopCard'
-import { UpcomingRow } from './guide/UpcomingRow'
+import { StopList } from './guide/StopList'
 import { ArrivingBanner } from './guide/ArrivingBanner'
 import { ArrivalView } from './guide/ArrivalView'
 import type { StoryTab } from './guide/StoryTabs'
 
 import { useGeolocation, bearing, compassLabel } from './guide/geo'
 import { isArrived } from './guide/arrival'
-import { activeDayIndex, currentStopIndex, stopHeroQuery } from './guide/guide-helpers'
+import { activeDayIndex, currentStopIndex, dayStopRows, stopHeroQuery } from './guide/guide-helpers'
 import { directionsUrl, detectPlatform } from './guide/maps'
 import { resolveVoiceId } from './guide/voices'
 
@@ -89,10 +89,49 @@ export default function Guide() {
   const stops = day?.stops ?? []
   const stopNames = useMemo(() => stops.map(s => s.name), [stops])
 
+  // ── Tab state (held here; passed to the card / arrival view) ──────────────
+  const [activeTab, setActiveTab] = useState<StoryTab>('story')
+
   // ── Current stop = first not-completed in the active day ──────────────────
-  const stopIndex = currentStopIndex(dayIndex, stopNames, data?.completed)
+  const currentIndex = currentStopIndex(dayIndex, stopNames, data?.completed)
+
+  // ── Focus = the stop the traveller is *viewing* (free, non-linear) ────────
+  // Defaults to the current stop and auto-advances with it, UNLESS the traveller
+  // has manually picked another stop within this day (`userPicked`) — then we
+  // leave their choice alone so auto-advance never yanks focus out from under a
+  // deliberate browse. A day change resets the pick and re-seeds to current.
+  const [focusedStopIndex, setFocusedStopIndex] = useState(currentIndex)
+  const userPickedRef = useRef(false)
+
+  // Day change → drop any manual pick (re-seed below picks up the new current).
+  useEffect(() => {
+    userPickedRef.current = false
+  }, [dayIndex])
+
+  // Re-seed focus to the current stop on day change, and follow auto-advance
+  // while the traveller hasn't manually picked a stop this day. Clamp into range.
+  useEffect(() => {
+    if (userPickedRef.current) return
+    const seed = currentIndex >= 0 ? currentIndex : 0
+    setFocusedStopIndex(prev => (prev === seed ? prev : seed))
+  }, [dayIndex, currentIndex])
+
+  // Guard focus into range when the day's stop count changes underneath us.
+  const focusIndex = stops.length === 0 ? -1 : Math.min(Math.max(focusedStopIndex, 0), stops.length - 1)
+
+  // The operative stop for telemetry / hero / enrichment / the expanded card is
+  // the *focused* one (so opening a completed/upcoming stop fetches its hero +
+  // enriches on demand exactly like the current stop does).
+  const stopIndex = focusIndex
   const stop: Stop | undefined = stopIndex >= 0 ? stops[stopIndex] : undefined
   const sc = stop ? stopCoords(stop) : null
+  const focusedCompleted = stopIndex >= 0 && (data?.completed ?? []).includes(`${dayIndex}-${stopIndex}`)
+
+  const onFocusStop = useCallback((i: number) => {
+    userPickedRef.current = true
+    setFocusedStopIndex(i)
+    setActiveTab('story')
+  }, [])
 
   // ── Live telemetry (geolocation while Guide is open) ──────────────────────
   const geo = useGeolocation(true)
@@ -104,9 +143,6 @@ export default function Guide() {
   // Degraded distance: static walk from the previous stop when geo is unavailable.
   const prevCoords = stopIndex > 0 ? stopCoords(stops[stopIndex - 1]) : null
   const staticEta = !live && prevCoords && sc ? walkMinutes(prevCoords, sc) : null
-
-  // ── Tab state (held here; passed to the card / arrival view) ──────────────
-  const [activeTab, setActiveTab] = useState<StoryTab>('story')
 
   // ── Soft arrival ──────────────────────────────────────────────────────────
   // `wasArrived` tracks the geofence (with hysteresis) for the *current* stop;
@@ -218,12 +254,21 @@ export default function Guide() {
     else window.open(url, '_blank', 'noopener')
   }, [stop, destination])
 
+  // Toggle completion for any stop in the focused day (reversible — `toggleCompleted`
+  // flips both ways). Edit-gated. Progress + the current stop re-derive from
+  // `data.completed`, so marking/un-marking recomputes everything immediately.
+  const onToggleCompleteAt = useCallback(
+    (index: number) => {
+      if (!canEdit || index < 0) return
+      save({ data: { ...trip.data, completed: toggleCompleted(trip.data.completed, dayIndex, index) } })
+    },
+    [canEdit, dayIndex, save, trip.data],
+  )
+
+  // The focused stop's card ✓ toggles that stop (complete ⇄ un-complete).
   const onComplete = useCallback(() => {
-    if (!canEdit || stopIndex < 0) return
-    save({ data: { ...trip.data, completed: toggleCompleted(trip.data.completed, dayIndex, stopIndex) } })
-    // Resetting per-stop arrival state happens via the stopKey effect once the
-    // new current stop is re-derived.
-  }, [canEdit, stopIndex, dayIndex, save, trip.data])
+    onToggleCompleteAt(stopIndex)
+  }, [onToggleCompleteAt, stopIndex])
 
   const onBannerOpen = useCallback(() => {
     clearTimer()
@@ -270,9 +315,13 @@ export default function Guide() {
   }, [canEdit, trip, dayCount, save, navigate])
 
   const dayLabelText = dayLabelOf(trip, dayIndex)
-  const completedNames = stops
-    .filter((_, i) => (data?.completed ?? []).includes(`${dayIndex}-${i}`))
-    .map(s => s.name)
+  const completedIndices = stops
+    .map((_, i) => i)
+    .filter(i => (data?.completed ?? []).includes(`${dayIndex}-${i}`))
+  const completedNames = completedIndices.map(i => stops[i].name)
+  // The full-day rows (done / current / upcoming), classified once for the list.
+  const rows = dayStopRows(dayIndex, stops.length, data?.completed)
+  const dayComplete = currentIndex < 0 && stops.length > 0
 
   // The shared day navigator + Add-Day confirm dialog — present in every browse
   // state (empty / all-complete / traveling) so the traveller can always move
@@ -319,19 +368,12 @@ export default function Guide() {
     )
   }
 
-  // All complete → restrained "day complete" + nudge.
-  if (stopIndex < 0 || !stop) {
+  // Guard: with stops present, focus is always a real stop. (Defensive — keeps
+  // the type-narrowing below honest if the list somehow desyncs.)
+  if (!stop) {
     return (
       <div className="px-5 md:px-8 py-6 md:py-8">
-        <div className="mx-auto w-full max-w-md">
-          {dayNavEl}
-          <EmptyState
-            bare
-            icon="sparkles"
-            title={`${dayLabelText} complete`}
-            body="You've reached every stop on this day. Beautifully done — when you're ready, switch days here or in Plan to keep exploring."
-          />
-        </div>
+        <div className="mx-auto w-full max-w-md">{dayNavEl}</div>
       </div>
     )
   }
@@ -372,10 +414,39 @@ export default function Guide() {
     )
   }
 
-  // Traveling (+ arriving banner overlaid).
-  const nextStop = stopIndex + 1 < stops.length ? stops[stopIndex + 1] : null
-  const nextStopCoords = nextStop ? stopCoords(nextStop) : null
-  const nextStopEta = sc && nextStopCoords ? walkMinutes(sc, nextStopCoords) : null
+  // Traveling (+ arriving banner overlaid) — now the full, browsable day list.
+  // The focused stop renders the expanded card; every other stop is a quiet,
+  // tappable row. A collapsed row's meta is a static walk estimate from the
+  // preceding stop (no live geo per row — that's reserved for the focused stop).
+  const rowMeta = (i: number): string => {
+    const here = stopCoords(stops[i])
+    const prev = i > 0 ? stopCoords(stops[i - 1]) : null
+    if (!here || !prev) return ''
+    return `${walkMinutes(prev, here)} MIN`
+  }
+
+  const focusedCard =
+    enriching && !stop.history ? (
+      <CardSkeleton />
+    ) : (
+      <CurrentStopCard
+        stop={stop}
+        heroUrl={heroUrl}
+        distanceM={focusedCompleted ? null : distanceM}
+        etaMin={focusedCompleted ? null : etaMin ?? staticEta}
+        headingLabel={focusedCompleted ? null : headingLabel}
+        story={story}
+        notice={notice}
+        experience={experience}
+        voiceId={voiceId}
+        onDirections={onDirections}
+        onComplete={onComplete}
+        completed={focusedCompleted}
+        canComplete={canEdit}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+      />
+    )
 
   return (
     <div className="px-5 md:px-8 py-6 md:py-8">
@@ -389,42 +460,29 @@ export default function Guide() {
         {dayNavEl}
 
         <GuideProgress
-          stopNumber={stopIndex + 1}
+          stopNumber={(currentIndex >= 0 ? currentIndex : stops.length - 1) + 1}
           stopCount={stops.length}
           completedCount={completedNames.length}
           completedNames={completedNames}
+          completedIndices={completedIndices}
         />
 
-        {enriching && !stop.history ? (
-          <CardSkeleton />
-        ) : (
-          <CurrentStopCard
-            stop={stop}
-            heroUrl={heroUrl}
-            distanceM={distanceM}
-            etaMin={etaMin ?? staticEta}
-            headingLabel={headingLabel}
-            story={story}
-            notice={notice}
-            experience={experience}
-            voiceId={voiceId}
-            onDirections={onDirections}
-            onComplete={onComplete}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-          />
+        {dayComplete && (
+          <p className="text-[12.5px] text-muted leading-relaxed -mt-1 mb-3.5">
+            {dayLabelText} complete — every stop on this day is done. Reopen any below to revisit it, or switch days above.
+          </p>
         )}
 
-        {nextStop && (
-          <div className="mt-4 pt-1 border-t border-hair">
-            <p className="font-mono text-[10px] tracking-[0.12em] text-muted pt-3 pb-0.5">UP NEXT</p>
-            <UpcomingRow
-              index={stopIndex + 2}
-              name={nextStop.name}
-              meta={nextStopEta != null ? `${nextStopEta} MIN` : ''}
-            />
-          </div>
-        )}
+        <StopList
+          stops={stops}
+          rows={rows}
+          focusedStopIndex={stopIndex}
+          rowMeta={rowMeta}
+          focusedCard={focusedCard}
+          onFocus={onFocusStop}
+          onToggleComplete={onToggleCompleteAt}
+          canComplete={canEdit}
+        />
       </div>
     </div>
   )
