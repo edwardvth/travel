@@ -48,6 +48,30 @@ export function dayStopRows(
   return rows
 }
 
+/** A completed stop surfaced to the "Completed Stops" section. */
+export interface CompletedStop {
+  index: number
+  name: string
+}
+
+/**
+ * The completed stops on `dayIndex`, in **original itinerary order** (NOT
+ * completion order), as `{ index, name }`. Drives the collapsible "Completed
+ * Stops" section in Guide — collapsing/expanding it never reorders anything
+ * because the order is fixed to the itinerary here. Pure + unit-tested.
+ */
+export function completedStops(
+  dayIndex: number,
+  stopNames: string[],
+  completed: string[] | undefined,
+): CompletedStop[] {
+  const out: CompletedStop[] = []
+  for (let i = 0; i < stopNames.length; i++) {
+    if (isCompleted(completed, dayIndex, i)) out.push({ index: i, name: stopNames[i] })
+  }
+  return out
+}
+
 /** Wikipedia query for a stop's hero image — ALWAYS name + city. Pure. */
 export function stopHeroQuery(stopName: string, destination: string): string {
   return stopLandmarkQuery(stopName, destination)

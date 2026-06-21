@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { activeDayIndex, currentStopIndex, dayNavModel, dayStopRows, stopHeroQuery, stopHeroQueries } from './guide-helpers'
+import { activeDayIndex, completedStops, currentStopIndex, dayNavModel, dayStopRows, stopHeroQuery, stopHeroQueries } from './guide-helpers'
 
 describe('currentStopIndex', () => {
   it('returns the first not-completed stop index', () => {
@@ -47,6 +47,37 @@ describe('dayStopRows', () => {
 
   it('returns an empty list for a day with no stops', () => {
     expect(dayStopRows(0, 0, [])).toEqual([])
+  })
+})
+
+describe('completedStops', () => {
+  const names = ['Hotel', 'Arch', 'Museum', 'Café']
+
+  it('returns the completed stops in original itinerary order with index + name', () => {
+    // Completed out of order (2 then 0); result stays itinerary-ordered.
+    expect(completedStops(0, names, ['0-2', '0-0'])).toEqual([
+      { index: 0, name: 'Hotel' },
+      { index: 2, name: 'Museum' },
+    ])
+  })
+
+  it('returns an empty list when nothing is complete', () => {
+    expect(completedStops(0, names, [])).toEqual([])
+    expect(completedStops(0, names, undefined)).toEqual([])
+  })
+
+  it('keys completion by the given day index', () => {
+    expect(completedStops(1, names, ['0-0', '1-1', '1-3'])).toEqual([
+      { index: 1, name: 'Arch' },
+      { index: 3, name: 'Café' },
+    ])
+  })
+
+  it('returns all stops when the whole day is complete', () => {
+    expect(completedStops(0, ['A', 'B'], ['0-0', '0-1'])).toEqual([
+      { index: 0, name: 'A' },
+      { index: 1, name: 'B' },
+    ])
   })
 })
 

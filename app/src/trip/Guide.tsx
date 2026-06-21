@@ -10,13 +10,14 @@ import { GuideProgress } from './guide/GuideProgress'
 import { DayNav } from './guide/DayNav'
 import { CurrentStopCard } from './guide/CurrentStopCard'
 import { StopList } from './guide/StopList'
+import { CompletedSection } from './guide/CompletedSection'
 import { ArrivingBanner } from './guide/ArrivingBanner'
 import { ArrivalView } from './guide/ArrivalView'
 import type { StoryTab } from './guide/StoryTabs'
 
 import { useGeolocation, bearing, compassLabel } from './guide/geo'
 import { isArrived } from './guide/arrival'
-import { activeDayIndex, currentStopIndex, dayStopRows, stopHeroQueries } from './guide/guide-helpers'
+import { activeDayIndex, completedStops, currentStopIndex, dayStopRows, stopHeroQueries } from './guide/guide-helpers'
 import { directionsUrl, detectPlatform } from './guide/maps'
 import { resolveVoiceId } from './guide/voices'
 
@@ -92,6 +93,11 @@ export default function Guide() {
   // ── Tab state (held here; passed to the card / arrival view) ──────────────
   const [activeTab, setActiveTab] = useState<StoryTab>('story')
 
+  // Completed Stops disclosure — collapsed by default; the traveller expands it
+  // freely. New completions while it's open never force it closed (state is
+  // independent of the completed set); a day change re-collapses it (below).
+  const [completedExpanded, setCompletedExpanded] = useState(false)
+
   // ── Current stop = first not-completed in the active day ──────────────────
   const currentIndex = currentStopIndex(dayIndex, stopNames, data?.completed)
 
@@ -103,9 +109,11 @@ export default function Guide() {
   const [focusedStopIndex, setFocusedStopIndex] = useState(currentIndex)
   const userPickedRef = useRef(false)
 
-  // Day change → drop any manual pick (re-seed below picks up the new current).
+  // Day change → drop any manual pick (re-seed below picks up the new current)
+  // and re-collapse the Completed Stops section (default-collapsed per day).
   useEffect(() => {
     userPickedRef.current = false
+    setCompletedExpanded(false)
   }, [dayIndex])
 
   // Re-seed focus to the current stop on day change, and follow auto-advance
@@ -317,10 +325,11 @@ export default function Guide() {
   }, [canEdit, trip, dayCount, save, navigate])
 
   const dayLabelText = dayLabelOf(trip, dayIndex)
-  const completedIndices = stops
-    .map((_, i) => i)
-    .filter(i => (data?.completed ?? []).includes(`${dayIndex}-${i}`))
-  const completedNames = completedIndices.map(i => stops[i].name)
+  // Completed stops in original itinerary order (drives both the progress line
+  // and the Completed Stops section). Collapsing/expanding never reorders these.
+  const completed = completedStops(dayIndex, stopNames, data?.completed)
+  const completedIndices = completed.map(c => c.index)
+  const completedNames = completed.map(c => c.name)
   // The full-day rows (done / current / upcoming), classified once for the list.
   const rows = dayStopRows(dayIndex, stops.length, data?.completed)
   const dayComplete = currentIndex < 0 && stops.length > 0
@@ -475,6 +484,19 @@ export default function Guide() {
           </p>
         )}
 
+        <CompletedSection
+          stops={stops}
+          completed={completed}
+          expanded={completedExpanded}
+          onToggle={() => setCompletedExpanded(e => !e)}
+          focusedStopIndex={stopIndex}
+          focusedCard={focusedCard}
+          rowMeta={rowMeta}
+          onFocus={onFocusStop}
+          onToggleComplete={onToggleCompleteAt}
+          canComplete={canEdit}
+        />
+
         <StopList
           stops={stops}
           rows={rows}
@@ -482,8 +504,6 @@ export default function Guide() {
           rowMeta={rowMeta}
           focusedCard={focusedCard}
           onFocus={onFocusStop}
-          onToggleComplete={onToggleCompleteAt}
-          canComplete={canEdit}
         />
       </div>
     </div>

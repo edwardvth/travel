@@ -70,25 +70,33 @@ describe('Guide orchestrator', () => {
     // The day-complete note still surfaces, and the completed stop stays
     // reopenable in the list below it (never a forward-only dead end).
     expect(screen.getByText(/every stop on this day is done/i)).toBeInTheDocument()
-    expect(screen.getByText('Gateway Arch')).toBeInTheDocument()
+    // The completed stop stays surfaced — the section force-opens its card (and
+    // also previews the name), so it appears at least once.
+    expect(screen.getAllByText('Gateway Arch').length).toBeGreaterThan(0)
   })
 
-  it('renders ALL stops for the focused day (done / current / upcoming)', () => {
+  it('renders the active + upcoming stops, with completed ones behind the section', async () => {
+    const user = userEvent.setup()
     renderGuide(
       tripWith([{ stops: [{ name: 'Arch' }, { name: 'Museum' }, { name: 'Park' }] }], ['0-0']),
     )
-    // Done + current + upcoming all present at once (not just current + next).
-    expect(screen.getByText('Arch')).toBeInTheDocument()
+    // Current + upcoming are always visible; the completed Arch lives in the
+    // collapsed-by-default Completed Stops section above them (no open row yet).
     expect(screen.getByText('Museum')).toBeInTheDocument()
     expect(screen.getByText('Park')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Open Arch/i })).toBeNull()
+    // Expanding the section reveals the completed stop as a reopenable row.
+    await user.click(screen.getByRole('button', { name: /1 Stop Complete/i }))
+    expect(screen.getByRole('button', { name: /Open Arch/i })).toBeInTheDocument()
   })
 
   it('un-completes a stop through the edit-gated save path', async () => {
     const user = userEvent.setup()
     const save = vi.fn()
     renderGuide(tripWith([{ stops: [{ name: 'Arch' }, { name: 'Museum' }] }], ['0-0']), { save })
-    // Arch is done + the current view auto-advances to Museum, so Arch is a
-    // collapsed completed row; its ✓ un-marks it.
+    // Arch is a completed stop; expand the Completed Stops section, then its ✓
+    // un-marks it.
+    await user.click(screen.getByRole('button', { name: /1 Stop Complete/i }))
     await user.click(screen.getByRole('button', { name: /Mark Arch not complete/i }))
     expect(save).toHaveBeenCalledTimes(1)
     const arg = save.mock.calls[0][0]
