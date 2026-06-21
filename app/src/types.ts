@@ -87,4 +87,6 @@ export interface Trip {
 export interface Profile {
   id: string; email: string; name?: string
   role: 'free' | 'founder' | string; credits: number | null
+  /** Cross-device account settings (AI model/key, units, narration voice). */
+  settings?: Record<string, unknown>
 }

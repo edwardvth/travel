@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
 
 /**
  * Global, per-user account settings. These are intentionally *not* trip-scoped:
@@ -16,6 +17,7 @@ export interface AccountSettings {
   aiModel?: string
   aiKey?: string
   units?: Units
+  voiceId?: string
 }
 
 const STORAGE_PREFIX = 'voyager:account:'
@@ -39,6 +41,7 @@ export function parseAccountSettings(raw: string | null): AccountSettings {
   if (typeof rec.aiModel === 'string' && rec.aiModel) out.aiModel = rec.aiModel
   if (typeof rec.aiKey === 'string' && rec.aiKey) out.aiKey = rec.aiKey
   if (rec.units === 'metric' || rec.units === 'imperial') out.units = rec.units
+  if (typeof rec.voiceId === 'string' && rec.voiceId) out.voiceId = rec.voiceId
   return out
 }
 
@@ -67,8 +70,12 @@ export interface UseAccountSettings {
 }
 
 /**
- * Hook: read on mount (per user id), write on change. When there's no signed-in
- * user id, this degrades to in-memory only (nothing is persisted).
+ * Hook: read on mount (per user id), write on change. Settings sync cross-device
+ * through `profiles.settings` (Supabase) with localStorage as the offline cache:
+ * on mount we seed from the cache immediately, then overlay the server row when
+ * it arrives; writes go through to both the cache and Supabase. The Supabase
+ * layer is best-effort — every call soft-fails so the UI never blocks or throws.
+ * When there's no signed-in user id, this degrades to in-memory only.
  */
 export function useAccountSettings(userId: string | undefined): UseAccountSettings {
   const [settings, setState] = useState<AccountSettings>({})
@@ -78,14 +85,43 @@ export function useAccountSettings(userId: string | undefined): UseAccountSettin
       setState({})
       return
     }
+    // Seed synchronously from the offline cache (optimistic).
     setState(parseAccountSettings(safeRead(storageKey(userId))))
+
+    // Then overlay the cross-device row from Supabase (best-effort).
+    let cancelled = false
+    void (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('settings')
+          .eq('id', userId)
+          .maybeSingle()
+        if (cancelled || error || !data?.settings) return
+        const remote = parseAccountSettings(serializeAccountSettings(data.settings as AccountSettings))
+        setState(remote)
+        safeWrite(storageKey(userId), serializeAccountSettings(remote))
+      } catch {
+        /* offline / no row — keep the cached seed */
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
   }, [userId])
 
   const setSettings = useCallback(
     (patch: Partial<AccountSettings>) => {
       setState(prev => {
         const next = mergeAccountSettings(prev, patch)
-        if (userId) safeWrite(storageKey(userId), serializeAccountSettings(next))
+        if (userId) {
+          safeWrite(storageKey(userId), serializeAccountSettings(next))
+          // Write through to Supabase (best-effort, errors ignored).
+          void supabase.from('profiles').update({ settings: next }).eq('id', userId).then(
+            () => {},
+            () => {},
+          )
+        }
         return next
       })
     },

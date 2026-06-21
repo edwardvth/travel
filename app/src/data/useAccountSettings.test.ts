@@ -29,6 +29,21 @@ describe('parseAccountSettings', () => {
   })
 })
 
+describe('parseAccountSettings voiceId', () => {
+  it('parses voiceId', () => {
+    expect(parseAccountSettings('{"voiceId":"abc"}').voiceId).toBe('abc')
+  })
+  it('drops an empty voiceId', () => {
+    expect(parseAccountSettings('{"voiceId":""}').voiceId).toBeUndefined()
+  })
+})
+
+describe('mergeAccountSettings voiceId', () => {
+  it('clears voiceId on empty', () => {
+    expect(mergeAccountSettings({ voiceId: 'abc' }, { voiceId: '' }).voiceId).toBeUndefined()
+  })
+})
+
 describe('mergeAccountSettings', () => {
   it('overlays a patch onto previous settings', () => {
     expect(mergeAccountSettings({ aiModel: 'a' }, { units: 'metric' })).toEqual({
