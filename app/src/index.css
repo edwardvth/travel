@@ -43,3 +43,19 @@
   .scrollbar-none { scrollbar-width: none; -ms-overflow-style: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
 }
+
+/* Guide (Phase 3) micro-interactions, ported verbatim from the approved fidelity
+   reference (docs/design/Guide - Premium Modern.html). Gated behind
+   `prefers-reduced-motion: no-preference` so motion-sensitive users get a calm,
+   static UI — the base @layer rule already neutralises durations, but defining
+   the keyframes only when motion is welcome keeps them off entirely otherwise.
+     vyPulse — the live "NOW" chip dot (traveling).
+     vySonar — the arrival ✓ ring bloom.
+     vyEq    — the Listen equalizer bars while narrating.
+     vySeg   — the current progress segment. */
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes vyPulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+  @keyframes vySonar { 0% { transform: scale(.55); opacity: .65; } 100% { transform: scale(2.6); opacity: 0; } }
+  @keyframes vyEq { 0%, 100% { transform: scaleY(.28); } 50% { transform: scaleY(1); } }
+  @keyframes vySeg { 0%, 100% { opacity: .4; } 50% { opacity: 1; } }
+}
