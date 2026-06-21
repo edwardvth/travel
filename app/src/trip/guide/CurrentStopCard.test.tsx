@@ -58,13 +58,11 @@ describe('GuideProgress', () => {
       <GuideProgress
         stopNumber={3}
         stopCount={7}
-        dayLabel="DAY 1"
         completedCount={2}
         completedNames={['Hotel', 'Sump coffee']}
       />,
     )
     expect(screen.getByText('STOP 3 OF 7')).toBeInTheDocument()
-    expect(screen.getByText('DAY 1')).toBeInTheDocument()
     expect(screen.getByText(/2 stops complete · Hotel, Sump coffee/)).toBeInTheDocument()
   })
 })

@@ -2,9 +2,11 @@ import { Check } from 'lucide-react'
 
 /**
  * The Guide progress header from the Premium Modern reference: a mono
- * `STOP n OF m` / `DAY label` line, a segmented bar (one segment per stop, filled
+ * `STOP n OF m` line, a segmented bar (one segment per stop, filled
  * claret up to the current stop, the current segment breathing via `vySeg`), and
  * a quiet "n complete · names" line beneath. Pure presentation.
+ *
+ * The day label now lives in `DayNav` (Guide v2 §4), which sits above this header.
  *
  * `stopNumber` is 1-based (the current stop's position); `completedCount` and
  * `completedNames` describe the stops already done on this day.
@@ -12,13 +14,11 @@ import { Check } from 'lucide-react'
 export function GuideProgress({
   stopNumber,
   stopCount,
-  dayLabel,
   completedCount,
   completedNames,
 }: {
   stopNumber: number
   stopCount: number
-  dayLabel: string
   completedCount: number
   completedNames: string[]
 }) {
@@ -30,7 +30,6 @@ export function GuideProgress({
         <span className="font-mono text-[10.5px] tracking-[0.12em] text-muted">
           STOP {stopNumber} OF {stopCount}
         </span>
-        <span className="font-mono text-[10.5px] text-sig-link">{dayLabel}</span>
       </div>
 
       <div className="flex gap-1 mb-3.5" aria-hidden="true">

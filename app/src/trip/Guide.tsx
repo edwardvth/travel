@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
 import type { Stop, TripData } from '../types'
 import { useAuth } from '../auth/useAuth'
@@ -7,6 +7,7 @@ import { useAccountSettings } from '../data/useAccountSettings'
 import { useLandmarkImage } from '../data/useLandmarkImage'
 
 import { GuideProgress } from './guide/GuideProgress'
+import { DayNav } from './guide/DayNav'
 import { CurrentStopCard } from './guide/CurrentStopCard'
 import { UpcomingRow } from './guide/UpcomingRow'
 import { ArrivingBanner } from './guide/ArrivingBanner'
@@ -24,7 +25,9 @@ import { coverPhoto } from './photo'
 import { destinationOf } from './landmark-context'
 import { generateStopDetail } from './enrich'
 import { toggleCompleted } from './itinerary-helpers'
-import { dayLabel as dayLabelOf } from './helpers'
+import { dayLabel as dayLabelOf, dayDate, formatDayDate } from './helpers'
+import { applyTripBasics } from './settings-helpers'
+import { ConfirmDialog } from '../components/ConfirmDialog'
 import { Compass, Sparkles } from './icons'
 
 /** Local `YYYY-MM-DD` for today, used to pick the active day. */
@@ -57,6 +60,7 @@ const AUTO_OPEN_MS = 5000
  */
 export default function Guide() {
   const { trip, canEdit, save, activeDay } = useOutletContext<PlannerOutletContext>()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { settings } = useAccountSettings(user?.id)
   const voiceId = resolveVoiceId(settings.voiceId)
@@ -66,10 +70,21 @@ export default function Guide() {
   const destination = destinationOf(trip)
 
   // ── Active day: today-in-range, else the planner's selected day ───────────
-  const dayIndex = useMemo(
+  // This seeds the *focused* day Guide is currently browsing; DayNav lets the
+  // traveller move off it freely (prev/next/pick), so everything downstream keys
+  // off `focusedDay` rather than the seed.
+  const seedDayIndex = useMemo(
     () => activeDayIndex(trip.config?.startDate, days.length, activeDay, todayYmd()),
     [trip.config?.startDate, days.length, activeDay],
   )
+  const [focusedDay, setFocusedDay] = useState(seedDayIndex)
+  // Re-seed when the underlying anchor moves (day added/removed, planner day
+  // change) and re-clamp into range if the trip shrank beneath the focus.
+  useEffect(() => {
+    setFocusedDay(seedDayIndex)
+  }, [seedDayIndex])
+  const dayCount = days.length
+  const dayIndex = Math.min(Math.max(focusedDay, 0), Math.max(0, dayCount - 1))
   const day = days[dayIndex]
   const stops = day?.stops ?? []
   const stopNames = useMemo(() => stops.map(s => s.name), [stops])
@@ -221,32 +236,103 @@ export default function Guide() {
     setPhase('traveling')
   }, [clearTimer])
 
+  // ── Day navigation (DayNav) ───────────────────────────────────────────────
+  const onPrevDay = useCallback(() => setFocusedDay(d => Math.max(0, d - 1)), [])
+  const onNextDay = useCallback(
+    () => setFocusedDay(d => Math.min(dayCount - 1, d + 1)),
+    [dayCount],
+  )
+  const onPickDay = useCallback(
+    (i: number) => setFocusedDay(Math.min(Math.max(i, 0), Math.max(0, dayCount - 1))),
+    [dayCount],
+  )
+
+  // Add Day: confirm → append ONE empty day at the END of the trip (immutably,
+  // recomputing labels via applyTripBasics) → navigate to the Plan index.
+  const [addOpen, setAddOpen] = useState(false)
+  const nextDayDate = dayDate(trip, dayCount) // calendar date of the would-be new day
+  const nextDayLabel = formatDayDate(nextDayDate)
+  const onAddDay = useCallback(() => {
+    if (!canEdit) return
+    setAddOpen(true)
+  }, [canEdit])
+  const onConfirmAddDay = useCallback(() => {
+    if (!canEdit) return
+    const { config, data } = applyTripBasics(trip, {
+      title: trip.title || (typeof trip.config?.title === 'string' ? trip.config.title : '') || '',
+      subtitle: trip.subtitle ?? '',
+      startDate: trip.config?.startDate || '',
+      numDays: dayCount + 1,
+    })
+    save({ config, data })
+    setAddOpen(false)
+    navigate('/trip/' + trip.id)
+  }, [canEdit, trip, dayCount, save, navigate])
+
   const dayLabelText = dayLabelOf(trip, dayIndex)
   const completedNames = stops
     .filter((_, i) => (data?.completed ?? []).includes(`${dayIndex}-${i}`))
     .map(s => s.name)
+
+  // The shared day navigator + Add-Day confirm dialog — present in every browse
+  // state (empty / all-complete / traveling) so the traveller can always move
+  // off the current day. The full-screen Arrival state omits it by design.
+  const dayNavEl = (
+    <>
+      <DayNav
+        dayIndex={dayIndex}
+        dayCount={dayCount}
+        dayLabels={trip.config?.dayLabels}
+        onPrev={onPrevDay}
+        onNext={onNextDay}
+        onPickDay={onPickDay}
+        onAddDay={onAddDay}
+        canEdit={canEdit}
+      />
+      <ConfirmDialog
+        open={addOpen}
+        title="Add a day to this trip?"
+        body={nextDayLabel ? `This adds ${nextDayLabel} to the end of your trip.` : 'This adds a new empty day to the end of your trip.'}
+        confirmLabel="Add day"
+        onCancel={() => setAddOpen(false)}
+        onConfirm={onConfirmAddDay}
+      />
+    </>
+  )
 
   // ── States ────────────────────────────────────────────────────────────────
 
   // Empty day → editorial empty state.
   if (stops.length === 0) {
     return (
-      <EmptyState
-        icon="compass"
-        title="No stops on this day yet"
-        body={`Add places to ${dayLabelText} in Plan, and Guide will bring them to life as you go.`}
-      />
+      <div className="px-5 md:px-8 py-6 md:py-8">
+        <div className="mx-auto w-full max-w-md">
+          {dayNavEl}
+          <EmptyState
+            bare
+            icon="compass"
+            title="No stops on this day yet"
+            body={`Add places to ${dayLabelText} in Plan, and Guide will bring them to life as you go.`}
+          />
+        </div>
+      </div>
     )
   }
 
   // All complete → restrained "day complete" + nudge.
   if (stopIndex < 0 || !stop) {
     return (
-      <EmptyState
-        icon="sparkles"
-        title={`${dayLabelText} complete`}
-        body="You've reached every stop on this day. Beautifully done — when you're ready, switch days in Plan to keep exploring."
-      />
+      <div className="px-5 md:px-8 py-6 md:py-8">
+        <div className="mx-auto w-full max-w-md">
+          {dayNavEl}
+          <EmptyState
+            bare
+            icon="sparkles"
+            title={`${dayLabelText} complete`}
+            body="You've reached every stop on this day. Beautifully done — when you're ready, switch days here or in Plan to keep exploring."
+          />
+        </div>
+      </div>
     )
   }
 
@@ -300,10 +386,11 @@ export default function Guide() {
           </div>
         )}
 
+        {dayNavEl}
+
         <GuideProgress
           stopNumber={stopIndex + 1}
           stopCount={stops.length}
-          dayLabel={dayLabelText}
           completedCount={completedNames.length}
           completedNames={completedNames}
         />
@@ -358,21 +445,29 @@ function CardSkeleton() {
   )
 }
 
-/** Restrained editorial empty / all-complete state. */
-function EmptyState({ icon, title, body }: { icon: 'compass' | 'sparkles'; title: string; body: string }) {
+/**
+ * Restrained editorial empty / all-complete state. When `bare` it drops its own
+ * page padding + centring wrapper (the caller already provides them, e.g. so the
+ * DayNav can sit above it) and just renders the centred icon/title/body.
+ */
+function EmptyState({ icon, title, body, bare = false }: { icon: 'compass' | 'sparkles'; title: string; body: string; bare?: boolean }) {
   const Icon = icon === 'sparkles' ? Sparkles : Compass
+  const inner = (
+    <div className="text-center">
+      <span
+        aria-hidden="true"
+        className="mx-auto grid place-items-center w-14 h-14 rounded-2xl border border-sig/25 bg-sig/[0.06] text-sig"
+      >
+        <Icon size={26} />
+      </span>
+      <h2 className="mt-5 font-serif text-3xl md:text-4xl text-ink tracking-tight">{title}</h2>
+      <p className="mx-auto mt-3 max-w-sm text-[14px] md:text-[15px] text-muted leading-relaxed">{body}</p>
+    </div>
+  )
+  if (bare) return <div className="py-10 md:py-14">{inner}</div>
   return (
     <div className="px-5 md:px-8 py-16 md:py-24">
-      <div className="mx-auto w-full max-w-md text-center">
-        <span
-          aria-hidden="true"
-          className="mx-auto grid place-items-center w-14 h-14 rounded-2xl border border-sig/25 bg-sig/[0.06] text-sig"
-        >
-          <Icon size={26} />
-        </span>
-        <h2 className="mt-5 font-serif text-3xl md:text-4xl text-ink tracking-tight">{title}</h2>
-        <p className="mx-auto mt-3 max-w-sm text-[14px] md:text-[15px] text-muted leading-relaxed">{body}</p>
-      </div>
+      <div className="mx-auto w-full max-w-md">{inner}</div>
     </div>
   )
 }
