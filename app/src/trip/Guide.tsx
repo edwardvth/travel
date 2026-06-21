@@ -300,21 +300,24 @@ export default function Guide() {
     const after = [...(data?.completed ?? []), `${dayIndex}-${stopIndex}`]
     const nextIdx = currentStopIndex(dayIndex, stopNames, after)
     onToggleCompleteAt(stopIndex)
-    if (nextIdx >= 0 && nextIdx !== stopIndex) {
+    // Only advance when completing the *current* stop, and only forward — never
+    // yank focus to an earlier stop (which caused the "switches back" jump).
+    if (stopIndex === currentIndex && nextIdx > stopIndex) {
       setFocusedStopIndex(nextIdx)
       scrollPendingRef.current = true
     }
-  }, [focusedCompleted, onToggleCompleteAt, stopIndex, dayIndex, data?.completed, stopNames])
+  }, [focusedCompleted, onToggleCompleteAt, stopIndex, currentIndex, dayIndex, data?.completed, stopNames])
 
-  // When focus advances after a completion, scroll the new card to the top.
+  // When focus advances after a completion, snap the new card to the top
+  // (instant — a smooth scroll here raced the layout change and felt laggy).
   useEffect(() => {
     if (!scrollPendingRef.current) return
     scrollPendingRef.current = false
     const id = requestAnimationFrame(() => {
-      focusedCardRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+      focusedCardRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' })
     })
     return () => cancelAnimationFrame(id)
-  }, [stopIndex, reduce])
+  }, [stopIndex])
 
   const onBannerOpen = useCallback(() => {
     clearTimer()
@@ -502,6 +505,7 @@ export default function Guide() {
           onComplete={onComplete}
           completed={focusedCompleted}
           canComplete={canEdit}
+          stopNumber={stopIndex + 1}
           activeTab={activeTab}
           onTabChange={setActiveTab}
         />

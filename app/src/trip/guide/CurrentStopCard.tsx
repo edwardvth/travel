@@ -50,6 +50,7 @@ export function CurrentStopCard({
   onComplete,
   completed = false,
   canComplete = true,
+  stopNumber,
   activeTab,
   onTabChange,
 }: {
@@ -58,6 +59,8 @@ export function CurrentStopCard({
   distanceM?: number | null
   etaMin?: number | null
   headingLabel?: string | null
+  /** 1-based position of this stop in the day, shown as a badge on the hero. */
+  stopNumber?: number
   story: string
   notice: string
   experience: string
@@ -97,8 +100,16 @@ export function CurrentStopCard({
         <div
           className="absolute inset-0"
           aria-hidden="true"
-          style={{ background: 'linear-gradient(180deg,transparent 40%,rgba(0,0,0,.55))' }}
+          style={{ background: 'linear-gradient(180deg,rgba(0,0,0,.28) 0%,transparent 30%,transparent 40%,rgba(0,0,0,.55))' }}
         />
+        {stopNumber != null && (
+          <span
+            className="absolute left-[13px] top-[11px] grid place-items-center min-w-[26px] h-[26px] px-1.5 rounded-full bg-black/45 backdrop-blur-[4px] border border-white/25 font-mono text-[12px] font-semibold text-white"
+            aria-label={`Stop ${stopNumber}`}
+          >
+            {stopNumber}
+          </span>
+        )}
         <div className="absolute left-[13px] bottom-[11px] inline-flex items-center gap-[7px] font-mono text-[10px] tracking-[0.07em] text-white bg-sig-btn/85 px-2.5 py-[5px] rounded-full backdrop-blur-[4px]">
           <span
             className="w-[6px] h-[6px] rounded-full bg-white"
