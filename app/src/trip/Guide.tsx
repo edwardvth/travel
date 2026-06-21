@@ -99,6 +99,12 @@ export default function Guide() {
   // independent of the completed set); a day change re-collapses it (below).
   const [completedExpanded, setCompletedExpanded] = useState(false)
 
+  // After completing a stop auto-advances focus, scroll the new activity to the
+  // top so the user lands on its start (not mid-card). Set on completion only.
+  const focusedCardRef = useRef<HTMLDivElement>(null)
+  const scrollPendingRef = useRef(false)
+  const reduce = useReducedMotion() ?? false
+
   // ── Current stop = first not-completed in the active day ──────────────────
   const currentIndex = currentStopIndex(dayIndex, stopNames, data?.completed)
 
@@ -281,10 +287,23 @@ export default function Guide() {
     [canEdit, dayIndex, save, trip.data],
   )
 
-  // The focused stop's card ✓ toggles that stop (complete ⇄ un-complete).
+  // The focused stop's card ✓ toggles that stop (complete ⇄ un-complete). When
+  // completing (not un-doing), flag a scroll so the auto-advanced next activity
+  // lands at the top.
   const onComplete = useCallback(() => {
+    if (!focusedCompleted) scrollPendingRef.current = true
     onToggleCompleteAt(stopIndex)
-  }, [onToggleCompleteAt, stopIndex])
+  }, [focusedCompleted, onToggleCompleteAt, stopIndex])
+
+  // When focus advances after a completion, scroll the new card to the top.
+  useEffect(() => {
+    if (!scrollPendingRef.current) return
+    scrollPendingRef.current = false
+    const id = requestAnimationFrame(() => {
+      focusedCardRef.current?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'start' })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [stopIndex, reduce])
 
   const onBannerOpen = useCallback(() => {
     clearTimer()
@@ -344,7 +363,6 @@ export default function Guide() {
 
   // Day-switch transition: slide/fade direction (+1 next, -1 prev). The ref holds
   // the previous day so the content can animate in from the correct side.
-  const reduce = useReducedMotion() ?? false
   const prevDayRef = useRef(dayIndex)
   const dayDirection = dayIndex > prevDayRef.current ? 1 : dayIndex < prevDayRef.current ? -1 : 0
   useEffect(() => { prevDayRef.current = dayIndex }, [dayIndex])
@@ -454,28 +472,31 @@ export default function Guide() {
     return `${walkMinutes(prev, here)} MIN`
   }
 
-  const focusedCard =
-    enriching && !stop.history ? (
-      <CardSkeleton />
-    ) : (
-      <CurrentStopCard
-        stop={stop}
-        heroUrl={heroUrl}
-        distanceM={focusedCompleted ? null : distanceM}
-        etaMin={focusedCompleted ? null : etaMin ?? staticEta}
-        headingLabel={focusedCompleted ? null : headingLabel}
-        story={story}
-        notice={notice}
-        experience={experience}
-        voiceId={voiceId}
-        onDirections={onDirections}
-        onComplete={onComplete}
-        completed={focusedCompleted}
-        canComplete={canEdit}
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-      />
-    )
+  const focusedCard = (
+    <div ref={focusedCardRef} className="scroll-mt-20">
+      {enriching && !stop.history ? (
+        <CardSkeleton />
+      ) : (
+        <CurrentStopCard
+          stop={stop}
+          heroUrl={heroUrl}
+          distanceM={focusedCompleted ? null : distanceM}
+          etaMin={focusedCompleted ? null : etaMin ?? staticEta}
+          headingLabel={focusedCompleted ? null : headingLabel}
+          story={story}
+          notice={notice}
+          experience={experience}
+          voiceId={voiceId}
+          onDirections={onDirections}
+          onComplete={onComplete}
+          completed={focusedCompleted}
+          canComplete={canEdit}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+        />
+      )}
+    </div>
+  )
 
   return (
     <div className="px-5 md:px-8 py-6 md:py-8">
