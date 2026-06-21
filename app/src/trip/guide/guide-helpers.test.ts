@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { activeDayIndex, currentStopIndex, stopHeroQuery } from './guide-helpers'
+import { activeDayIndex, currentStopIndex, dayNavModel, stopHeroQuery } from './guide-helpers'
 
 describe('currentStopIndex', () => {
   it('returns the first not-completed stop index', () => {
@@ -17,6 +17,52 @@ describe('stopHeroQuery', () => {
   it('appends the destination to the stop name', () => {
     expect(stopHeroQuery('Old Courthouse', 'St. Louis, Missouri, United States'))
       .toBe('Old Courthouse, St. Louis, Missouri, United States')
+  })
+})
+
+describe('dayNavModel', () => {
+  const labels = ['Aug 5', 'Aug 6', 'Aug 7']
+
+  it('at the start boundary has no prev label and atStart', () => {
+    const m = dayNavModel(0, 3, labels)
+    expect(m.prevLabel).toBeNull()
+    expect(m.activeLabel).toBe('Aug 5')
+    expect(m.nextLabel).toBe('Aug 6')
+    expect(m.atStart).toBe(true)
+    expect(m.atEnd).toBe(false)
+  })
+
+  it('at the end boundary has no next label and atEnd', () => {
+    const m = dayNavModel(2, 3, labels)
+    expect(m.prevLabel).toBe('Aug 6')
+    expect(m.activeLabel).toBe('Aug 7')
+    expect(m.nextLabel).toBeNull()
+    expect(m.atStart).toBe(false)
+    expect(m.atEnd).toBe(true)
+  })
+
+  it('in the middle exposes both neighbour labels', () => {
+    const m = dayNavModel(1, 3, labels)
+    expect(m.prevLabel).toBe('Aug 5')
+    expect(m.activeLabel).toBe('Aug 6')
+    expect(m.nextLabel).toBe('Aug 7')
+    expect(m.atStart).toBe(false)
+    expect(m.atEnd).toBe(false)
+  })
+
+  it('a single-day trip is both start and end', () => {
+    const m = dayNavModel(0, 1, ['Aug 5'])
+    expect(m.prevLabel).toBeNull()
+    expect(m.nextLabel).toBeNull()
+    expect(m.atStart).toBe(true)
+    expect(m.atEnd).toBe(true)
+  })
+
+  it('falls back to "Day N" when labels are missing', () => {
+    const m = dayNavModel(1, 3, undefined)
+    expect(m.prevLabel).toBe('Day 1')
+    expect(m.activeLabel).toBe('Day 2')
+    expect(m.nextLabel).toBe('Day 3')
   })
 })
 

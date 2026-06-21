@@ -38,6 +38,40 @@ export function activeDayIndex(
   return clampedFallback
 }
 
+/** The DayNav's neighbor + boundary model for a focused day. Pure + unit-tested. */
+export interface DayNavModel {
+  prevLabel: string | null
+  activeLabel: string
+  nextLabel: string | null
+  atStart: boolean
+  atEnd: boolean
+}
+
+/**
+ * Derive the DayNav's labels and boundary flags for a focused `dayIndex` within
+ * a trip of `dayCount` days, given the per-day `dayLabels` (e.g. "Aug 5"). The
+ * active label is always present (falls back to "Day N"); `prevLabel`/`nextLabel`
+ * are null at the respective boundary, where `atStart`/`atEnd` go true so the
+ * caller can offer an Add-Day affordance in place of the missing neighbour. Pure.
+ */
+export function dayNavModel(
+  dayIndex: number,
+  dayCount: number,
+  dayLabels: string[] | undefined,
+): DayNavModel {
+  const labels = dayLabels ?? []
+  const labelAt = (i: number): string => labels[i] || `Day ${i + 1}`
+  const atStart = dayIndex <= 0
+  const atEnd = dayIndex >= dayCount - 1
+  return {
+    prevLabel: atStart ? null : labelAt(dayIndex - 1),
+    activeLabel: labelAt(dayIndex),
+    nextLabel: atEnd ? null : labelAt(dayIndex + 1),
+    atStart,
+    atEnd,
+  }
+}
+
 /** Parse a local `YYYY-MM-DD` into a midnight-local epoch ms, or null. */
 function parseYmd(s: string): number | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s)
