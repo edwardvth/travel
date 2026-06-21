@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { fetchLandmarkImage, fetchFirstLandmarkImage } from '../trip/landmark'
+import { resolveHeroImage } from '../trip/guide/hero-resolver'
 
 /** A day in ms — landmark images are effectively static, so we cache hard. */
 const ONE_DAY = 24 * 60 * 60 * 1000
@@ -30,6 +31,41 @@ export function useLandmarkImage(query?: string): UseLandmarkImageResult {
     gcTime: ONE_DAY,
     retry: 1,
     queryFn: () => fetchLandmarkImage(q),
+  })
+
+  return {
+    url: result.data ?? null,
+    loading: enabled && result.isLoading,
+  }
+}
+
+/**
+ * Full hero-image resolver for Guide: runs the ORDERED fallback chain
+ *   Wikipedia pageimages -> Wikimedia Commons -> Google Places (dormant)
+ * over `queries` (the free layers share the ordered list; the paid layer gets
+ * the most-specific query). Returns the first hit or null. The synchronous
+ * `coverPhoto(stop)` and the striped placeholder stay in the caller, so the
+ * effective priority is coverPhoto -> pageimages -> Commons -> Places ->
+ * placeholder.
+ *
+ * Additive companion to `useLandmarkImageQueries` (kept intact). Keyed on the
+ * whole (trimmed, empties-dropped) query list so distinct stops don't collide;
+ * cached for a day; disabled when the list is empty. Fails soft / never throws.
+ * The Google layer no-ops to null until its function/key is deployed, so this
+ * behaves exactly like the old pageimages-only path until then.
+ */
+export function useHeroImage(queries?: string[]): UseLandmarkImageResult {
+  const list = (queries ?? []).map(q => q.trim()).filter(Boolean)
+  const enabled = list.length > 0
+  const placesQuery = list[0] ?? ''
+
+  const result = useQuery({
+    queryKey: ['hero-image', list],
+    enabled,
+    staleTime: ONE_DAY,
+    gcTime: ONE_DAY,
+    retry: 1,
+    queryFn: () => resolveHeroImage(list, placesQuery),
   })
 
   return {

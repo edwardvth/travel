@@ -4,7 +4,7 @@ import type { PlannerOutletContext } from './PlannerLayout'
 import type { Stop, TripData } from '../types'
 import { useAuth } from '../auth/useAuth'
 import { useAccountSettings } from '../data/useAccountSettings'
-import { useLandmarkImageQueries } from '../data/useLandmarkImage'
+import { useHeroImage } from '../data/useLandmarkImage'
 
 import { GuideProgress } from './guide/GuideProgress'
 import { DayNav } from './guide/DayNav'
@@ -240,12 +240,17 @@ export default function Guide() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stopKey, needsEnrich, canEdit])
 
-  // ── Hero photo: stored cover → on-demand Wikipedia → striped placeholder ──
-  // The on-demand path tries an ORDERED set of queries ("Name, Destination" →
-  // "Name, City" → "Name") and only misses to the placeholder when ALL miss.
+  // ── Hero photo: stored cover → on-demand chain → striped placeholder ──────
+  // The on-demand chain runs in priority order, advancing only on a miss:
+  //   pageimages (Wikipedia) → Commons (free) → Google Places (paid, dormant).
+  // Each over the ORDERED queries ("Name, Destination" → "Name, City" → "Name");
+  // the Places layer uses the most-specific "Name, Destination". Only when ALL
+  // layers miss do we fall to the striped placeholder. The Google layer no-ops
+  // to null until its key is deployed, so this matches today's behaviour until
+  // an operator turns it on.
   const stored = stop ? coverPhoto(stop) : undefined
   const heroQueryList = stop && !stored ? stopHeroQueries(stop.name, destination) : undefined
-  const { url: landmarkUrl } = useLandmarkImageQueries(heroQueryList)
+  const { url: landmarkUrl } = useHeroImage(heroQueryList)
   const heroUrl = stored ?? landmarkUrl ?? undefined
 
   // ── Content mapped to tabs ────────────────────────────────────────────────
