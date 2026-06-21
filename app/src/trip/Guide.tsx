@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion, useMotionValue, useTransform, animate } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion, useMotionValue, useTransform, animate, cubicBezier } from 'framer-motion'
 import { Check, Undo2 } from 'lucide-react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
@@ -45,6 +45,9 @@ function todayYmd(): string {
 
 /** "~5s" soft-arrival auto-open delay (locked decision). */
 const AUTO_OPEN_MS = 5000
+
+/** Exponential ease-in (slow, then accelerating) for the back peek's fade. */
+const EXPO_IN = cubicBezier(0.7, 0, 0.84, 0)
 
 /** Props for the outgoing card snapshot the ghost overlay re-renders while it flies off. */
 interface GhostSnap {
@@ -184,6 +187,9 @@ export default function Guide() {
   const rotate = useTransform(x, v => (reduce ? 0 : clamp(v * SWIPE.tiltDegPerPx, -SWIPE.maxTiltDeg, SWIPE.maxTiltDeg)))
   const busyRef = useRef(false)
   const enterFromRef = useRef<EnterFrom>('none')
+  // The transform the incoming focused card starts its entrance from — captured
+  // from the peek at release so the hand-off is seamless (set in launchGhost).
+  const enterStartRef = useRef<{ scale: number; y: number; opacity: number } | null>(null)
   const [ghost, setGhost] = useState<GhostState | null>(null)
 
   // ── Current stop = first not-completed in the active day ──────────────────
@@ -230,10 +236,15 @@ export default function Guide() {
   const isRightNoop = stopIndex <= 0
   const doneOpacity = useTransform(x, [-SWIPE.thresholdPx, 0], [isLeftNoop ? 0.42 : 1, 0], { clamp: true })
   const backOpacity = useTransform(x, [0, SWIPE.thresholdPx], [0, isRightNoop ? 0.42 : 1], { clamp: true })
-  // The deck peek (next card behind) comes forward as you drag left toward it.
+  // Forward deck peek (next card, behind/below) comes forward as you drag left,
+  // and fades out on a right-drag so it doesn't fight the back peek.
   const peekScale = useTransform(x, [-SWIPE.thresholdPx, 0], [1, SWIPE.peek.scale], { clamp: true })
   const peekLift = useTransform(x, [-SWIPE.thresholdPx, 0], [0, SWIPE.peek.y], { clamp: true })
-  const peekOpacity = useTransform(x, [-SWIPE.thresholdPx, 0], [1, SWIPE.peek.opacity], { clamp: true })
+  const peekOpacity = useTransform(x, [-SWIPE.thresholdPx, 0, SWIPE.thresholdPx], [1, SWIPE.peek.opacity, 0], { clamp: true })
+  // Back deck peek (previous card) descends from the top and exponentially fades
+  // in as you drag right; hidden at rest and on a left-drag.
+  const prevDrop = useTransform(x, [0, SWIPE.thresholdPx], [SWIPE.prevPeek.fromY, 0], { clamp: true })
+  const prevOpacity = useTransform(x, [0, SWIPE.thresholdPx], [0, SWIPE.prevPeek.opacity], { clamp: true, ease: EXPO_IN })
 
   const onFocusStop = useCallback((i: number) => {
     enterFromRef.current = 'fade'
@@ -354,14 +365,23 @@ export default function Guide() {
   const { url: landmarkUrl } = useHeroImage(heroQueryList)
   const heroUrl = stored ?? landmarkUrl ?? undefined
 
-  // ── Deck peek: the next stop, rendered behind the focused card ────────────
-  // It shows where a left-swipe heads; resolving its hero here also preloads the
-  // next image. Null when the focused stop is the last on the day.
+  // ── Deck peeks: the next / previous stops, rendered behind the focused card ─
+  // The next shows where a left-swipe heads (comes forward from below); the
+  // previous shows where a right-swipe heads (descends from the top). Resolving
+  // their heroes here also preloads both neighbour images. Each is null at the
+  // respective end of the day.
   const peekStop: Stop | undefined = stopIndex >= 0 && stopIndex + 1 < stops.length ? stops[stopIndex + 1] : undefined
   const peekStored = peekStop ? coverPhoto(peekStop) : undefined
   const peekQueryList = peekStop && !peekStored ? stopHeroQueries(peekStop.name, destination) : undefined
   const { url: peekLandmarkUrl } = useHeroImage(peekQueryList)
   const peekHeroUrl = peekStored ?? peekLandmarkUrl ?? undefined
+
+  const prevStop: Stop | undefined = stopIndex > 0 ? stops[stopIndex - 1] : undefined
+  const prevStored = prevStop ? coverPhoto(prevStop) : undefined
+  const prevQueryList = prevStop && !prevStored ? stopHeroQueries(prevStop.name, destination) : undefined
+  const { url: prevLandmarkUrl } = useHeroImage(prevQueryList)
+  const prevHeroUrl = prevStored ?? prevLandmarkUrl ?? undefined
+  const prevCompleted = prevStop != null && (data?.completed ?? []).includes(`${dayIndex}-${stopIndex - 1}`)
 
   // ── Content mapped to tabs ────────────────────────────────────────────────
   const story = stop?.history ?? ''
@@ -416,9 +436,16 @@ export default function Guide() {
           activeTab,
         },
       })
+      // Capture the peek's exact state at release so the incoming focused card
+      // continues seamlessly from where the peek was (no jump), regardless of how
+      // far you dragged. Left → the next (forward) peek; right → the prev peek.
+      enterStartRef.current =
+        dir === 'left'
+          ? { scale: peekScale.get(), y: peekLift.get(), opacity: peekOpacity.get() }
+          : { scale: 1, y: prevDrop.get(), opacity: prevOpacity.get() }
       x.set(0)
     },
-    [stop, heroUrl, story, notice, experience, voiceId, stopIndex, focusedCompleted, distanceM, etaMin, staticEta, headingLabel, activeTab, rotate, x],
+    [stop, heroUrl, story, notice, experience, voiceId, stopIndex, focusedCompleted, distanceM, etaMin, staticEta, headingLabel, activeTab, rotate, x, peekScale, peekLift, peekOpacity, prevDrop, prevOpacity],
   )
 
   // The focused stop's card ✓ toggles that stop (complete ⇄ un-complete).
@@ -677,13 +704,16 @@ export default function Guide() {
     ? ef === 'none'
       ? false
       : { opacity: 0 }
-    : ef === 'below'
-      ? { opacity: 0.9, scale: SWIPE.peek.scale, y: SWIPE.peek.y } // settle up from the peek
-      : ef === 'above'
-        ? { opacity: 0, y: -SWIPE.enterY }
-        : ef === 'fade'
-          ? { opacity: 0 }
-          : false
+    : ef === 'below' || ef === 'above'
+      ? // Continue from exactly where the peek was at release (seamless hand-off);
+        // fall back to a sensible default if no capture exists.
+        enterStartRef.current ??
+        (ef === 'below'
+          ? { opacity: 0.9, scale: SWIPE.peek.scale, y: SWIPE.peek.y }
+          : { opacity: 0, scale: 1, y: SWIPE.prevPeek.fromY })
+      : ef === 'fade'
+        ? { opacity: 0 }
+        : false
   const focusedCard = (
     <div ref={focusedCardRef} className="relative scroll-mt-20">
       {ghost && (
@@ -696,9 +726,9 @@ export default function Guide() {
           }}
         />
       )}
-      {/* Deck peek — the next stop, behind the focused card. It comes forward as
-          you drag left (scale/opacity/lift driven by the drag) so you can see
-          where you're headed before you commit. Decorative + inert. */}
+      {/* Deck peeks behind the focused card — decorative + inert. The NEXT stop
+          comes forward from below as you drag left; the PREVIOUS stop descends
+          from the top and exponentially fades in as you drag right. */}
       {peekStop && (
         <motion.div
           aria-hidden="true"
@@ -720,6 +750,32 @@ export default function Guide() {
             completed={false}
             canComplete={false}
             stopNumber={stopIndex + 2}
+            activeTab="story"
+            onTabChange={() => {}}
+          />
+        </motion.div>
+      )}
+      {prevStop && (
+        <motion.div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{ zIndex: 3, y: prevDrop, opacity: prevOpacity }}
+        >
+          <CurrentStopCard
+            stop={prevStop}
+            heroUrl={prevHeroUrl}
+            distanceM={null}
+            etaMin={null}
+            headingLabel={null}
+            story={prevStop.history ?? ''}
+            notice={prevStop.notice ?? ''}
+            experience={prevStop.tips ?? ''}
+            voiceId={voiceId}
+            onDirections={() => {}}
+            onComplete={() => {}}
+            completed={prevCompleted}
+            canComplete={false}
+            stopNumber={stopIndex}
             activeTab="story"
             onTabChange={() => {}}
           />
