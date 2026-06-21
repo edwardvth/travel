@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
 import { generateStopDetail } from './enrich'
+import { destinationOf } from './landmark-context'
 import { isCompleted } from './helpers'
 import { Calendar, CheckCircle2, Lightbulb, MapPin, kindIcon, kindLabel, stopKind } from './icons'
 import { remapCompletedAfterDelete, toggleCompleted } from './itinerary-helpers'
@@ -129,8 +130,8 @@ export default function StopDetail() {
     setGenerating(true)
     setGenError(null)
     try {
-      const result = await generateStopDetail(stop as Stop, trip.title)
-      patchStop({ history: result.history, facts: result.facts, tips: result.tips })
+      const result = await generateStopDetail(stop as Stop, trip.title, destinationOf(trip))
+      patchStop({ history: result.history, facts: result.facts, tips: result.tips, notice: result.notice })
     } catch (e) {
       setGenError(
         e instanceof Error
