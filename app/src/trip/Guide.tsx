@@ -4,7 +4,7 @@ import type { PlannerOutletContext } from './PlannerLayout'
 import type { Stop, TripData } from '../types'
 import { useAuth } from '../auth/useAuth'
 import { useAccountSettings } from '../data/useAccountSettings'
-import { useLandmarkImage } from '../data/useLandmarkImage'
+import { useLandmarkImageQueries } from '../data/useLandmarkImage'
 
 import { GuideProgress } from './guide/GuideProgress'
 import { DayNav } from './guide/DayNav'
@@ -16,7 +16,7 @@ import type { StoryTab } from './guide/StoryTabs'
 
 import { useGeolocation, bearing, compassLabel } from './guide/geo'
 import { isArrived } from './guide/arrival'
-import { activeDayIndex, currentStopIndex, dayStopRows, stopHeroQuery } from './guide/guide-helpers'
+import { activeDayIndex, currentStopIndex, dayStopRows, stopHeroQueries } from './guide/guide-helpers'
 import { directionsUrl, detectPlatform } from './guide/maps'
 import { resolveVoiceId } from './guide/voices'
 
@@ -233,9 +233,11 @@ export default function Guide() {
   }, [stopKey, needsEnrich, canEdit])
 
   // ── Hero photo: stored cover → on-demand Wikipedia → striped placeholder ──
+  // The on-demand path tries an ORDERED set of queries ("Name, Destination" →
+  // "Name, City" → "Name") and only misses to the placeholder when ALL miss.
   const stored = stop ? coverPhoto(stop) : undefined
-  const heroQuery = stop && !stored ? stopHeroQuery(stop.name, destination) : undefined
-  const { url: landmarkUrl } = useLandmarkImage(heroQuery)
+  const heroQueryList = stop && !stored ? stopHeroQueries(stop.name, destination) : undefined
+  const { url: landmarkUrl } = useLandmarkImageQueries(heroQueryList)
   const heroUrl = stored ?? landmarkUrl ?? undefined
 
   // ── Content mapped to tabs ────────────────────────────────────────────────

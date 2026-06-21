@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { destinationOf, stopLandmarkQuery, coverImageQueries } from './landmark-context'
+import { destinationOf, stopLandmarkQuery, coverImageQueries, cityOf, heroQueries } from './landmark-context'
 import type { Trip } from '../types'
 
 const mk = (config: Partial<Trip['config']>, title = 'Row Title'): Pick<Trip, 'title' | 'config'> => ({
@@ -34,6 +34,41 @@ describe('stopLandmarkQuery', () => {
   })
   it('returns empty string for an empty stop name', () => {
     expect(stopLandmarkQuery('   ', 'St. Louis')).toBe('')
+  })
+})
+
+describe('cityOf', () => {
+  it('returns the leading segment of a multi-part destination', () => {
+    expect(cityOf('St. Louis, Missouri, United States')).toBe('St. Louis')
+  })
+  it('returns empty when the destination has no comma (already city-only)', () => {
+    expect(cityOf('Tokyo')).toBe('')
+  })
+  it('returns empty for an empty destination', () => {
+    expect(cityOf('')).toBe('')
+    expect(cityOf('   ')).toBe('')
+  })
+})
+
+describe('heroQueries', () => {
+  it('orders Name+Destination, Name+City, then bare Name (de-duped)', () => {
+    expect(heroQueries('Old Courthouse', 'St. Louis, Missouri, United States')).toEqual([
+      'Old Courthouse, St. Louis, Missouri, United States',
+      'Old Courthouse, St. Louis',
+      'Old Courthouse',
+    ])
+  })
+  it('drops the duplicate City query when the destination is already city-only', () => {
+    expect(heroQueries('Gateway Arch', 'St. Louis')).toEqual([
+      'Gateway Arch, St. Louis',
+      'Gateway Arch',
+    ])
+  })
+  it('is just the bare name when there is no destination', () => {
+    expect(heroQueries('Gateway Arch', '')).toEqual(['Gateway Arch'])
+  })
+  it('returns an empty list for an empty stop name', () => {
+    expect(heroQueries('   ', 'St. Louis')).toEqual([])
   })
 })
 

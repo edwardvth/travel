@@ -74,3 +74,19 @@ export async function fetchLandmarkImage(query: string): Promise<string | null> 
     return null
   }
 }
+
+/**
+ * Try an ordered list of queries (most specific first) and return the first
+ * image found, or null if every attempt misses. Each attempt uses the
+ * never-throwing `fetchLandmarkImage`, so this never throws either. Empty /
+ * whitespace queries are skipped. Lets a recognizable place fall back from
+ * "Name, Destination" → "Name, City" → "Name" before showing a placeholder.
+ */
+export async function fetchFirstLandmarkImage(queries: string[]): Promise<string | null> {
+  for (const query of queries) {
+    if (!query || !query.trim()) continue
+    const url = await fetchLandmarkImage(query)
+    if (url) return url
+  }
+  return null
+}

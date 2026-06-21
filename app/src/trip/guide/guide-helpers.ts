@@ -1,5 +1,5 @@
 import { isCompleted } from '../helpers'
-import { stopLandmarkQuery } from '../landmark-context'
+import { stopLandmarkQuery, heroQueries } from '../landmark-context'
 
 /** First not-completed stop index in `dayIndex`, or -1 if all done. Pure. */
 export function currentStopIndex(dayIndex: number, stopNames: string[], completed: string[] | undefined): number {
@@ -51,6 +51,16 @@ export function dayStopRows(
 /** Wikipedia query for a stop's hero image — ALWAYS name + city. Pure. */
 export function stopHeroQuery(stopName: string, destination: string): string {
   return stopLandmarkQuery(stopName, destination)
+}
+
+/**
+ * Ordered Wikipedia hero-image queries for a stop, most specific first
+ * ("Name, Destination" → "Name, City" → "Name"). The hero resolver tries them
+ * in turn so a recognizable place resolves a real image before the placeholder.
+ * Pure — delegates to `heroQueries`.
+ */
+export function stopHeroQueries(stopName: string, destination: string): string[] {
+  return heroQueries(stopName, destination)
 }
 
 /**

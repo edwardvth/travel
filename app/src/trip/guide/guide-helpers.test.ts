@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { activeDayIndex, currentStopIndex, dayNavModel, dayStopRows, stopHeroQuery } from './guide-helpers'
+import { activeDayIndex, currentStopIndex, dayNavModel, dayStopRows, stopHeroQuery, stopHeroQueries } from './guide-helpers'
 
 describe('currentStopIndex', () => {
   it('returns the first not-completed stop index', () => {
@@ -54,6 +54,16 @@ describe('stopHeroQuery', () => {
   it('appends the destination to the stop name', () => {
     expect(stopHeroQuery('Old Courthouse', 'St. Louis, Missouri, United States'))
       .toBe('Old Courthouse, St. Louis, Missouri, United States')
+  })
+})
+
+describe('stopHeroQueries', () => {
+  it('builds the ordered fallback list (Name+Destination, Name+City, Name)', () => {
+    expect(stopHeroQueries('Old Courthouse', 'St. Louis, Missouri, United States')).toEqual([
+      'Old Courthouse, St. Louis, Missouri, United States',
+      'Old Courthouse, St. Louis',
+      'Old Courthouse',
+    ])
   })
 })
 

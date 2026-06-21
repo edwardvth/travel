@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { landmarkSearchUrl, parseLandmarkImage, fetchLandmarkImage } from './landmark'
+import { landmarkSearchUrl, parseLandmarkImage, fetchLandmarkImage, fetchFirstLandmarkImage } from './landmark'
 
 describe('landmarkSearchUrl', () => {
   it('builds a CORS-enabled Wikipedia search+pageimages URL', () => {
@@ -99,5 +99,65 @@ describe('fetchLandmarkImage', () => {
       json: async () => ({ query: { pages: { '1': { title: 'X' } } } }),
     } as Response)
     expect(await fetchLandmarkImage('Obscure place')).toBeNull()
+  })
+})
+
+describe('fetchFirstLandmarkImage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  /** A mock that returns an image only for queries listed in `hits`. Returns the spy. */
+  const mockHits = (hits: Record<string, string>) =>
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input)
+      const match = Object.entries(hits).find(([q]) => url.includes(encodeURIComponent(q).replace(/%20/g, '+')))
+      if (match) {
+        return {
+          ok: true,
+          json: async () => ({ query: { pages: { '1': { thumbnail: { source: match[1] } } } } }),
+        } as Response
+      }
+      return { ok: true, json: async () => ({ query: { pages: { '1': { title: 'none' } } } }) } as Response
+    })
+
+  it('returns the first query that resolves an image (most specific first)', async () => {
+    const fetchSpy = mockHits({ 'Gateway Arch, St. Louis': 'https://upload.wikimedia.org/arch.jpg' })
+    const url = await fetchFirstLandmarkImage(['Gateway Arch, St. Louis', 'Gateway Arch'])
+    expect(url).toBe('https://upload.wikimedia.org/arch.jpg')
+    // First query hit — second never attempted.
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls through to a later query when earlier ones miss', async () => {
+    mockHits({ 'Old Courthouse': 'https://upload.wikimedia.org/court.jpg' })
+    const url = await fetchFirstLandmarkImage([
+      'Old Courthouse, St. Louis, Missouri, United States',
+      'Old Courthouse, St. Louis',
+      'Old Courthouse',
+    ])
+    expect(url).toBe('https://upload.wikimedia.org/court.jpg')
+  })
+
+  it('returns null when every query misses', async () => {
+    mockHits({})
+    expect(await fetchFirstLandmarkImage(['A', 'B', 'C'])).toBeNull()
+  })
+
+  it('skips empty / whitespace queries and returns null for an empty list', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    expect(await fetchFirstLandmarkImage([])).toBeNull()
+    expect(await fetchFirstLandmarkImage(['', '   '])).toBeNull()
+    expect(fetchSpy).not.toHaveBeenCalled()
+  })
+
+  it('never throws even if a fetch rejects mid-list', async () => {
+    vi.spyOn(globalThis, 'fetch')
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ query: { pages: { '1': { thumbnail: { source: 'https://upload.wikimedia.org/ok.jpg' } } } } }),
+      } as Response)
+    expect(await fetchFirstLandmarkImage(['First', 'Second'])).toBe('https://upload.wikimedia.org/ok.jpg')
   })
 })

@@ -29,6 +29,46 @@ export function stopLandmarkQuery(stopName: string, destination: string): string
 }
 
 /**
+ * The leading "city" portion of a destination — the first comma-separated
+ * segment (e.g. "St. Louis" from "St. Louis, Missouri, United States"). Returns
+ * '' when the destination has no comma (already city-only) or is empty. Pure.
+ */
+export function cityOf(destination: string): string {
+  const dest = (destination || '').trim()
+  if (!dest.includes(',')) return ''
+  return dest.split(',')[0].trim()
+}
+
+/**
+ * Ordered, de-duplicated list of Wikipedia hero-image queries for a stop, most
+ * specific first so a recognizable place resolves a real image before the
+ * placeholder:
+ *   1. "Name, Destination" (full locality — disambiguates same-named places),
+ *   2. "Name, City" (just the leading city segment — looser match),
+ *   3. "Name" (famous landmarks resolve best by bare name).
+ * De-duped case-insensitively; empties dropped. Pure + unit-tested.
+ */
+export function heroQueries(stopName: string, destination: string): string[] {
+  const name = (stopName || '').trim()
+  if (!name) return []
+  const out: string[] = []
+  const seen = new Set<string>()
+  const push = (raw: string) => {
+    const q = raw.trim()
+    if (!q) return
+    const key = q.toLowerCase()
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push(q)
+  }
+  push(stopLandmarkQuery(name, destination))
+  const city = cityOf(destination)
+  if (city) push(stopLandmarkQuery(name, city))
+  push(name)
+  return out
+}
+
+/**
  * Ordered list of candidate Wikipedia queries to try for a trip's cover image,
  * best-resolving first:
  *   (a) the first up to 3 stop **names alone** — famous landmarks resolve best

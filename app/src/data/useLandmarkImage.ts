@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchLandmarkImage } from '../trip/landmark'
+import { fetchLandmarkImage, fetchFirstLandmarkImage } from '../trip/landmark'
 
 /** A day in ms — landmark images are effectively static, so we cache hard. */
 const ONE_DAY = 24 * 60 * 60 * 1000
@@ -30,6 +30,34 @@ export function useLandmarkImage(query?: string): UseLandmarkImageResult {
     gcTime: ONE_DAY,
     retry: 1,
     queryFn: () => fetchLandmarkImage(q),
+  })
+
+  return {
+    url: result.data ?? null,
+    loading: enabled && result.isLoading,
+  }
+}
+
+/**
+ * Like `useLandmarkImage`, but tries an ORDERED list of queries (most specific
+ * first) via `fetchFirstLandmarkImage`, returning the first hit. Used by Guide's
+ * hero so a recognizable place resolves "Name, Destination" → "Name, City" →
+ * "Name" before falling back to the striped placeholder.
+ *
+ * Keyed on the whole (trimmed, empties-dropped) query list so distinct stops
+ * don't collide; cached for a day; disabled when the list is empty. Fails soft.
+ */
+export function useLandmarkImageQueries(queries?: string[]): UseLandmarkImageResult {
+  const list = (queries ?? []).map(q => q.trim()).filter(Boolean)
+  const enabled = list.length > 0
+
+  const result = useQuery({
+    queryKey: ['landmark-first', list],
+    enabled,
+    staleTime: ONE_DAY,
+    gcTime: ONE_DAY,
+    retry: 1,
+    queryFn: () => fetchFirstLandmarkImage(list),
   })
 
   return {
