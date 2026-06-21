@@ -85,7 +85,9 @@ function SwipeGhost({ ghost, reduce, onDone }: { ghost: GhostState; reduce: bool
     <motion.div
       aria-hidden="true"
       className="pointer-events-none absolute inset-0"
-      style={{ zIndex: 30 }}
+      // Behind the incoming card (z-10) so you watch the *next* stop rise up over
+      // it from the bottom; the outgoing card still flies off up-left in view.
+      style={{ zIndex: 1 }}
       initial={{ x: startX, y: 0, rotate: reduce ? 0 : startRotate, opacity: 1 }}
       animate={target}
       transition={reduce ? { duration: SWIPE.reducedFadeSec } : { duration: SWIPE.throwSec, ease: SWIPE.ease }}
