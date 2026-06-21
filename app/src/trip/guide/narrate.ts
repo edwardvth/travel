@@ -1,0 +1,47 @@
+// app/src/trip/guide/narrate.ts
+import { SUPABASE_URL, SUPABASE_ANON_KEY, supabase } from '../../lib/supabase'
+
+/** Stable cache key for a (text, voice) pair — FNV-1a hex. Pure. */
+export function narrationCacheKey(text: string, voiceId: string): string {
+  let h = 0x811c9dc5
+  const s = `${voiceId}::${text}`
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) }
+  return (h >>> 0).toString(16)
+}
+
+export function narrateProxyUrl(base = SUPABASE_URL): string {
+  return `${base.replace(/\/$/, '')}/functions/v1/narrate`
+}
+
+async function authToken(): Promise<string> {
+  try { const { data } = await supabase.auth.getSession(); if (data?.session?.access_token) return data.session.access_token } catch { /* anon */ }
+  return SUPABASE_ANON_KEY
+}
+
+/**
+ * Fetch a playable audio object-URL for `text` in `voiceId` via the narrate
+ * proxy (which serves from cache or synthesizes + caches). Returns null on any
+ * failure so the caller falls back to Web Speech. Never throws.
+ */
+export async function fetchNarrationUrl(text: string, voiceId: string): Promise<string | null> {
+  try {
+    const res = await fetch(narrateProxyUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await authToken()), apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ text, voiceId, key: narrationCacheKey(text, voiceId) }),
+    })
+    if (!res.ok) return null
+    return URL.createObjectURL(await res.blob())
+  } catch {
+    return null
+  }
+}
+
+/** Web Speech fallback (free, on-device). Returns false if unsupported. */
+export function speakFallback(text: string): boolean {
+  if (typeof window === 'undefined' || !window.speechSynthesis) return false
+  const u = new SpeechSynthesisUtterance(text)
+  window.speechSynthesis.cancel()
+  window.speechSynthesis.speak(u)
+  return true
+}
