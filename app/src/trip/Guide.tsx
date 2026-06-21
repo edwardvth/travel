@@ -260,6 +260,13 @@ export default function Guide() {
       ? nextStop.name + (nextEtaMin != null ? ` · ${nextEtaMin} MIN` : '')
       : undefined
 
+    // Mono telemetry under the arrival hero name, e.g. "LANDMARK · 38.62°N".
+    const lat = sc?.lat
+    const telemetry =
+      stop.type || lat != null
+        ? `${stop.type?.toUpperCase() ?? ''}${lat != null ? `${stop.type ? ' · ' : ''}${lat.toFixed(2)}°${lat >= 0 ? 'N' : 'S'}` : ''}`
+        : undefined
+
     return (
       <div className="flex-1 min-h-0">
         <ArrivalView
@@ -272,6 +279,7 @@ export default function Guide() {
           onComplete={onComplete}
           activeTab={activeTab}
           onTabChange={setActiveTab}
+          telemetry={telemetry}
           nextLabel={nextLabel}
         />
       </div>

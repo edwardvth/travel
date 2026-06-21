@@ -66,13 +66,13 @@ export function CurrentStopCard({
 }) {
   const dist = formatDistance(distanceM)
   const eta = etaMin != null && Number.isFinite(etaMin) ? `${Math.round(etaMin)} MIN` : null
-  const heading = headingLabel ? `heading ${headingLabel}` : null
+  const heading = headingLabel || null
 
-  // The live chip: "NOW" plus whatever telemetry is known, joined by · separators.
-  const chipParts = ['NOW', dist, eta].filter(Boolean) as string[]
+  // The live chip: "NOW · {dist} · {eta} · {heading}" — whatever telemetry is known.
+  const chipParts = ['NOW', dist, eta, heading].filter(Boolean) as string[]
 
-  // Subtitle: type · facts-derived detail · heading. Keep it calm; fall back gracefully.
-  const subtitleParts = [stop.type, heading].filter(Boolean) as string[]
+  // Subtitle: type (heading lives in the chip). Keep it calm; fall back gracefully.
+  const subtitleParts = [stop.type].filter(Boolean) as string[]
 
   const listenText = story || notice || experience || stop.name
 

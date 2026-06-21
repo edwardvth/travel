@@ -32,10 +32,15 @@ function renderCard(over: Partial<Parameters<typeof CurrentStopCard>[0]> = {}) {
 }
 
 describe('CurrentStopCard', () => {
-  it('shows the place name and the live NOW chip with distance + eta', () => {
+  it('shows the place name and the live NOW chip with distance + eta + heading', () => {
     renderCard()
     expect(screen.getByRole('heading', { name: 'Old Courthouse' })).toBeInTheDocument()
-    expect(screen.getByText(/NOW · 480 m · 6 MIN/)).toBeInTheDocument()
+    expect(screen.getByText(/NOW · 480 m · 6 MIN · NE/)).toBeInTheDocument()
+  })
+
+  it('omits the heading segment gracefully when headingLabel is absent', () => {
+    renderCard({ headingLabel: null })
+    expect(screen.getByText('NOW · 480 m · 6 MIN')).toBeInTheDocument()
   })
 
   it('fires onDirections and onComplete', () => {
