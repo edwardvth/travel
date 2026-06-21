@@ -85,9 +85,9 @@ function SwipeGhost({ ghost, reduce, onDone }: { ghost: GhostState; reduce: bool
     <motion.div
       aria-hidden="true"
       className="pointer-events-none absolute inset-0"
-      // Behind the incoming card (z-10) so you watch the *next* stop rise up over
-      // it from the bottom; the outgoing card still flies off up-left in view.
-      style={{ zIndex: 1 }}
+      // On top — this is the card you're throwing off the deck; as it flies away
+      // the next card (which was peeking behind) is revealed and settles to front.
+      style={{ zIndex: 30 }}
       initial={{ x: startX, y: 0, rotate: reduce ? 0 : startRotate, opacity: 1 }}
       animate={target}
       transition={reduce ? { duration: SWIPE.reducedFadeSec } : { duration: SWIPE.throwSec, ease: SWIPE.ease }}
@@ -230,6 +230,10 @@ export default function Guide() {
   const isRightNoop = stopIndex <= 0
   const doneOpacity = useTransform(x, [-SWIPE.thresholdPx, 0], [isLeftNoop ? 0.42 : 1, 0], { clamp: true })
   const backOpacity = useTransform(x, [0, SWIPE.thresholdPx], [0, isRightNoop ? 0.42 : 1], { clamp: true })
+  // The deck peek (next card behind) comes forward as you drag left toward it.
+  const peekScale = useTransform(x, [-SWIPE.thresholdPx, 0], [1, SWIPE.peek.scale], { clamp: true })
+  const peekLift = useTransform(x, [-SWIPE.thresholdPx, 0], [0, SWIPE.peek.y], { clamp: true })
+  const peekOpacity = useTransform(x, [-SWIPE.thresholdPx, 0], [1, SWIPE.peek.opacity], { clamp: true })
 
   const onFocusStop = useCallback((i: number) => {
     enterFromRef.current = 'fade'
@@ -349,6 +353,15 @@ export default function Guide() {
   const heroQueryList = stop && !stored ? stopHeroQueries(stop.name, destination) : undefined
   const { url: landmarkUrl } = useHeroImage(heroQueryList)
   const heroUrl = stored ?? landmarkUrl ?? undefined
+
+  // ── Deck peek: the next stop, rendered behind the focused card ────────────
+  // It shows where a left-swipe heads; resolving its hero here also preloads the
+  // next image. Null when the focused stop is the last on the day.
+  const peekStop: Stop | undefined = stopIndex >= 0 && stopIndex + 1 < stops.length ? stops[stopIndex + 1] : undefined
+  const peekStored = peekStop ? coverPhoto(peekStop) : undefined
+  const peekQueryList = peekStop && !peekStored ? stopHeroQueries(peekStop.name, destination) : undefined
+  const { url: peekLandmarkUrl } = useHeroImage(peekQueryList)
+  const peekHeroUrl = peekStored ?? peekLandmarkUrl ?? undefined
 
   // ── Content mapped to tabs ────────────────────────────────────────────────
   const story = stop?.history ?? ''
@@ -649,23 +662,23 @@ export default function Guide() {
     return `${walkMinutes(prev, here)} MIN`
   }
 
-  // The focused card is a Tinder-style draggable (see SWIPE / SwipeGhost above):
-  //  - Drag horizontally; the card tilts (`rotate`) with the finger.
+  // The focused card is a Tinder-style draggable deck (see SWIPE / SwipeGhost):
+  //  - Drag horizontally; the card tilts (`rotate`) with the finger, and the next
+  //    stop (the peek card behind it) comes forward as you drag left.
   //  - Commit on distance or a flick → `onCardDragEnd` runs onSwipeNext/Prev,
-  //    which spawns the throw ghost and changes focus; the incoming card here
-  //    slides in from below (next) or above (prev) per `enterFromRef`.
+  //    which throws the focused card off (ghost) and changes focus; the incoming
+  //    card here settles to the front of the deck (`below`) or drops from above
+  //    (`above`) per `enterFromRef`.
   //  - Under threshold → spring back to center.
   //  - Two `aria-hidden` hint washes (claret "Done · Next" on left drag, a neutral
   //    "Back" scrim on right) fade in with drag distance.
-  // The throw itself is the portal ghost; this element only handles the drag +
-  // the incoming slide, so it works even when stepping back across subtrees.
   const ef = enterFromRef.current
   const enterInitial = reduce
     ? ef === 'none'
       ? false
       : { opacity: 0 }
     : ef === 'below'
-      ? { opacity: 0, y: SWIPE.enterY }
+      ? { opacity: 0.9, scale: SWIPE.peek.scale, y: SWIPE.peek.y } // settle up from the peek
       : ef === 'above'
         ? { opacity: 0, y: -SWIPE.enterY }
         : ef === 'fade'
@@ -683,6 +696,35 @@ export default function Guide() {
           }}
         />
       )}
+      {/* Deck peek — the next stop, behind the focused card. It comes forward as
+          you drag left (scale/opacity/lift driven by the drag) so you can see
+          where you're headed before you commit. Decorative + inert. */}
+      {peekStop && (
+        <motion.div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{ zIndex: 2, scale: peekScale, y: peekLift, opacity: peekOpacity }}
+        >
+          <CurrentStopCard
+            stop={peekStop}
+            heroUrl={peekHeroUrl}
+            distanceM={null}
+            etaMin={null}
+            headingLabel={null}
+            story={peekStop.history ?? ''}
+            notice={peekStop.notice ?? ''}
+            experience={peekStop.tips ?? ''}
+            voiceId={voiceId}
+            onDirections={() => {}}
+            onComplete={() => {}}
+            completed={false}
+            canComplete={false}
+            stopNumber={stopIndex + 2}
+            activeTab="story"
+            onTabChange={() => {}}
+          />
+        </motion.div>
+      )}
       <motion.div
         drag={canEdit && !ghost ? 'x' : false}
         dragDirectionLock
@@ -694,7 +736,7 @@ export default function Guide() {
         <motion.div
           key={stopIndex}
           initial={enterInitial}
-          animate={{ opacity: 1, y: 0 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={reduce ? { duration: SWIPE.reducedFadeSec } : { duration: SWIPE.enterSec, ease: SWIPE.enterEase, delay: SWIPE.enterDelaySec }}
         >
           {enriching && !stop.history ? (

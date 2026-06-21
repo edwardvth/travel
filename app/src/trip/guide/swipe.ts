@@ -15,17 +15,20 @@ export const SWIPE = {
   minFlickPx: 36, // … |offset.x| exceeds this
   tiltDegPerPx: 0.05,
   maxTiltDeg: 8,
-  enterY: 220, // incoming card offset (below for next / above for prev) — clearly "from the bottom"
+  enterY: 220, // incoming-from-above offset (swipe-back / prev drops from the top)
+  // The "deck" peek: the next stop's card sits behind the focused one, slightly
+  // smaller, dropped down and dimmed so its edge shows. Dragging left brings it
+  // forward (scale→1, lift→0, opacity→1), revealing where you're headed.
+  peek: { scale: 0.95, y: 20, opacity: 0.6 } as const,
   exit: {
     left: { x: -340, y: -230, rotate: -14, opacity: 0 }, // up-left
     right: { x: 340, y: 230, rotate: 14, opacity: 0 }, // down-right
   },
   throwSec: 0.34,
-  enterSec: 0.4,
-  enterDelaySec: 0.04,
+  enterSec: 0.32,
+  enterDelaySec: 0.03,
   ease: [0.4, 0, 0.2, 1] as const,
-  // Decelerating ease for the incoming card: a quick rise that glides to a settle,
-  // so the next stop reads as fading up from the bottom (a card off the deck).
+  // Decelerating ease for the incoming card settling to the front of the deck.
   enterEase: [0.22, 1, 0.36, 1] as const,
   spring: { type: 'spring' as const, stiffness: 520, damping: 38 },
   reducedFadeSec: 0.14,

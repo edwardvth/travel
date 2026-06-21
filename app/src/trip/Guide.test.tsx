@@ -83,7 +83,9 @@ describe('Guide orchestrator', () => {
     // Current + upcoming are always visible; the completed Arch lives in the
     // collapsed-by-default Completed Stops section above them (no open row yet).
     expect(screen.getByText('Museum')).toBeInTheDocument()
-    expect(screen.getByText('Park')).toBeInTheDocument()
+    // Park is both an upcoming row and the "deck peek" behind the focused card,
+    // so it can appear more than once — assert it's present at all.
+    expect(screen.getAllByText('Park').length).toBeGreaterThan(0)
     expect(screen.queryByRole('button', { name: /Open Arch/i })).toBeNull()
     // Expanding the section reveals the completed stop as a reopenable row.
     await user.click(screen.getByRole('button', { name: /1 Stop Complete/i }))
