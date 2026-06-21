@@ -693,7 +693,7 @@ export default function Guide() {
           key={stopIndex}
           initial={enterInitial}
           animate={{ opacity: 1, y: 0 }}
-          transition={reduce ? { duration: SWIPE.reducedFadeSec } : { duration: SWIPE.enterSec, ease: SWIPE.ease, delay: SWIPE.enterDelaySec }}
+          transition={reduce ? { duration: SWIPE.reducedFadeSec } : { duration: SWIPE.enterSec, ease: SWIPE.enterEase, delay: SWIPE.enterDelaySec }}
         >
           {enriching && !stop.history ? (
             <CardSkeleton />

@@ -15,15 +15,18 @@ export const SWIPE = {
   minFlickPx: 36, // … |offset.x| exceeds this
   tiltDegPerPx: 0.05,
   maxTiltDeg: 8,
-  enterY: 130, // incoming card offset (below for next / above for prev)
+  enterY: 220, // incoming card offset (below for next / above for prev) — clearly "from the bottom"
   exit: {
     left: { x: -340, y: -230, rotate: -14, opacity: 0 }, // up-left
     right: { x: 340, y: 230, rotate: 14, opacity: 0 }, // down-right
   },
   throwSec: 0.34,
-  enterSec: 0.32,
-  enterDelaySec: 0.03,
+  enterSec: 0.4,
+  enterDelaySec: 0.04,
   ease: [0.4, 0, 0.2, 1] as const,
+  // Decelerating ease for the incoming card: a quick rise that glides to a settle,
+  // so the next stop reads as fading up from the bottom (a card off the deck).
+  enterEase: [0.22, 1, 0.36, 1] as const,
   spring: { type: 'spring' as const, stiffness: 520, damping: 38 },
   reducedFadeSec: 0.14,
 } as const
