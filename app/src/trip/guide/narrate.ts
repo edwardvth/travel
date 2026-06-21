@@ -45,10 +45,15 @@ export async function fetchNarrationUrl(text: string, voiceId: string): Promise<
   }
 }
 
-/** Web Speech fallback (free, on-device). Returns false if unsupported. */
-export function speakFallback(text: string): boolean {
+/**
+ * Web Speech fallback (free, on-device). Returns false if unsupported.
+ * `rate` mirrors the narration-speed preference and is clamped to the range the
+ * Web Speech spec allows (`[0.5, 2]`); the SPEEDS cycle already sits inside it.
+ */
+export function speakFallback(text: string, rate = 1): boolean {
   if (typeof window === 'undefined' || !window.speechSynthesis) return false
   const u = new SpeechSynthesisUtterance(text)
+  u.rate = Math.min(2, Math.max(0.5, rate))
   window.speechSynthesis.cancel()
   window.speechSynthesis.speak(u)
   return true
