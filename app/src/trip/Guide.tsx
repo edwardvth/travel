@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
 import type { Stop, TripData } from '../types'
@@ -335,6 +335,11 @@ export default function Guide() {
   const completed = completedStops(dayIndex, stopNames, data?.completed)
   const completedIndices = completed.map(c => c.index)
   const completedNames = completed.map(c => c.name)
+  // The disclosure toggle lives on the progress header's "n complete" line. A
+  // focused completed stop force-opens the section so its card stays viewable.
+  const completedPanelId = useId()
+  const focusedIsCompleted = completed.some(c => c.index === stopIndex)
+  const completedOpen = completedExpanded || focusedIsCompleted
   // The full-day rows (done / current / upcoming), classified once for the list.
   const rows = dayStopRows(dayIndex, stops.length, data?.completed)
   const dayComplete = currentIndex < 0 && stops.length > 0
@@ -481,6 +486,9 @@ export default function Guide() {
           completedCount={completedNames.length}
           completedNames={completedNames}
           completedIndices={completedIndices}
+          completedExpanded={completedOpen}
+          onToggleCompleted={completedNames.length > 0 ? () => setCompletedExpanded(e => !e) : undefined}
+          completedPanelId={completedPanelId}
         />
 
         {dayComplete && (
@@ -492,8 +500,8 @@ export default function Guide() {
         <CompletedSection
           stops={stops}
           completed={completed}
-          expanded={completedExpanded}
-          onToggle={() => setCompletedExpanded(e => !e)}
+          open={completedOpen}
+          panelId={completedPanelId}
           focusedStopIndex={stopIndex}
           focusedCard={focusedCard}
           rowMeta={rowMeta}

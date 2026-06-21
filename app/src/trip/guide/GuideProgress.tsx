@@ -1,4 +1,4 @@
-import { Check } from 'lucide-react'
+import { Check, ChevronRight } from 'lucide-react'
 
 /**
  * The Guide progress header from the Premium Modern reference: a mono
@@ -22,6 +22,9 @@ export function GuideProgress({
   completedCount,
   completedNames,
   completedIndices,
+  completedExpanded,
+  onToggleCompleted,
+  completedPanelId,
 }: {
   stopNumber: number
   stopCount: number
@@ -29,6 +32,12 @@ export function GuideProgress({
   completedNames: string[]
   /** 0-based indices of completed stops on this day; enables per-stop fill. */
   completedIndices?: number[]
+  /** Whether the Completed Stops section is open (drives the chevron + aria). */
+  completedExpanded?: boolean
+  /** When provided, the "n complete" line becomes the disclosure toggle. */
+  onToggleCompleted?: () => void
+  /** id of the completed-stops panel this toggle controls (aria-controls). */
+  completedPanelId?: string
 }) {
   const segments = Array.from({ length: Math.max(stopCount, 0) })
   const doneSet = completedIndices ? new Set(completedIndices) : null
@@ -58,20 +67,46 @@ export function GuideProgress({
         })}
       </div>
 
-      {completedCount > 0 && (
-        <div className="flex items-center gap-2.5 pt-1 pb-3 text-muted text-[12.5px]">
+      {completedCount > 0 && (() => {
+        const checkEl = (
           <span
             className="flex-none grid place-items-center w-[17px] h-[17px] rounded-full bg-sig-btn/[0.16] border border-sig-btn/[0.45] text-sig-link"
             aria-hidden="true"
           >
             <Check size={10} strokeWidth={3} />
           </span>
-          <span className="min-w-0 truncate">
+        )
+        const label = (
+          <span className="min-w-0 flex-1 truncate text-left">
             {completedCount} stop{completedCount === 1 ? '' : 's'} complete
             {completedNames.length > 0 && ` · ${completedNames.join(', ')}`}
           </span>
-        </div>
-      )}
+        )
+        // With a toggle, the quiet "n complete" line becomes the disclosure
+        // trigger — same style, plus a rotating chevron (matches DayNav/Manage).
+        return onToggleCompleted ? (
+          <button
+            type="button"
+            onClick={onToggleCompleted}
+            aria-expanded={!!completedExpanded}
+            aria-controls={completedPanelId}
+            className="w-full flex items-center gap-2.5 min-h-[44px] -mx-1 px-1 rounded-[10px] text-muted text-[12.5px] transition-colors hover:text-ink/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+          >
+            {checkEl}
+            {label}
+            <ChevronRight
+              size={16}
+              aria-hidden="true"
+              className={'flex-none transition-transform duration-200 motion-reduce:transition-none ' + (completedExpanded ? 'rotate-90' : '')}
+            />
+          </button>
+        ) : (
+          <div className="flex items-center gap-2.5 pt-1 pb-3 text-muted text-[12.5px]">
+            {checkEl}
+            {label}
+          </div>
+        )
+      })()}
     </div>
   )
 }
