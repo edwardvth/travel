@@ -449,16 +449,23 @@ export default function Guide() {
     setFocusedStopIndex(Math.min(stopIndex + 1, stops.length - 1))
   }, [isLeftNoop, focusedCompleted, onComplete, launchGhost, stopIndex, stops.length])
 
-  // Swipe RIGHT = back. Step focus to the previous stop (no completion change),
-  // throwing the card down-and-right while the previous drops in from above.
+  // Swipe RIGHT = back — the inverse of swipe-left. Step focus to the previous
+  // stop AND un-complete it, so it becomes the current stop again: progress
+  // ("STOP n OF …") and the upcoming list rewind with you instead of staying
+  // ahead. The card is thrown down-and-right while the previous drops in from
+  // above. (A no-op un-complete is harmless when stepping onto a not-done stop.)
   const onSwipePrev = useCallback(() => {
     if (busyRef.current || isRightNoop) return
+    const dest = stopIndex - 1
     launchGhost('right')
     enterFromRef.current = 'above'
     userPickedRef.current = true
     setActiveTab('story')
-    setFocusedStopIndex(stopIndex - 1)
-  }, [isRightNoop, launchGhost, stopIndex])
+    if ((data?.completed ?? []).includes(`${dayIndex}-${dest}`)) {
+      onToggleCompleteAt(dest)
+    }
+    setFocusedStopIndex(dest)
+  }, [isRightNoop, launchGhost, stopIndex, dayIndex, data?.completed, onToggleCompleteAt])
 
   // Drag release: commit on distance OR a flick (velocity); otherwise spring back
   // to center. Direction comes from the drag offset; edges are guarded above.
