@@ -1,7 +1,12 @@
 // supabase/functions/narrate/index.ts
 const ELEVENLABS_API_KEY = Deno.env.get('ELEVENLABS_API_KEY')
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
-const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
+// Supabase auto-injects SUPABASE_SERVICE_ROLE_KEY; fall back to common aliases.
+const SERVICE_KEY =
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ??
+  Deno.env.get('SERVICE_ROLE_KEY') ??
+  ''
+if (!SERVICE_KEY) console.error('[narrate] no service-role key in env — caching disabled')
 const BUCKET = 'narration'
 const RATE_LIMIT_PER_HOUR = 120
 const rate = new Map<string, { count: number; resetAt: number }>()
@@ -16,16 +21,37 @@ function ok(ip: string) {
   if (e.count >= RATE_LIMIT_PER_HOUR) return false
   e.count++; return true
 }
+// Supabase Storage REST needs BOTH the apikey and Authorization headers.
+function storageHeaders(extra: Record<string, string> = {}) {
+  return { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, ...extra }
+}
 async function storageGet(path: string): Promise<ArrayBuffer | null> {
-  const r = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, { headers: { Authorization: `Bearer ${SERVICE_KEY}` } })
-  return r.ok ? await r.arrayBuffer() : null
+  if (!SERVICE_KEY) return null
+  try {
+    const r = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, { headers: storageHeaders() })
+    if (!r.ok) {
+      // 400/404 = simply not cached yet; anything else is a real misconfig worth logging.
+      if (r.status !== 404 && r.status !== 400) console.error(`[narrate] storageGet ${r.status}: ${await r.text().catch(() => '')}`)
+      return null
+    }
+    return await r.arrayBuffer()
+  } catch (e) {
+    console.error(`[narrate] storageGet error: ${String(e)}`)
+    return null
+  }
 }
 async function storagePut(path: string, body: ArrayBuffer) {
-  await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'audio/mpeg', 'x-upsert': 'true' },
-    body,
-  })
+  if (!SERVICE_KEY) return
+  try {
+    const r = await fetch(`${SUPABASE_URL}/storage/v1/object/${BUCKET}/${path}`, {
+      method: 'POST',
+      headers: storageHeaders({ 'Content-Type': 'audio/mpeg', 'x-upsert': 'true' }),
+      body,
+    })
+    if (!r.ok) console.error(`[narrate] storagePut ${r.status}: ${await r.text().catch(() => '')}`)
+  } catch (e) {
+    console.error(`[narrate] storagePut error: ${String(e)}`)
+  }
 }
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
