@@ -33,13 +33,12 @@ describe('useGeolocation', () => {
   afterEach(() => vi.restoreAllMocks())
 
   it("reports 'unsupported' when geolocation is absent", () => {
-    const orig = navigator.geolocation
-    // @ts-expect-error force-remove for the test
-    delete (navigator as { geolocation?: unknown }).geolocation
+    const nav = navigator as { geolocation?: unknown }
+    const orig = nav.geolocation
+    delete nav.geolocation
     const { result } = renderHook(() => useGeolocation(true))
     expect(result.current.status).toBe('unsupported')
-    // @ts-expect-error restore
-    navigator.geolocation = orig
+    nav.geolocation = orig
   })
 
   it('reports a granted position from watchPosition', async () => {
