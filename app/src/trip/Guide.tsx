@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { createPortal } from 'react-dom'
+import { AnimatePresence, motion, useReducedMotion, useMotionValue, useTransform, animate } from 'framer-motion'
+import { Check, Undo2 } from 'lucide-react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
 import type { Stop, TripData } from '../types'
@@ -21,6 +23,7 @@ import { isArrived } from './guide/arrival'
 import { activeDayIndex, completedStops, currentStopIndex, dayStopRows, stopHeroQueries } from './guide/guide-helpers'
 import { directionsUrl, detectPlatform } from './guide/maps'
 import { resolveVoiceId } from './guide/voices'
+import { SWIPE, clamp, swipeCommit, type EnterFrom } from './guide/swipe'
 
 import { walkMinutes, haversineKm, stopCoords } from './walk'
 import { coverPhoto } from './photo'
@@ -43,6 +46,79 @@ function todayYmd(): string {
 
 /** "~5s" soft-arrival auto-open delay (locked decision). */
 const AUTO_OPEN_MS = 5000
+
+/** Props for the outgoing card snapshot the ghost overlay re-renders while it flies off. */
+interface GhostSnap {
+  stop: Stop
+  heroUrl?: string | null
+  story: string
+  notice: string
+  experience: string
+  voiceId: string
+  stopNumber: number
+  completed: boolean
+  distanceM: number | null
+  etaMin: number | null
+  headingLabel: string | null
+  activeTab: StoryTab
+}
+interface GhostState {
+  dir: 'left' | 'right'
+  rect: { left: number; top: number; width: number; height: number } | null
+  startRotate: number
+  snap: GhostSnap
+}
+
+/**
+ * The outgoing card's "throw" — a fixed-position clone of the focused card that
+ * flies off diagonally while the real card re-renders the next/previous stop and
+ * slides in beneath it. Rendered via a portal to `document.body` (and
+ * `aria-hidden`) so it never depends on the list layout — which matters because
+ * stepping back to a completed stop moves the real card between the StopList and
+ * CompletedSection subtrees. Pure visual; `onDone` clears it when the throw ends.
+ */
+function SwipeGhost({ ghost, reduce, onDone }: { ghost: GhostState; reduce: boolean; onDone: () => void }) {
+  const { dir, rect, startRotate, snap } = ghost
+  const target = reduce ? { opacity: 0 } : SWIPE.exit[dir]
+  return createPortal(
+    <motion.div
+      aria-hidden="true"
+      className="pointer-events-none"
+      style={{
+        position: 'fixed',
+        left: rect?.left ?? 0,
+        top: rect?.top ?? 0,
+        width: rect?.width,
+        height: rect?.height,
+        zIndex: 60,
+      }}
+      initial={{ x: 0, y: 0, rotate: reduce ? 0 : startRotate, opacity: 1 }}
+      animate={target}
+      transition={reduce ? { duration: SWIPE.reducedFadeSec } : { duration: SWIPE.throwSec, ease: SWIPE.ease }}
+      onAnimationComplete={onDone}
+    >
+      <CurrentStopCard
+        stop={snap.stop}
+        heroUrl={snap.heroUrl}
+        distanceM={snap.distanceM}
+        etaMin={snap.etaMin}
+        headingLabel={snap.headingLabel}
+        story={snap.story}
+        notice={snap.notice}
+        experience={snap.experience}
+        voiceId={snap.voiceId}
+        onDirections={() => {}}
+        onComplete={() => {}}
+        completed={snap.completed}
+        canComplete={false}
+        stopNumber={snap.stopNumber}
+        activeTab={snap.activeTab}
+        onTabChange={() => {}}
+      />
+    </motion.div>,
+    document.body,
+  )
+}
 
 /**
  * Guide — the live walking companion (Phase 3). It is a read-mostly **lens** over
@@ -105,6 +181,17 @@ export default function Guide() {
   const scrollPendingRef = useRef(false)
   const reduce = useReducedMotion() ?? false
 
+  // ── Swipe-to-progress state (the focused card is a Tinder-style draggable) ──
+  // `x` tracks the horizontal drag; `rotate` is the tilt derived from it. A
+  // committed swipe spawns a `ghost` (the outgoing card flying off) and records
+  // where the *next* card should animate in from (`enterFromRef`). `busyRef`
+  // locks out re-entry while a throw is mid-flight.
+  const x = useMotionValue(0)
+  const rotate = useTransform(x, v => (reduce ? 0 : clamp(v * SWIPE.tiltDegPerPx, -SWIPE.maxTiltDeg, SWIPE.maxTiltDeg)))
+  const busyRef = useRef(false)
+  const enterFromRef = useRef<EnterFrom>('none')
+  const [ghost, setGhost] = useState<GhostState | null>(null)
+
   // ── Current stop = first not-completed in the active day ──────────────────
   const currentIndex = currentStopIndex(dayIndex, stopNames, data?.completed)
 
@@ -120,6 +207,7 @@ export default function Guide() {
   // and re-collapse the Completed Stops section (default-collapsed per day).
   useEffect(() => {
     userPickedRef.current = false
+    enterFromRef.current = 'none'
     setCompletedExpanded(false)
   }, [dayIndex])
 
@@ -142,7 +230,15 @@ export default function Guide() {
   const sc = stop ? stopCoords(stop) : null
   const focusedCompleted = stopIndex >= 0 && (data?.completed ?? []).includes(`${dayIndex}-${stopIndex}`)
 
+  // Swipe edges: left (done+next) is a no-op past the last stop; right (back) is
+  // a no-op at the first. On a no-op the directional hint dims (it won't commit).
+  const isLeftNoop = stops.length === 0 || stopIndex >= stops.length - 1
+  const isRightNoop = stopIndex <= 0
+  const doneOpacity = useTransform(x, [-SWIPE.thresholdPx, 0], [isLeftNoop ? 0.42 : 1, 0], { clamp: true })
+  const backOpacity = useTransform(x, [0, SWIPE.thresholdPx], [0, isRightNoop ? 0.42 : 1], { clamp: true })
+
   const onFocusStop = useCallback((i: number) => {
+    enterFromRef.current = 'fade'
     userPickedRef.current = true
     setFocusedStopIndex(i)
     setActiveTab('story')
@@ -287,26 +383,104 @@ export default function Guide() {
     [canEdit, dayIndex, save, trip.data],
   )
 
+  // Spawn the "throw" ghost from the focused card's current position + tilt, with
+  // a snapshot of the outgoing stop so the clone re-renders identically while it
+  // flies off. Locks `busyRef` and recenters the drag so the incoming card sits
+  // square. Caller then changes focus + sets `enterFromRef`.
+  const launchGhost = useCallback(
+    (dir: 'left' | 'right') => {
+      const r = focusedCardRef.current?.getBoundingClientRect()
+      busyRef.current = true
+      setGhost({
+        dir,
+        rect: r ? { left: r.left, top: r.top, width: r.width, height: r.height } : null,
+        startRotate: rotate.get(),
+        snap: {
+          stop: stop!,
+          heroUrl,
+          story,
+          notice,
+          experience,
+          voiceId,
+          stopNumber: stopIndex + 1,
+          completed: focusedCompleted,
+          distanceM: focusedCompleted ? null : distanceM,
+          etaMin: focusedCompleted ? null : etaMin ?? staticEta,
+          headingLabel: focusedCompleted ? null : headingLabel,
+          activeTab,
+        },
+      })
+      x.set(0)
+    },
+    [stop, heroUrl, story, notice, experience, voiceId, stopIndex, focusedCompleted, distanceM, etaMin, staticEta, headingLabel, activeTab, rotate, x],
+  )
+
   // The focused stop's card ✓ toggles that stop (complete ⇄ un-complete).
   // Un-completing just toggles. Completing also **advances focus to the next
   // not-completed stop in the same render** — so the focus never lingers on the
   // just-completed stop (which would flash the Completed section open) — and
-  // flags a scroll so the new activity lands at the top.
+  // flags a scroll so the new activity lands at the top. When it advances it also
+  // throws the card up-and-left (the same motion as a left-swipe).
   const onComplete = useCallback(() => {
+    if (busyRef.current) return
     if (focusedCompleted) {
       onToggleCompleteAt(stopIndex)
       return
     }
     const after = [...(data?.completed ?? []), `${dayIndex}-${stopIndex}`]
     const nextIdx = currentStopIndex(dayIndex, stopNames, after)
-    onToggleCompleteAt(stopIndex)
     // Only advance when completing the *current* stop, and only forward — never
     // yank focus to an earlier stop (which caused the "switches back" jump).
-    if (stopIndex === currentIndex && nextIdx > stopIndex) {
+    const willAdvance = stopIndex === currentIndex && nextIdx > stopIndex
+    if (willAdvance) {
+      launchGhost('left')
+      enterFromRef.current = 'below'
+    }
+    onToggleCompleteAt(stopIndex)
+    if (willAdvance) {
       setFocusedStopIndex(nextIdx)
       scrollPendingRef.current = true
     }
-  }, [focusedCompleted, onToggleCompleteAt, stopIndex, currentIndex, dayIndex, data?.completed, stopNames])
+  }, [focusedCompleted, onToggleCompleteAt, stopIndex, currentIndex, dayIndex, data?.completed, stopNames, launchGhost])
+
+  // Swipe LEFT = done + next. If the focused stop is still open, this is exactly
+  // the ✓ action (complete + advance + throw). If it's already done (you stepped
+  // back onto it), don't un-complete — just advance with the same throw.
+  const onSwipeNext = useCallback(() => {
+    if (busyRef.current || isLeftNoop) return
+    if (!focusedCompleted) {
+      onComplete()
+      return
+    }
+    launchGhost('left')
+    enterFromRef.current = 'below'
+    userPickedRef.current = true
+    setActiveTab('story')
+    setFocusedStopIndex(Math.min(stopIndex + 1, stops.length - 1))
+  }, [isLeftNoop, focusedCompleted, onComplete, launchGhost, stopIndex, stops.length])
+
+  // Swipe RIGHT = back. Step focus to the previous stop (no completion change),
+  // throwing the card down-and-right while the previous drops in from above.
+  const onSwipePrev = useCallback(() => {
+    if (busyRef.current || isRightNoop) return
+    launchGhost('right')
+    enterFromRef.current = 'above'
+    userPickedRef.current = true
+    setActiveTab('story')
+    setFocusedStopIndex(stopIndex - 1)
+  }, [isRightNoop, launchGhost, stopIndex])
+
+  // Drag release: commit on distance OR a flick (velocity); otherwise spring back
+  // to center. Direction comes from the drag offset; edges are guarded above.
+  const onCardDragEnd = useCallback(
+    (_e: unknown, info: { offset: { x: number }; velocity: { x: number } }) => {
+      const dir = swipeCommit(info.offset.x, info.velocity.x, { leftNoop: isLeftNoop, rightNoop: isRightNoop })
+      if (dir === 'left') onSwipeNext()
+      else if (dir === 'right') onSwipePrev()
+      else animate(x, 0, reduce ? { duration: 0.12 } : SWIPE.spring)
+    },
+    [isLeftNoop, isRightNoop, onSwipeNext, onSwipePrev, x, reduce],
+  )
 
   // When focus advances after a completion, snap the new card to the top
   // (instant — a smooth scroll here raced the layout change and felt laggy).
@@ -486,23 +660,45 @@ export default function Guide() {
     return `${walkMinutes(prev, here)} MIN`
   }
 
-  // When the focused stop changes *within* a day (completing the current stop
-  // advances focus to the next), the card does a horizontal flip — the old stop
-  // turns edge-on and the next turns in. `mode="wait"` plays them in sequence so
-  // it reads as one card flipping over; the stable slot key (StopList /
-  // CompletedSection) keeps this AnimatePresence mounted across the advance.
-  // Day changes remount this whole subtree (the outer day AnimatePresence), so
-  // they slide rather than flip. Reduced motion collapses the flip to a swap.
+  // The focused card is a Tinder-style draggable (see SWIPE / SwipeGhost above):
+  //  - Drag horizontally; the card tilts (`rotate`) with the finger.
+  //  - Commit on distance or a flick → `onCardDragEnd` runs onSwipeNext/Prev,
+  //    which spawns the throw ghost and changes focus; the incoming card here
+  //    slides in from below (next) or above (prev) per `enterFromRef`.
+  //  - Under threshold → spring back to center.
+  //  - Two `aria-hidden` hint washes (claret "Done · Next" on left drag, a neutral
+  //    "Back" scrim on right) fade in with drag distance.
+  // The throw itself is the portal ghost; this element only handles the drag +
+  // the incoming slide, so it works even when stepping back across subtrees.
+  const ef = enterFromRef.current
+  const enterInitial = reduce
+    ? ef === 'none'
+      ? false
+      : { opacity: 0 }
+    : ef === 'below'
+      ? { opacity: 0, y: SWIPE.enterY }
+      : ef === 'above'
+        ? { opacity: 0, y: -SWIPE.enterY }
+        : ef === 'fade'
+          ? { opacity: 0 }
+          : false
   const focusedCard = (
-    <div ref={focusedCardRef} className="scroll-mt-20" style={{ perspective: 1400 }}>
-      <AnimatePresence mode="wait" initial={false}>
+    <div ref={focusedCardRef} className="scroll-mt-20">
+      <motion.div
+        drag={canEdit && !ghost ? 'x' : false}
+        dragDirectionLock
+        dragMomentum={false}
+        dragConstraints={{ left: isLeftNoop ? 0 : -1000, right: isRightNoop ? 0 : 1000 }}
+        dragElastic={0.32}
+        onDragEnd={onCardDragEnd}
+        style={{ x, rotate, touchAction: 'pan-y' }}
+        className={'relative ' + (canEdit ? 'cursor-grab active:cursor-grabbing' : '')}
+      >
         <motion.div
           key={stopIndex}
-          initial={{ rotateY: reduce ? 0 : -90, opacity: 0, scale: reduce ? 1 : 0.96 }}
-          animate={{ rotateY: 0, opacity: 1, scale: 1 }}
-          exit={{ rotateY: reduce ? 0 : 90, opacity: 0, scale: reduce ? 1 : 0.96 }}
-          transition={{ duration: reduce ? 0 : 0.2, ease: [0.4, 0, 0.2, 1] }}
-          style={{ transformOrigin: 'center', backfaceVisibility: 'hidden', transformStyle: 'preserve-3d' }}
+          initial={enterInitial}
+          animate={{ opacity: 1, y: 0 }}
+          transition={reduce ? { duration: SWIPE.reducedFadeSec } : { duration: SWIPE.enterSec, ease: SWIPE.ease, delay: SWIPE.enterDelaySec }}
         >
           {enriching && !stop.history ? (
             <CardSkeleton />
@@ -527,12 +723,51 @@ export default function Guide() {
             />
           )}
         </motion.div>
-      </AnimatePresence>
+
+        {canEdit && (
+          <>
+            <motion.div
+              aria-hidden="true"
+              style={{ opacity: doneOpacity }}
+              className="pointer-events-none absolute inset-0 grid place-items-center rounded-[18px] bg-sig-btn/85 text-white"
+            >
+              <div className="grid place-items-center gap-2">
+                <span className="grid place-items-center w-14 h-14 rounded-full border-2 border-white/80">
+                  <Check size={26} strokeWidth={2.5} aria-hidden="true" />
+                </span>
+                <span className="font-mono text-[11px] tracking-[0.16em] font-semibold">DONE · NEXT</span>
+              </div>
+            </motion.div>
+            <motion.div
+              aria-hidden="true"
+              style={{ opacity: backOpacity }}
+              className="pointer-events-none absolute inset-0 grid place-items-center rounded-[18px] bg-black/55 text-white backdrop-blur-[1px]"
+            >
+              <div className="grid place-items-center gap-2">
+                <span className="grid place-items-center w-14 h-14 rounded-full border-2 border-white/80">
+                  <Undo2 size={24} strokeWidth={2.5} aria-hidden="true" />
+                </span>
+                <span className="font-mono text-[11px] tracking-[0.16em] font-semibold">BACK</span>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </motion.div>
     </div>
   )
 
   return (
     <div className="px-5 md:px-8 py-6 md:py-8">
+      {ghost && (
+        <SwipeGhost
+          ghost={ghost}
+          reduce={reduce}
+          onDone={() => {
+            setGhost(null)
+            busyRef.current = false
+          }}
+        />
+      )}
       <div className="mx-auto w-full max-w-md">
         {phase === 'arriving' && (
           <div className="mb-4">
