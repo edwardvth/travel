@@ -79,7 +79,17 @@ Device-aware deep links (no key, no SDK):
 
 - **`narrate` Supabase edge function** (mirrors `ai-proxy`): holds **`ELEVENLABS_API_KEY`** (the only manual secret), receives `{ text, voiceId }`, calls ElevenLabs TTS, returns `audio/mpeg`. CORS + per-IP rate limiting.
 - **Cache** generated clips in **Supabase Storage**, keyed by `hash(text + voiceId + modelVersion)` — synthesized **once per story+voice, ever** (the key cost lever). The function uses the auto-injected `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` for Storage.
-- **Voice selection** — curated client constant `NARRATION_VOICES: { id, name, description? }[]` + `DEFAULT_VOICE_ID` (IDs supplied by the owner; placeholders until then). Selected in **`AccountSettings`** (opened from the Dashboard `AccountMenu`) with a **▶ preview**; stored in `profiles.settings.voiceId` (cross-device). Voice IDs are **not** secrets.
+- **Voice selection** — curated client constant `NARRATION_VOICES: { id, name, description? }[]` + `DEFAULT_VOICE_ID`. Selected in **`AccountSettings`** (opened from the Dashboard `AccountMenu`) with a **▶ preview**; stored in `profiles.settings.voiceId` (cross-device). Voice IDs are **not** secrets. Owner-supplied set:
+  ```ts
+  export const NARRATION_VOICES = [
+    { id: 'pXgsayqpmuFfzTsJw2ni', name: 'Matthew',   note: 'American · clear, friendly' },
+    { id: 'jg80CzGPSxCeNz7dJVDZ', name: 'Tom',       note: 'Balanced, clean' },
+    { id: 'xzZRXG86mSM3naOyL9fa', name: 'Rowan',     note: 'Soothing, calming' },
+    { id: '8Ln42OXYupYsag45MAUy', name: 'Jay Wayne', note: 'American · warm, professorial' }, // DEFAULT
+    { id: 'wScwPA1qCkWo5R2dmlS8', name: 'Charlotte', note: 'Storytelling & narration' },
+  ] as const
+  export const DEFAULT_VOICE_ID = '8Ln42OXYupYsag45MAUy' // Jay Wayne
+  ```
 - **Fallback** — if the function/key/quota is unavailable, `narrate.ts` falls back to the free on-device **Web Speech** (`speechSynthesis`). Listen always works.
 - `narrate.ts` exposes play/pause/stop + "playing" state to drive the equalizer-bar animation. Reads the **active tab's** text.
 
