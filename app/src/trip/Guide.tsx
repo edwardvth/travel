@@ -287,13 +287,24 @@ export default function Guide() {
     [canEdit, dayIndex, save, trip.data],
   )
 
-  // The focused stop's card ✓ toggles that stop (complete ⇄ un-complete). When
-  // completing (not un-doing), flag a scroll so the auto-advanced next activity
-  // lands at the top.
+  // The focused stop's card ✓ toggles that stop (complete ⇄ un-complete).
+  // Un-completing just toggles. Completing also **advances focus to the next
+  // not-completed stop in the same render** — so the focus never lingers on the
+  // just-completed stop (which would flash the Completed section open) — and
+  // flags a scroll so the new activity lands at the top.
   const onComplete = useCallback(() => {
-    if (!focusedCompleted) scrollPendingRef.current = true
+    if (focusedCompleted) {
+      onToggleCompleteAt(stopIndex)
+      return
+    }
+    const after = [...(data?.completed ?? []), `${dayIndex}-${stopIndex}`]
+    const nextIdx = currentStopIndex(dayIndex, stopNames, after)
     onToggleCompleteAt(stopIndex)
-  }, [focusedCompleted, onToggleCompleteAt, stopIndex])
+    if (nextIdx >= 0 && nextIdx !== stopIndex) {
+      setFocusedStopIndex(nextIdx)
+      scrollPendingRef.current = true
+    }
+  }, [focusedCompleted, onToggleCompleteAt, stopIndex, dayIndex, data?.completed, stopNames])
 
   // When focus advances after a completion, scroll the new card to the top.
   useEffect(() => {
