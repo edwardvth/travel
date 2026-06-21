@@ -5,7 +5,11 @@
 
 ## North star
 
-> **Guide is aware of your journey, but not responsible for your navigation.** Voyager owns the *experience* (Context · Sequence · Discovery · Completion). Navigation is delegated to Apple/Google/Waze. *"It feels like a Trip listing that woke up and started narrating."*
+> ### Guide exists to tell travelers *why a place matters*, not *how to get there*.
+>
+> **Guide is aware of your journey, but not responsible for your navigation.** Voyager owns the *experience* (Context · Sequence · Discovery · Completion). Navigation is delegated to the user's maps app. *"It feels like a Trip listing that woke up and started narrating."*
+>
+> That one sentence at the top is the north star — when any future feature is proposed, ask whether it serves *why a place matters*. If it's about *how to get there*, it belongs in the maps app, not in Guide.
 
 Core flow: **Open Guide → current stop → Directions (hand off to Maps) → walk → Voyager detects arrival → story surfaces → Mark complete → advance to next.**
 
@@ -31,12 +35,13 @@ Core flow: **Open Guide → current stop → Directions (hand off to Maps) → w
 ## States (design every one)
 
 1. **Traveling — active stop** (primary). Progress header (`STOP n OF m`, `DAY k`, segmented bar with current segment pulsing, "n complete · names"); image-forward current-stop card; quiet next-stop row.
-2. **Arrival** (auto, on geofence). Full-bleed hero photo, `YOU'VE ARRIVED` + sonar ✓, place name + mono telemetry, content sheet (Listen row, tabs, story), "Mark complete & continue →" + advancing toast.
-3. **Geolocation denied / unavailable.** Guide still works: distance/heading/auto-arrival disabled; the live chip becomes a static walk estimate from the previous stop (`walk.ts`); arrival is a **manual** "I'm here" / Mark complete. A subtle one-time "Enable location for live distance & auto-arrival" prompt.
-4. **Stop has no coordinates.** Distance/heading/Directions degrade gracefully (Directions falls back to a name query; no geofence).
-5. **Not-yet-enriched stop.** Trigger `generateStopDetail` on demand; show a tasteful skeleton for the tabs (mirrors StopDetail today).
-6. **No hero photo.** Striped-gradient placeholder (as in the reference), with a "Add a photo" affordance (reuses `photo.ts`).
-7. **Empty day / all complete.** Editorial empty + a "day complete" celebration (restrained), with a nudge to the next day.
+2. **Arriving — soft banner** (on geofence, BEFORE the full arrival state). A small, non-blocking banner slides in: **"You're arriving at Rijksmuseum · View Guide →"**. It does **not** hijack the screen — the user may be crossing a street, taking a photo, or texting. Tapping it opens the Arrival state immediately; otherwise it **auto-opens after a few seconds** (~5s). Dismissible.
+3. **Arrival** (after the soft banner). Full-bleed hero photo, `YOU'VE ARRIVED` + sonar ✓, place name + mono telemetry, content sheet (Listen row, tabs, story), "Mark complete & continue →" + advancing toast. **Narration does NOT auto-play — the user taps ▶ Listen.**
+4. **Geolocation denied / unavailable.** Guide still works: distance/heading/auto-arrival disabled; the live chip becomes a static walk estimate from the previous stop (`walk.ts`); arrival is a **manual** "I'm here" / Mark complete. A subtle one-time "Enable location for live distance & auto-arrival" prompt.
+5. **Stop has no coordinates.** Distance/heading/Directions degrade gracefully (Directions falls back to a name query; no geofence).
+6. **Not-yet-enriched stop.** Trigger `generateStopDetail` on demand; show a tasteful skeleton for the tabs (mirrors StopDetail today).
+7. **No hero photo.** Striped-gradient placeholder (as in the reference), with a "Add a photo" affordance (reuses `photo.ts`).
+8. **Empty day / all complete.** Editorial empty + a "day complete" celebration (restrained), with a nudge to the next day.
 
 ## Components (`app/src/trip/guide/`)
 
@@ -65,9 +70,11 @@ Core flow: **Open Guide → current stop → Directions (hand off to Maps) → w
 
 - `geo.ts`: `navigator.geolocation.watchPosition` **only while Guide is mounted/visible** (cleanup on unmount; respects permission state; never background). Exposes `{ pos, status: 'prompt'|'granted'|'denied'|'unsupported', error }`.
 - **Distance/ETA** to the active stop via `walk.ts` (`haversineKm` / `walkMinutes`). **Heading** via a new pure `bearing(from,to)` + 8-point compass label ("NE"); arrow oriented to bearing (north-up; device-compass is a future nicety).
-- **Arrival** — pure `isArrived(pos, stopCoords, radiusM)` (default ~40 m, with hysteresis to avoid flapping). On first arrival for the current stop → transition to **Arrival** state + (optional) auto-start narration. Manual "I'm here" available when geolocation is off.
+- **Arrival (soft, never aggressive)** — pure `isArrived(pos, stopCoords, radiusM)` (default ~40 m, with hysteresis to avoid flapping). On first arrival for the current stop → show the **soft banner** ("You're arriving at … · View Guide →"), which the user can tap to open now, ignore, or dismiss; if untouched it **auto-opens the Arrival state after ~5s**. **Narration never auto-plays** — the Arrival state shows ▶ Listen and waits for a tap. Manual "I'm here" available when geolocation is off.
 
 ## Navigation hand-off — "Directions" opens the device's default maps app (`maps.ts`, pure + tested)
+
+> **LOCKED PRODUCT DECISION (not a temporary limitation):** Guide intentionally contains **no embedded navigation map**. Navigation is delegated to the user's preferred maps application. Do not add a route map, routing, or rerouting — that path ends in accidentally rebuilding Google Maps. The strongest Voyager experience is the elegant chain: **Guide → Open in Maps → Walk → Arrive → Story → Complete → Next.** A map preview is *not* a small addition; it is the first step down the wrong road.
 
 **There is no embedded map in Guide.** The single **Directions** action opens the **device's default maps app** in one tap (no provider menu), via the right URL per platform (no key, no SDK):
 - **iOS** → Apple Maps: `https://maps.apple.com/?daddr=<lat>,<lng>&dirflg=w` (or `&q=<name>`).
@@ -91,6 +98,7 @@ Core flow: **Open Guide → current stop → Directions (hand off to Maps) → w
   export const DEFAULT_VOICE_ID = '8Ln42OXYupYsag45MAUy' // Jay Wayne
   ```
   **Selector display format:** `${name} - ${accent}, ${gender}` → e.g. "Rowan - British, Male" / "Jay Wayne - American, Male". The voice picker (and the whole Guide) follows the owner's `docs/design/Guide - Premium Modern.html` styling.
+- **Always user-initiated** — narration **never auto-plays**, anywhere in Guide (traveling or arrival). Premium products respect attention; nothing starts talking unexpectedly. The user taps **▶ Listen**.
 - **Fallback** — if the function/key/quota is unavailable, `narrate.ts` falls back to the free on-device **Web Speech** (`speechSynthesis`). Listen always works.
 - `narrate.ts` exposes play/pause/stop + "playing" state to drive the equalizer-bar animation. Reads the **active tab's** text.
 
@@ -116,6 +124,7 @@ Subagent-driven (opus) per task → spec + code-quality review → commit per ta
 
 ## Out of scope / phasing
 
-- **Phase 3/4:** ambient "passing by" discovery (POI + content + notification pipeline); device-compass heading; routed walking polyline; offline tiles.
-- **Never:** turn-by-turn voice navigation / rerouting (delegated to Maps by design).
+- **Ambient "passing by" discovery** ("You're passing the Old Cathedral…") — **not under consideration until Guide adoption validates the core arrival → story workflow.** It sounds magical but introduces content-moderation surface, battery drain, location noise, and random interruptions — and the arrival flow is *already* the differentiator. Revisit only with adoption data, never speculatively.
+- **Never (locked):** an embedded map, turn-by-turn / routed polylines, voice navigation, or rerouting — navigation is delegated to the user's maps app by design (see the LOCKED note above).
+- **Deferred (not now):** device-compass heading; offline tiles.
 - Broader **trips-RLS hardening** remains its own tracked task (see memory `voyager-rls-ownership-gap`).
