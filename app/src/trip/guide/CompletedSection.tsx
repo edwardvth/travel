@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import type { Stop } from '../../types'
 import type { CompletedStop } from './guide-helpers'
 import { UpcomingRow } from './UpcomingRow'
@@ -47,29 +48,46 @@ export function CompletedSection({
   onToggleComplete: (index: number) => void
   canComplete: boolean
 }) {
-  if (completed.length === 0 || !open) return null
+  const reduce = useReducedMotion() ?? false
+  if (completed.length === 0) return null
 
+  // Smoothly grow/shrink height + fade; `overflow-hidden` clips during the
+  // collapse so rows don't spill. Reduced motion → instant (duration 0).
   return (
-    <div id={panelId} className="mb-3 pl-1 space-y-1.5">
-      {completed.map(c => {
-        const stop = stops[c.index]
-        if (!stop) return null
-        if (c.index === focusedStopIndex) {
-          return <div key={c.index}>{focusedCard}</div>
-        }
-        return (
-          <UpcomingRow
-            key={c.index}
-            index={c.index + 1}
-            name={stop.name}
-            meta={rowMeta(c.index)}
-            done
-            onClick={() => onFocus(c.index)}
-            onToggleComplete={canComplete ? () => onToggleComplete(c.index) : undefined}
-          />
-        )
-      })}
-    </div>
+    <AnimatePresence initial={false}>
+      {open && (
+        <motion.div
+          key="completed-panel"
+          id={panelId}
+          initial={{ height: 0, opacity: 0 }}
+          animate={{ height: 'auto', opacity: 1 }}
+          exit={{ height: 0, opacity: 0 }}
+          transition={{ duration: reduce ? 0 : 0.28, ease: [0.4, 0, 0.2, 1] }}
+          className="overflow-hidden"
+        >
+          <div className="mb-3 pl-1 pt-1.5 space-y-1.5">
+            {completed.map(c => {
+              const stop = stops[c.index]
+              if (!stop) return null
+              if (c.index === focusedStopIndex) {
+                return <div key={c.index}>{focusedCard}</div>
+              }
+              return (
+                <UpcomingRow
+                  key={c.index}
+                  index={c.index + 1}
+                  name={stop.name}
+                  meta={rowMeta(c.index)}
+                  done
+                  onClick={() => onFocus(c.index)}
+                  onToggleComplete={canComplete ? () => onToggleComplete(c.index) : undefined}
+                />
+              )
+            })}
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }
 

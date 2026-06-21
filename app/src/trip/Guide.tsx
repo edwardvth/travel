@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
 import type { Stop, TripData } from '../types'
@@ -340,6 +341,13 @@ export default function Guide() {
   const completedPanelId = useId()
   const focusedIsCompleted = completed.some(c => c.index === stopIndex)
   const completedOpen = completedExpanded || focusedIsCompleted
+
+  // Day-switch transition: slide/fade direction (+1 next, -1 prev). The ref holds
+  // the previous day so the content can animate in from the correct side.
+  const reduce = useReducedMotion() ?? false
+  const prevDayRef = useRef(dayIndex)
+  const dayDirection = dayIndex > prevDayRef.current ? 1 : dayIndex < prevDayRef.current ? -1 : 0
+  useEffect(() => { prevDayRef.current = dayIndex }, [dayIndex])
   // The full-day rows (done / current / upcoming), classified once for the list.
   const rows = dayStopRows(dayIndex, stops.length, data?.completed)
   const dayComplete = currentIndex < 0 && stops.length > 0
@@ -480,6 +488,14 @@ export default function Guide() {
 
         {dayNavEl}
 
+        <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={dayIndex}
+          initial={{ opacity: 0, x: reduce ? 0 : dayDirection * 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: reduce ? 0 : dayDirection * -20 }}
+          transition={{ duration: reduce ? 0 : 0.22, ease: [0.4, 0, 0.2, 1] }}
+        >
         <GuideProgress
           stopNumber={(currentIndex >= 0 ? currentIndex : stops.length - 1) + 1}
           stopCount={stops.length}
@@ -518,6 +534,8 @@ export default function Guide() {
           focusedCard={focusedCard}
           onFocus={onFocusStop}
         />
+        </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   )
