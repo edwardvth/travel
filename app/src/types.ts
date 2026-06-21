@@ -14,6 +14,7 @@ export interface Stop {
   facts?: string[]
   history?: string
   tips?: string
+  notice?: string
   image?: string
   icon?: string
   coords?: { lat: number; lng: number }

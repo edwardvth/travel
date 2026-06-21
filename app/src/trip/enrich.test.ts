@@ -25,12 +25,12 @@ describe('coerceFacts', () => {
 describe('parseStopDetail', () => {
   it('parses clean JSON', () => {
     const out = parseStopDetail('{"history":"Founded 1850.","facts":["A","B"],"tips":"Go early."}')
-    expect(out).toEqual({ history: 'Founded 1850.', facts: ['A', 'B'], tips: 'Go early.' })
+    expect(out).toEqual({ history: 'Founded 1850.', facts: ['A', 'B'], tips: 'Go early.', notice: '' })
   })
 
   it('strips code fences and preamble', () => {
     const text = 'Sure! Here you go:\n```json\n{"history":"H","facts":["f1"],"tips":"t"}\n```'
-    expect(parseStopDetail(text)).toEqual({ history: 'H', facts: ['f1'], tips: 't' })
+    expect(parseStopDetail(text)).toEqual({ history: 'H', facts: ['f1'], tips: 't', notice: '' })
   })
 
   it('coerces a string facts field to an array', () => {
@@ -40,16 +40,16 @@ describe('parseStopDetail', () => {
 
   it('handles missing fields without throwing', () => {
     const out = parseStopDetail('{"history":"H"}')
-    expect(out).toEqual({ history: 'H', facts: [], tips: '' })
+    expect(out).toEqual({ history: 'H', facts: [], tips: '', notice: '' })
   })
 
   it('falls back to plain text as history when there is no JSON', () => {
     const out = parseStopDetail('Just a plain paragraph about the place.')
-    expect(out).toEqual({ history: 'Just a plain paragraph about the place.', facts: [], tips: '' })
+    expect(out).toEqual({ history: 'Just a plain paragraph about the place.', facts: [], tips: '', notice: '' })
   })
 
   it('returns an empty shape for empty input', () => {
-    expect(parseStopDetail('')).toEqual({ history: '', facts: [], tips: '' })
+    expect(parseStopDetail('')).toEqual({ history: '', facts: [], tips: '', notice: '' })
   })
 })
 
@@ -74,5 +74,26 @@ describe('buildEnrichPrompt', () => {
   it('omits the coordinate guard when there are no coords', () => {
     const p = buildEnrichPrompt(base, 'London Trip')
     expect(p).not.toMatch(/GPS/)
+  })
+
+  it('prompt includes the destination/city for disambiguation', () => {
+    const p = buildEnrichPrompt(
+      { name: 'Old Courthouse', lat: 38.6, lng: -90.2 } as never,
+      'stl',
+      'St. Louis, Missouri, United States',
+    )
+    expect(p).toContain('St. Louis, Missouri, United States')
+    expect(p).toContain('notice')
+  })
+})
+
+describe('parseStopDetail notice', () => {
+  it('parses the new notice field', () => {
+    const text = '{"history":"h","facts":["f"],"tips":"t","notice":"Look up at the dome."}'
+    expect(parseStopDetail(text).notice).toBe('Look up at the dome.')
+  })
+
+  it('defaults notice to empty when absent', () => {
+    expect(parseStopDetail('{"history":"h"}').notice).toBe('')
   })
 })
