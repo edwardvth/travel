@@ -116,19 +116,25 @@ Both offer **Reload** → a full `window.location.reload()`. Reload is the only 
 
 ## Implementation notes (record on completion)
 
-Fill in the before/after chunk sizes so future contributors have a baseline:
+Measured 2026-06-22 (raw, uncompressed bytes):
 
 ```
-Before                          After
-Chunk          gzip             Chunk            gzip
-index          ~820 KB (raw)    index            ____
-                                PlannerLayout    ____
-                                Itinerary        ____
-                                Guide            ____
-                                Trip             ____
-                                StopDetail       ____
-                                TripMapView      ____  (Leaflet)
+BEFORE                                AFTER
+index-*.js   829,580 B (~810 KB)      index-*.js          604,326 B (~590 KB)   ← entry, -27.2%
+leaflet-src  149,983 B (already lazy) leaflet-src-*.js    149,985 B  (unchanged — already lazy)
+                                      Itinerary-*.js       79,532 B  (new, on Plan)
+                                      Guide-*.js           53,411 B  (new, on Guide)
+                                      StopDetail-*.js      27,024 B  (new, on a stop)
+                                      Trip-*.js            26,311 B  (new, on Trip)
+                                      PlannerLayout-*.js   11,972 B  (new, on /trip/:id)
+                                      + small shared chunks split out by Rollup
+                                        (location 14.0K, enrich 5.6K, reservation 3.0K,
+                                         settings-helpers 2.8K, ai/photo/walk/helpers/
+                                         useTrip/stay ≤1.7K each) — loaded with the
+                                         planner route that needs them, not in entry.
 ```
+
+**Result:** the entry chunk dropped **~225 KB (-27%)**; a Landing/Dashboard visitor no longer downloads `PlannerLayout`/`Itinerary`/`Guide`/`Trip`/`StopDetail` (~198 KB of route code + the shared chunks). The 35–55% prediction was optimistic — the residual 604 KB entry is the React/Router/Query/Supabase **+ framer-motion** vendor baseline (framer is still pinned by the always-on `SplashIntro`; stripping it is the deferred follow-up that would yield the next big drop). **Chunk independence verified:** Guide's unique strings (`DONE · NEXT`, `vyPulse`) appear in exactly one chunk — no barrel leakage.
 
 ## Expected outcome (prediction, for context)
 
