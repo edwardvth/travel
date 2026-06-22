@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { Suspense, useEffect } from 'react'
 import {
   Link,
   NavLink,
@@ -13,6 +13,9 @@ import { useTrip } from './useTrip'
 import { useSaveTrip, type SavePartial } from './useSaveTrip'
 import { TripHeader } from './TripHeader'
 import { Skeleton } from '../components/ui/Skeleton'
+import { ChunkErrorBoundary } from '../components/ChunkErrorBoundary'
+import { PlannerContentFallback } from '../components/RouteFallbacks'
+import { importGuide, importTrip, importItinerary } from './lazyRoutes'
 import { Button } from '../components/ui/Button'
 import { cn } from '../lib/utils'
 import { dayCount, dayLabel } from './helpers'
@@ -38,6 +41,7 @@ interface SectionItem {
   label: string
   end?: boolean
   Icon: LucideIcon
+  preload: () => Promise<unknown>
 }
 
 /** The named sections (Plan is implicit — the index route, with the Day list
@@ -45,8 +49,8 @@ interface SectionItem {
  *  the implicit Plan they form the three intent-tabs Plan · Guide · Trip. */
 function sectionItems(id: string): SectionItem[] {
   return [
-    { to: `/trip/${id}/guide`, label: 'Guide', Icon: Compass },
-    { to: `/trip/${id}/trip`, label: 'Trip', Icon: Briefcase },
+    { to: `/trip/${id}/guide`, label: 'Guide', Icon: Compass, preload: importGuide },
+    { to: `/trip/${id}/trip`, label: 'Trip', Icon: Briefcase, preload: importTrip },
   ]
 }
 
@@ -190,11 +194,14 @@ export default function PlannerLayout() {
           <div className="h-px bg-hair my-2.5 mx-1.5" role="presentation" />
 
           <div className="flex flex-col gap-0.5">
-            {items.map(({ to, label, end, Icon }) => (
+            {items.map(({ to, label, end, Icon, preload }) => (
               <NavLink
                 key={to}
                 to={to}
                 end={end}
+                onPointerEnter={preload}
+                onFocus={preload}
+                onTouchStart={preload}
                 className={({ isActive }) =>
                   cn(
                     'inline-flex items-center gap-2.5 min-h-[40px] px-3 rounded-btn text-left text-[13px] font-bold transition-colors',
@@ -219,9 +226,13 @@ export default function PlannerLayout() {
             fall back to scrolling the page via this container's overflow.
             Pad bottom on mobile so the fixed tab bar never covers content. */}
         <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-y-auto pb-24 md:pb-0">
-          <Outlet
-            context={{ trip, canEdit, save, saving, lastSavedAt, saveError, activeDay, setActiveDay } satisfies PlannerOutletContext}
-          />
+          <ChunkErrorBoundary>
+            <Suspense fallback={<PlannerContentFallback />}>
+              <Outlet
+                context={{ trip, canEdit, save, saving, lastSavedAt, saveError, activeDay, setActiveDay } satisfies PlannerOutletContext}
+              />
+            </Suspense>
+          </ChunkErrorBoundary>
         </main>
       </div>
 
@@ -235,6 +246,9 @@ export default function PlannerLayout() {
           <NavLink
             to={`${planPath}${activeDay ? `?day=${activeDay}` : ''}`}
             end
+            onPointerEnter={importItinerary}
+            onFocus={importItinerary}
+            onTouchStart={importItinerary}
             className={({ isActive }) =>
               cn(
                 'flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] py-2 text-[11px] font-bold transition-colors',
@@ -251,11 +265,14 @@ export default function PlannerLayout() {
             )}
           </NavLink>
 
-          {items.map(({ to, label, end, Icon }) => (
+          {items.map(({ to, label, end, Icon, preload }) => (
             <NavLink
               key={to}
               to={to}
               end={end}
+              onPointerEnter={preload}
+              onFocus={preload}
+              onTouchStart={preload}
               className={({ isActive }) =>
                 cn(
                   'flex-1 flex flex-col items-center justify-center gap-1 min-h-[44px] py-2 text-[11px] font-bold transition-colors',
