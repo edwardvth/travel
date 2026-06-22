@@ -84,7 +84,17 @@ A dynamic `import()` can reject — a **stale chunk after a redeploy** (hashes c
 </ChunkErrorBoundary>
 ```
 
-`ChunkErrorBoundary` is a small **class component** (`app/src/components/ChunkErrorBoundary.tsx`) — the one class in the codebase, because React error boundaries must be classes. On a caught error it renders a calm, branded recovery card: a lucide icon, "Couldn't load this section." and a **Retry** button — token-themed, light/dark, keyboard-focusable, `aria`-labelled. **Retry performs a full `window.location.reload()`**: that's the only reliable recovery for the most common cause (a stale chunk hash after a deploy — re-mounting alone can't fetch a URL that no longer exists; a reload pulls the fresh `index.html` + new hashes). Autosave persists to Supabase, so a reload loses no work. Wrap at least the top-level `<Routes>` Suspense; the planner `<Outlet/>` Suspense reuses the same boundary so a failed *tab* chunk recovers in place rather than taking down the shell.
+`ChunkErrorBoundary` is a small **class component** (`app/src/components/ChunkErrorBoundary.tsx`) — the one class in the codebase, because React error boundaries must be classes. On a caught error it renders a calm, branded recovery card (lucide icon + message + a **Reload** button — token-themed, light/dark, keyboard-focusable, `aria`-labelled), and **distinguishes a chunk-load failure from a generic render crash** so the message is honest and diagnostics are easier:
+
+```ts
+const isChunkError = /Failed to fetch dynamically imported module|error loading dynamically imported module|Importing a module script failed|Loading chunk \d+ failed/i
+  .test(err?.message ?? '')
+```
+
+- **Chunk failure** → "Couldn't load the latest version of Voyager." (tells the user it's a staleness problem a reload fixes).
+- **Generic render crash** → "Something went wrong."
+
+Both offer **Reload** → a full `window.location.reload()`. Reload is the only reliable recovery for the most common cause (a stale chunk hash after a deploy — re-mounting alone can't fetch a URL that no longer exists; a reload pulls the fresh `index.html` + new hashes), and is a sane single action for a transient render crash too. Autosave persists to Supabase, so a reload loses no work. The two branches also log with distinct tags (`console.error('[chunk-load]' …)` vs `'[render-crash]' …`) for later diagnostics. Wrap at least the top-level `<Routes>` Suspense; the planner `<Outlet/>` Suspense reuses the same boundary so a failed *tab* chunk recovers in place rather than taking down the shell.
 
 ## Testing
 
@@ -93,7 +103,7 @@ A dynamic `import()` can reject — a **stale chunk after a redeploy** (hashes c
   1. Any test that renders `<App/>` and navigates routes would now hit Suspense and must `await screen.findBy…` / `waitFor`. (Route reachability is currently smoke-tested via `curl` against the deployed Worker, not vitest, so there is likely no such test — verify.)
   2. `Itinerary` tests that touch the now-lazy `TripMapView`: assert on list content, or `await`/`waitFor` the map. (Leaflet doesn't fully render in jsdom anyway, so existing tests likely already avoid asserting on it.)
 - Fix any affected test by **awaiting the Suspense boundary, never by weakening the assertion**.
-- **New components get unit tests:** `ChunkErrorBoundary` — a throwing child renders the recovery card with a working, labelled **Retry** control (assert presence; the `window.location.reload` side-effect can be stubbed). The fallback skeletons are presentational; a light render test is enough.
+- **New components get unit tests:** `ChunkErrorBoundary` — assert **both branches**: a child throwing a dynamic-import-style error renders the "Couldn't load the latest version…" message; a child throwing a generic error renders "Something went wrong." Both expose a working, labelled **Reload** control (stub the `window.location.reload` side-effect). The fallback skeletons are presentational; a light render test is enough.
 
 ## Acceptance criteria
 
@@ -128,7 +138,7 @@ Assuming the current ~820 KB entry contains the planner shell + Guide + Trip + S
 
 - **Tab-switch flash:** mitigated by the inner Suspense keeping the shell mounted + a content skeleton + preload-on-intent; chunks are small so the fallback is brief.
 - **Worker not serving a hashed chunk (SPA fallback intercepting):** low risk — `worker.js` serves `app/dist` via the ASSETS binding and only falls back to `index.html` for non-asset paths; acceptance #5 explicitly verifies a chunk fetch.
-- **Failed chunk fetch (stale deploy / offline):** caught by `ChunkErrorBoundary` → branded Retry (full reload), instead of a white screen.
+- **Failed chunk fetch (stale deploy / offline):** caught by `ChunkErrorBoundary` → branded "Couldn't load the latest version…" + Reload, instead of a white screen.
 - **Barrel-file leakage defeating the split:** caught by acceptance #3 (bundle-visualizer check).
 - **A test renders `<App/>`:** handled by awaiting Suspense (see Testing).
 - **Reduced-motion:** no extra work — the global CSS rule already stills skeleton shimmer.
