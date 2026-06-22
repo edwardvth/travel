@@ -5,16 +5,16 @@
 
 ## Problem
 
-The production build emits a single ~820 KB JS chunk (the build warns at the 500 KB threshold). Every route is eagerly imported in `app/src/App.tsx`, so a logged-out visitor on **Landing**, or a user on the **Dashboard**, downloads the entire planner (`Itinerary`, `Guide`, `Trip`, `StopDetail`) and **Leaflet** (~150 KB, only ever used by the Plan-tab map) before the first screen is interactive. For a premium travel PWA used on mobile data — often abroad on a slow connection — this hurts time-to-interactive on exactly the screens (Landing/Dashboard) a new user hits first.
+The production build emits a single **~829 KB** entry chunk (`dist/assets/index-*.js`; the build warns at the 500 KB threshold). Every route is eagerly imported in `app/src/App.tsx`, so a logged-out visitor on **Landing**, or a user on the **Dashboard**, downloads the entire planner (`Itinerary`, `Guide`, `Trip`, `StopDetail`) — including the heavy Guide swipe-deck — before the first screen is interactive. For a premium travel PWA used on mobile data, often abroad on a slow connection, this hurts time-to-interactive on exactly the screens (Landing/Dashboard) a new user hits first.
 
-Current splitting: only the Landing hero sub-modes (`HeroModeCinematic`, `HeroModeExplorer`) are lazy-loaded. Nothing else is.
+**Already split (verified in the build):** the Landing hero sub-modes (`HeroModeCinematic`, `HeroModeExplorer`), and — importantly — **Leaflet**: `TripMapView.tsx:170` already does `await import('leaflet')` inside an effect, so Leaflet ships as its own ~150 KB chunk (`leaflet-src-*.js`), **not** in the entry. So Leaflet is *not* a target here; the entry's weight is the React/vendor baseline + all the eager app/route code. The win is deferring the planner routes.
 
 ## Goal
 
 Split the bundle so the **initial load is small** and heavy code loads on demand:
 
 - The planner routes load only when you open a trip, **per tab** (you don't download `Guide` until you tap Guide).
-- **Leaflet** loads only when the Plan map actually paints.
+- The **already-lazy** Plan map gets a proper loading skeleton (today it can flash an empty map pane while `import('leaflet')` resolves).
 - Loading is **invisible-quality** — token-themed skeletons, no layout shift, no spinner-slop, `prefers-reduced-motion` respected.
 - The ~516-test suite stays green; ships to Cloudflare unchanged in behaviour.
 
@@ -38,7 +38,7 @@ Decided during brainstorming — the "focused & safe" tier:
 
 2. **`app/src/trip/PlannerLayout.tsx`** — wrap its `<Outlet/>` in a second `<Suspense fallback={<PlannerContentFallback/>}>`. Because each tab element (`Itinerary`/`Guide`/`Trip`/`StopDetail`) is now its own lazy chunk, switching tabs suspends only the Outlet — the shell (day rail, header, tab bar, lifted autosave/`SyncIndicator`) stays mounted and a content skeleton fills the body. This prevents a full-page blank on tab change.
 
-3. **`app/src/trip/Itinerary.tsx`** — `TripMapView` (the only file that imports `leaflet`) becomes `const TripMapView = lazy(() => import('./TripMapView'))`, rendered inside `<Suspense fallback={<MapSkeleton/>}>`. The stop list paints immediately; Leaflet streams into a separate chunk behind the map skeleton. (`Itinerary` itself is already lazy from boundary #1, so Leaflet ends up in its own grandchild chunk, not merged into the Itinerary chunk.)
+3. **`app/src/trip/TripMapView.tsx`** — Leaflet is *already* dynamically imported here (`await import('leaflet')` in an effect → its own `leaflet-src-*.js` chunk), so **no new lazy boundary is needed**. We only add a `MapSkeleton` loading state: while `leafletRef.current` is null (the `import('leaflet')` + map init hasn't finished), render the skeleton in place of the map pane so it doesn't flash empty. This is conditional rendering *inside* `TripMapView` (the dynamic import lives in an effect, not a `React.lazy`/Suspense) — the smallest item in this plan.
 
 ### Resulting chunk map (target)
 
@@ -50,9 +50,9 @@ Decided during brainstorming — the "focused & safe" tier:
 | `Guide` | the swipe-deck companion + `guide/*` | open Guide |
 | `Trip` | commitments dashboard | open Trip |
 | `StopDetail` | single-stop detail | open a stop |
-| `TripMapView` (Leaflet) | ~150 KB map | the Plan map paints |
+| `leaflet-src` (already split today) | ~150 KB map | the Plan map paints |
 
-Net effect: Dashboard/Landing ship **none** of the planner or Leaflet; a Plan/Guide traveller never downloads `StopDetail`.
+Net effect: Dashboard/Landing ship **none** of the planner (and already none of Leaflet); a Plan/Guide traveller never downloads `StopDetail`.
 
 ### Suspense fallbacks (three)
 
