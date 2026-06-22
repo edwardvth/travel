@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://api.fontshare.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700&f[]=general-sans@400,500,600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;}
+  html,body{margin:0;}
+  .vy-dark{--base:#0A0A0C;--raised:#141417;--overlay:#1B1B20;--ink:#F4F3F0;--muted:#8E8E96;--hair:rgba(255,255,255,.10);--hair-strong:rgba(255,255,255,.16);--gold:#FFD9A8;--sig:#9C3D3A;--sig-btn:#B0473F;--sig-link:#C56A60;--fill:rgba(255,255,255,.06);--fill-hover:rgba(255,255,255,.12);--shadow-lift:0 2px 6px rgba(0,0,0,.45),0 30px 80px -28px rgba(0,0,0,.8);color-scheme:dark;}
+  .vy-light{--base:#FAF8F5;--raised:#FFFFFF;--overlay:#FFFFFF;--ink:#14141A;--muted:#6A6A72;--hair:rgba(20,20,26,.10);--hair-strong:rgba(20,20,26,.16);--gold:#A86A2A;--sig:#9C3D3A;--sig-btn:#B0473F;--sig-link:#8A2F2C;--fill:rgba(20,20,26,.05);--fill-hover:rgba(20,20,26,.09);--shadow-lift:0 2px 8px rgba(36,28,20,.08),0 36px 90px -32px rgba(36,28,20,.24);color-scheme:light;}
+  @keyframes vyPulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.35;transform:scale(.7);}}
+  @keyframes vyEq{0%,100%{transform:scaleY(.35);}50%{transform:scaleY(1);}}
+  @keyframes vySeg{0%,100%{opacity:.5;}50%{opacity:1;}}
+  .vy-scroll::-webkit-scrollbar{display:none;}
+</style>
+</helmet>
+
+<div ref="{{ stageRef }}" class="vy-dark" style="min-height:100vh;background:var(--base);color:var(--ink);font-family:'General Sans','Satoshi',system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;gap:22px;padding:26px 16px 72px;transition:background .3s ease;">
+
+  <!-- Demo controls -->
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;width:100%;max-width:430px;">
+    <span style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;color:var(--muted);text-transform:uppercase;margin-right:2px;">Voyager · Guide</span>
+    <button type="button" onClick="{{ toggleTheme }}" style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);background:var(--fill);border:1px solid var(--hair);border-radius:9px;padding:7px 11px;cursor:pointer;min-height:34px;">{{ themeLabel }}</button>
+    <button type="button" onClick="{{ toggleReduced }}" style="{{ reducedBtnStyle }}">{{ reducedLabel }}</button>
+    <button type="button" onClick="{{ onReset }}" style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);background:var(--fill);border:1px solid var(--hair);border-radius:9px;padding:7px 11px;cursor:pointer;min-height:34px;">Reset</button>
+  </div>
+
+  <!-- Phone -->
+  <div style="width:392px;max-width:100%;height:812px;border-radius:46px;background:var(--base);border:1px solid var(--hair-strong);box-shadow:var(--shadow-lift);overflow:hidden;position:relative;display:flex;flex-direction:column;">
+    <div style="position:absolute;top:9px;left:50%;transform:translateX(-50%);width:118px;height:26px;border-radius:0 0 16px 16px;background:#000;z-index:40;opacity:.92;"></div>
+
+    <div class="vy-scroll" style="flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-ms-overflow-style:none;padding:44px 17px 88px;" data-screen-label="Guide">
+
+      <!-- Top header -->
+      <div style="display:flex;align-items:center;gap:12px;padding:6px 0 4px;">
+        <span style="display:grid;place-items:center;width:30px;height:30px;color:var(--muted);">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        </span>
+        <div style="flex:1;min-width:0;text-align:center;">
+          <div style="font-family:'Fraunces',serif;font-weight:500;font-size:18px;color:var(--ink);line-height:1.1;">Amsterdam 2026</div>
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.06em;color:var(--muted);margin-top:2px;">Aug 5 – Aug 9</div>
+        </div>
+        <span style="display:grid;place-items:center;width:30px;height:30px;color:var(--muted);">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        </span>
+        <button type="button" onClick="{{ toggleTheme }}" aria-label="Toggle theme" style="display:grid;place-items:center;width:30px;height:30px;background:transparent;border:0;color:var(--muted);cursor:pointer;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+        </button>
+        <span style="display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--sig-btn);color:#fff;font-size:13px;font-weight:600;">E</span>
+      </div>
+
+      <!-- Day strip -->
+      <div style="display:flex;align-items:center;gap:8px;padding:10px 0 12px;border-bottom:1px solid var(--hair);">
+        <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);white-space:nowrap;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+          Add Day
+        </span>
+        <span style="flex:1;"></span>
+        <span style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--sig-link);font-weight:600;white-space:nowrap;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M16 2v4"/></svg>
+          Aug 5
+        </span>
+        <span style="flex:1;"></span>
+        <span style="display:inline-flex;align-items:center;gap:4px;font-size:12.5px;color:var(--muted);white-space:nowrap;">
+          Aug 6
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        </span>
+      </div>
+
+      <!-- Progress header -->
+      <div style="padding:14px 0 6px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-weight:600;font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);">{{ headerText }}</div>
+        <div style="display:flex;align-items:center;gap:4px;margin-top:9px;">
+          <sc-for list="{{ segs }}" as="seg" hint-placeholder-count="3">
+            <span style="{{ seg.style }}"></span>
+          </sc-for>
+          <sc-if value="{{ showTrack }}" hint-placeholder-val="{{ true }}">
+            <span style="{{ trackStyle }}"></span>
+          </sc-if>
+        </div>
+      </div>
+
+      <!-- Completed disclosure -->
+      <sc-if value="{{ hasCompleted }}" hint-placeholder-val="{{ true }}">
+        <button type="button" onClick="{{ toggleCompleted }}" aria-expanded="{{ completedOpen }}" style="display:flex;align-items:center;gap:10px;width:100%;background:transparent;border:0;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair);padding:13px 2px;margin-top:10px;cursor:pointer;text-align:left;min-height:48px;">
+          <span style="flex:none;display:grid;place-items:center;width:21px;height:21px;border-radius:50%;border:1px solid var(--sig);color:var(--sig);">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          </span>
+          <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;color:var(--ink);">{{ completedSummary }}</span>
+          <span style="flex:none;display:grid;place-items:center;color:var(--muted);transition:transform .25s cubic-bezier(.4,0,.2,1);transform:rotate({{ chevronDeg }}deg);">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+          </span>
+        </button>
+      </sc-if>
+
+      <!-- Completed rows -->
+      <sc-if value="{{ showCompletedRows }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:6px 2px 4px;display:flex;flex-direction:column;gap:2px;">
+          <sc-for list="{{ completedRows }}" as="row" hint-placeholder-count="1">
+            <div style="display:flex;align-items:center;gap:12px;padding:9px 2px;">
+              <button type="button" onClick="{{ row.onUndo }}" aria-label="Mark not complete" style="flex:none;display:grid;place-items:center;width:21px;height:21px;border-radius:50%;border:1px solid var(--sig);color:var(--sig);background:transparent;cursor:pointer;padding:0;">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              </button>
+              <button type="button" onClick="{{ row.onFocus }}" style="flex:1;display:flex;align-items:center;gap:11px;min-width:0;background:transparent;border:0;padding:0;cursor:pointer;text-align:left;">
+                <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;color:color-mix(in oklab,var(--ink) 78%,transparent);">{{ row.name }}</span>
+                <span style="flex:none;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);">{{ row.meta }}</span>
+              </button>
+            </div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <!-- Focused card slot -->
+      <div style="position:relative;margin:12px 0 4px;">
+        <div ref="{{ ghostLayerRef }}" style="position:absolute;inset:0;pointer-events:none;z-index:5;"></div>
+
+        <div ref="{{ cardRef }}" onPointerDown="{{ onPointerDown }}" onPointerMove="{{ onPointerMove }}" onPointerUp="{{ onPointerUp }}" onPointerCancel="{{ onPointerUp }}" style="position:relative;z-index:2;touch-action:pan-y;will-change:transform;cursor:grab;">
+          <div style="position:relative;border-radius:18px;overflow:hidden;background:var(--raised);border:1px solid var(--hair);box-shadow:0 1px 2px rgba(0,0,0,.4),0 26px 60px -28px rgba(0,0,0,.9);">
+
+            <!-- Hero -->
+            <div style="position:relative;height:172px;overflow:hidden;background:var(--raised);">
+              <div aria-hidden="true" style="position:absolute;inset:0;background:{{ focused.heroBg }};"></div>
+              <div aria-hidden="true" style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.30) 0%,transparent 32%,transparent 42%,rgba(0,0,0,.58));"></div>
+              <span style="position:absolute;left:13px;top:12px;display:grid;place-items:center;min-width:26px;height:26px;padding:0 7px;border-radius:999px;background:rgba(0,0,0,.45);backdrop-filter:blur(4px);border:1px solid rgba(255,255,255,.25);font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600;color:#fff;">{{ focused.number }}</span>
+              <div style="position:absolute;left:13px;bottom:12px;display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.07em;color:#fff;background:rgba(176,71,63,.86);padding:5px 10px;border-radius:999px;backdrop-filter:blur(4px);">
+                <span style="{{ focused.dotStyle }}"></span>
+                {{ focused.chipText }}
+              </div>
+            </div>
+
+            <!-- Body -->
+            <div style="padding:16px 17px 15px;">
+              <h2 style="font-family:'Fraunces',serif;font-weight:500;font-size:34px;line-height:1.02;letter-spacing:-.02em;color:var(--ink);margin:0;">{{ focused.name }}</h2>
+              <p style="font-size:12.5px;color:var(--muted);margin:5px 0 0;">{{ focused.subtitle }}</p>
+
+              <!-- Listen pill -->
+              <div style="display:flex;align-items:center;gap:10px;margin-top:14px;">
+                <button type="button" onClick="{{ onListen }}" style="flex:1;display:flex;align-items:center;gap:12px;padding:7px 14px 7px 7px;min-height:52px;border-radius:999px;border:1px solid var(--hair-strong);background:var(--fill);cursor:pointer;">
+                  <span style="flex:none;display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:var(--sig-btn);color:#fff;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+                  </span>
+                  {{ eqBars }}
+                  <span style="flex:1;"></span>
+                  <span style="font-size:13px;font-weight:600;color:var(--sig-link);">{{ listenLabel }}</span>
+                </button>
+                <span style="flex:none;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);">{{ speedLabel }}</span>
+              </div>
+
+              <!-- Tabs -->
+              <div style="display:flex;gap:18px;margin-top:16px;border-bottom:1px solid var(--hair);">
+                <button type="button" onClick="{{ onStory }}" style="{{ tabStoryStyle }}">Story</button>
+                <button type="button" onClick="{{ onFacts }}" style="{{ tabFactsStyle }}">Interesting Facts</button>
+                <button type="button" onClick="{{ onExp }}" style="{{ tabExpStyle }}">Experience</button>
+              </div>
+              <p style="font-size:13px;line-height:1.55;color:var(--muted);margin:12px 1px 0;min-height:60px;">{{ tabBody }}</p>
+
+              <!-- Actions -->
+              <div style="display:flex;gap:9px;margin-top:14px;">
+                <button type="button" onClick="{{ onDirections }}" style="flex:1;border-radius:12px;background:var(--sig-btn);color:#fff;font-weight:600;font-size:13.5px;padding:11px;min-height:44px;border:0;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+                  Directions
+                </button>
+                <button type="button" onClick="{{ onComplete }}" aria-label="{{ checkAria }}" aria-pressed="{{ focused.completed }}" style="{{ checkBtnStyle }}">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Hint washes -->
+            <div ref="{{ doneWashRef }}" aria-hidden="true" style="position:absolute;inset:0;border-radius:18px;opacity:0;pointer-events:none;background:linear-gradient(0deg,rgba(156,61,58,.72),rgba(176,71,63,.62));display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff;transition:opacity .1s linear;">
+              <span style="display:grid;place-items:center;width:58px;height:58px;border-radius:50%;border:2px solid rgba(255,255,255,.9);">
+                <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+              </span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.22em;font-weight:600;">DONE · NEXT</span>
+            </div>
+            <div ref="{{ backWashRef }}" aria-hidden="true" style="position:absolute;inset:0;border-radius:18px;opacity:0;pointer-events:none;background:linear-gradient(180deg,rgba(8,8,11,.62),rgba(8,8,11,.5));backdrop-filter:blur(1px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff;transition:opacity .1s linear;">
+              <span style="display:grid;place-items:center;width:58px;height:58px;border-radius:50%;border:2px solid rgba(255,255,255,.85);">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+              </span>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:13px;letter-spacing:.22em;font-weight:600;">BACK</span>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- Directions flash -->
+      <sc-if value="{{ flash }}" hint-placeholder-val="{{ false }}">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;color:var(--muted);text-align:center;margin:2px 0 8px;">{{ flash }}</div>
+      </sc-if>
+
+      <!-- Upcoming rows -->
+      <div style="display:flex;flex-direction:column;gap:2px;margin-top:8px;">
+        <sc-for list="{{ upcomingRows }}" as="row" hint-placeholder-count="3">
+          <button type="button" onClick="{{ row.onFocus }}" style="display:flex;width:100%;align-items:center;gap:12px;padding:10px 2px;background:transparent;border:0;cursor:pointer;text-align:left;">
+            <span aria-hidden="true" style="flex:none;display:grid;place-items:center;width:21px;height:21px;border-radius:50%;border:1px solid color-mix(in oklab,var(--ink) 20%,transparent);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:10px;">{{ row.number }}</span>
+            <span style="min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;color:color-mix(in oklab,var(--ink) 80%,transparent);">{{ row.name }}</span>
+            <span style="flex:none;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);">{{ row.meta }}</span>
+          </button>
+        </sc-for>
+      </div>
+
+      <!-- All-done line -->
+      <sc-if value="{{ allDone }}" hint-placeholder-val="{{ false }}">
+        <div style="margin-top:18px;padding:15px 16px;border-radius:14px;border:1px solid var(--hair);background:color-mix(in oklab,var(--sig) 7%,transparent);">
+          <p style="font-family:'Fraunces',serif;font-size:18px;color:var(--ink);margin:0 0 4px;">Day complete</p>
+          <p style="font-size:12.5px;line-height:1.5;color:var(--muted);margin:0;">Every stop today is done. Swipe right or reopen any completed stop above to revisit it.</p>
+        </div>
+      </sc-if>
+
+    </div>
+
+    <!-- Bottom tab bar -->
+    <div style="position:absolute;left:0;right:0;bottom:0;display:flex;align-items:flex-start;justify-content:space-around;padding:10px 24px 24px;background:color-mix(in oklab,var(--base) 84%,transparent);backdrop-filter:blur(14px);border-top:1px solid var(--hair);z-index:30;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/></svg>
+        <span style="font-size:10.5px;">Plan</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--sig-link);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+        <span style="font-size:10.5px;font-weight:600;">Guide</span>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;color:var(--muted);">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="7" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+        <span style="font-size:10.5px;">Trip</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Motion tokens + notes -->
+  <div style="width:392px;max-width:100%;display:flex;flex-direction:column;gap:14px;">
+    <div style="border:1px solid var(--hair);border-radius:14px;background:var(--raised);padding:16px 17px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--sig-link);margin-bottom:10px;">Motion tokens — copy into Guide.tsx</div>
+      <pre style="margin:0;font-family:'JetBrains Mono',monospace;font-size:11px;line-height:1.7;color:var(--ink);white-space:pre-wrap;">{{ tokenText }}</pre>
+    </div>
+    <div style="border:1px solid var(--hair);border-radius:14px;background:var(--raised);padding:16px 17px;">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--sig-link);margin-bottom:10px;">Notes &amp; recommendations</div>
+      <ul style="margin:0;padding-left:18px;font-size:12.5px;line-height:1.65;color:var(--muted);">
+        <li><b style="color:var(--ink);font-weight:600;">Surrounding UI is unchanged</b> — same GuideProgress segmented bar, the "{n} stops complete · names" disclosure, UpcomingRow rows, day strip and tab bar. The swipe only wraps the focused card.</li>
+        <li><b style="color:var(--ink);font-weight:600;">Left = done+next</b> throws up-left into Completed; the next stop rises from below. <b style="color:var(--ink);font-weight:600;">Right = back</b> throws down-right; the previous drops from above. Back-swipe never changes completion.</li>
+        <li>Trigger factors <b style="color:var(--ink);font-weight:600;">distance OR velocity</b> — a short fast flick commits. Under threshold rubber-bands back; nothing happens.</li>
+        <li><b style="color:var(--ink);font-weight:600;">Edges:</b> right on stop 1 and left on the last stop resist (~0.3 elastic) and spring back. The ✓ still completes the last stop in place (VISITED + "Day complete").</li>
+        <li><b style="color:var(--ink);font-weight:600;">Reduced motion</b> (toggle / <code>prefers-reduced-motion</code>): no tilt, throw collapses to a ~140ms cross-fade.</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.stageRef = React.createRef();
+    this.cardRef = React.createRef();
+    this.ghostLayerRef = React.createRef();
+    this.doneWashRef = React.createRef();
+    this.backWashRef = React.createRef();
+
+    this.T = {
+      THRESHOLD: 92, VEL: 0.5, MIN_FLICK: 36,
+      TILT: 0.05, MAX_TILT: 8, EDGE_ELASTIC: 0.3,
+      EXIT_X: 340, EXIT_Y: 230, EXIT_ROT: 14, ENTER_Y: 130,
+      DUR_EXIT: 340, DUR_ENTER: 320, ENTER_DELAY: 30,
+      DUR_SPRING: 460, REDUCED_FADE: 140,
+      EASE: 'cubic-bezier(.4,0,.2,1)', SPRING: 'cubic-bezier(.22,1,.36,1)',
+    };
+
+    const stripe = 'repeating-linear-gradient(135deg,rgba(255,255,255,.05) 0 1px,transparent 1px 13px),';
+    const mk = (name,type,eta,c1,c2,story,facts,experience)=>({name,type,eta,meta:eta,heroBg:stripe+`linear-gradient(160deg,${c1},${c2})`,story,facts,experience});
+    this.stops = [
+      mk('Hotel check-in & Breakfast','café · Canal Belt','','#2d2a24','#15120f',
+        'Drop the bags at the canal-house hotel and start slow over coffee and an uitsmijter at Café George.',
+        'The building is a restored 17th-century merchant\u2019s house — the steep stairs are protected, the hoist beam still works.',
+        'Ask for a window table over the Keizersgracht and watch the morning boats before you set out.'),
+      mk('Leidseplein','square','4 MIN','#2c2f3a','#121317',
+        'A buzzing theatre square where the trams, the Stadsschouwburg and the late-night cafés all converge.',
+        'The Stadsschouwburg has staged Amsterdam\u2019s civic theatre since 1894; the square is the city\u2019s nightlife hinge.',
+        'Cut through the side streets for the smaller brown cafés rather than the neon-lit terraces.'),
+      mk('Rembrandt Square','square','12 MIN','#3a2f26','#171310',
+        'A leafy square named for the painter, ringed by grand café terraces and centred on his bronze statue.',
+        'The 3-D bronze cast of The Night Watch stands beside Rembrandt — 22 figures you can walk among.',
+        'Come back after dark: the terraces glow and the statue group is quietly lit.'),
+      mk('Bloemenmarkt','market','8 MIN','#26352c','#101512',
+        'The world\u2019s only floating flower market, its stalls built on barges along the Singel.',
+        'Trading here since 1862; the stalls literally float on the canal beneath the displays.',
+        'Buy tulip bulbs you can take home rather than cut stems that won\u2019t survive the trip.'),
+      mk('Rijksmuseum','museum','10 MIN','#332636','#161018',
+        'The national museum of the Netherlands — Vermeer, Rembrandt and 800 years of Dutch art in one palace.',
+        'The building\u2019s cycle passage is the only one running through a museum anywhere in the world.',
+        'Go straight to the Gallery of Honour first, before the crowds reach The Night Watch.'),
+      mk('Van Gogh Museum','museum','5 MIN','#2a2f25','#121410',
+        'The largest collection of Van Gogh\u2019s work anywhere, hung in the order his life unfolded.',
+        'Holds more than 200 paintings and 500 drawings — the world\u2019s deepest single-artist holding.',
+        'Pre-book a timed slot; same-day tickets at the door rarely exist.'),
+      mk('Vondelpark','park','7 MIN','#26352c','#101512',
+        'Amsterdam\u2019s green lung — 47 hectares of ponds, lawns and an open-air theatre.',
+        'Around ten million visitors a year; the open-air theatre\u2019s summer programme is free.',
+        'Rent a bike at the gate and loop the outer path before resting at the rose garden.'),
+      mk('Anne Frank House','historic house','18 MIN','#2c2f3a','#121317',
+        'The canal-side house where the Frank family hid, preserved behind the moving bookcase.',
+        'The Secret Annexe is kept deliberately unfurnished, exactly as it was left in 1944.',
+        'Book weeks ahead — entry is timed and almost always sold out on the day.'),
+      mk('Jordaan','neighbourhood','6 MIN','#3a2f26','#171310',
+        'The former working-class quarter, now a maze of narrow lanes, courtyards and brown cafés.',
+        'Built in the 17th century for artisans; many of its hidden hofjes almshouses are still occupied.',
+        'Wander without a map — the best of the Jordaan is whatever you stumble onto.'),
+      mk('Dam Square','square','14 MIN','#332636','#161018',
+        'The historic heart of the city, where the river Amstel was first dammed.',
+        'The National Monument obelisk honours the dead of the Second World War.',
+        'Stand with your back to the Palace at dusk for the best read of the square.'),
+      mk('Royal Palace','palace','3 MIN','#2d2a24','#15120f',
+        'A 17th-century town hall turned royal residence, raised on 13,659 wooden piles.',
+        'Once called the eighth wonder of the world for the scale of its marble Citizens\u2019 Hall.',
+        'Catch the Citizens\u2019 Hall when sun hits the marble inlaid maps of the heavens.'),
+      mk('Begijnhof','courtyard','9 MIN','#26352c','#101512',
+        'A hushed medieval courtyard of almshouses around a hidden chapel, a step out of the city noise.',
+        'Home to Amsterdam\u2019s oldest surviving wooden house, dating to around 1420.',
+        'Keep your voice low — people still live here; it closes to visitors at dusk.'),
+    ];
+
+    this.state = {
+      completed: [0,1],
+      focusedIndex: 2,
+      completedExpanded: true,
+      activeTab: 'story',
+      listenPlaying: false,
+      theme: 'dark',
+      reducedShown: false,
+      flash: '',
+    };
+
+    this.down=false; this.dragging=false; this.startX=0; this.startY=0;
+    this.lastX=0; this.lastT=0; this.vx=0; this.pointerId=null;
+    this.reduced=false; this.busy=false; this._flashTimer=null;
+  }
+
+  componentDidMount(){
+    try{
+      if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+        this.reduced=true; this.setState({reducedShown:true});
+      }
+    }catch(e){}
+  }
+
+  clamp(v,lo,hi){ return Math.max(lo,Math.min(hi,v)); }
+  isLeftNoop(){ return this.state.focusedIndex >= this.stops.length-1; }
+  isRightNoop(){ return this.state.focusedIndex <= 0; }
+  isC(i){ return this.state.completed.includes(i); }
+
+  onPointerDown = (e)=>{
+    if(this.busy) return;
+    this.down=true; this.dragging=false;
+    this.startX=e.clientX; this.startY=e.clientY;
+    this.lastX=e.clientX; this.lastT=performance.now(); this.vx=0;
+    this.pointerId=e.pointerId;
+  };
+
+  onPointerMove = (e)=>{
+    if(!this.down) return;
+    const dx=e.clientX-this.startX, dy=e.clientY-this.startY;
+    if(!this.dragging){
+      if(Math.abs(dx)>6 && Math.abs(dx)>Math.abs(dy)){
+        this.dragging=true;
+        try{ this.cardRef.current.setPointerCapture(this.pointerId); }catch(_){}
+        this.cardRef.current.style.transition='none';
+        this.cardRef.current.style.cursor='grabbing';
+      } else if(Math.abs(dy)>10){ this.down=false; return; }
+      else return;
+    }
+    const T=this.T;
+    const noop=(dx<0&&this.isLeftNoop())||(dx>0&&this.isRightNoop());
+    const ux = noop ? dx*T.EDGE_ELASTIC : dx;
+    const now=performance.now();
+    const dt=Math.max(1, now-this.lastT);
+    this.vx=(e.clientX-this.lastX)/dt; this.lastX=e.clientX; this.lastT=now;
+    const rot=this.reduced?0:this.clamp(ux*T.TILT,-T.MAX_TILT,T.MAX_TILT);
+    this.cardRef.current.style.transform=`translateX(${ux}px) rotate(${rot}deg)`;
+    const dim = noop?0.42:1;
+    this.doneWashRef.current.style.opacity = dx<0 ? String(this.clamp(-ux/T.THRESHOLD,0,1)*dim) : '0';
+    this.backWashRef.current.style.opacity = dx>0 ? String(this.clamp(ux/T.THRESHOLD,0,1)*dim) : '0';
+  };
+
+  onPointerUp = (e)=>{
+    if(!this.down) return; this.down=false;
+    if(this.cardRef.current) this.cardRef.current.style.cursor='grab';
+    if(!this.dragging) return;
+    this.dragging=false;
+    const dx=e.clientX-this.startX;
+    const dir = dx<0?'left':'right';
+    const noop=(dir==='left'&&this.isLeftNoop())||(dir==='right'&&this.isRightNoop());
+    const T=this.T;
+    const pass = !noop && (Math.abs(dx)>T.THRESHOLD || (Math.abs(this.vx)>T.VEL && Math.abs(dx)>T.MIN_FLICK));
+    if(pass) this.commit(dir); else this.springBack();
+  };
+
+  springBack(){
+    const T=this.T, c=this.cardRef.current;
+    c.style.transition=`transform ${T.DUR_SPRING}ms ${T.SPRING}`;
+    c.style.transform='translateX(0) rotate(0deg)';
+    this.doneWashRef.current.style.opacity='0';
+    this.backWashRef.current.style.opacity='0';
+  }
+
+  commit(dir){
+    if(this.busy) return; this.busy=true;
+    const T=this.T, c=this.cardRef.current;
+    const old=this.state.focusedIndex;
+    let completed=this.state.completed.slice();
+    let newFocus;
+    if(dir==='left'){ if(!completed.includes(old)) completed.push(old); newFocus=old+1; }
+    else { newFocus=old-1; }
+
+    const ghost=c.cloneNode(true);
+    ghost.style.position='absolute'; ghost.style.inset='0'; ghost.style.margin='0';
+    ghost.style.transition='none'; ghost.style.pointerEvents='none';
+    ghost.style.transform=c.style.transform||'translateX(0)';
+    ghost.style.zIndex='6';
+    this.ghostLayerRef.current.appendChild(ghost);
+
+    const enterY = dir==='left' ? T.ENTER_Y : -T.ENTER_Y;
+    c.style.transition='none';
+    c.style.opacity='0';
+    c.style.transform = this.reduced ? 'none' : `translateY(${enterY}px)`;
+    this.doneWashRef.current.style.opacity='0';
+    this.backWashRef.current.style.opacity='0';
+
+    this.setState({ completed, focusedIndex:newFocus, activeTab:'story', listenPlaying:false });
+
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      if(this.reduced){
+        ghost.style.transition=`opacity ${T.REDUCED_FADE}ms linear`; ghost.style.opacity='0';
+        c.style.transition=`opacity ${T.REDUCED_FADE}ms linear`; c.style.transform='none'; c.style.opacity='1';
+      } else {
+        const ex=dir==='left'?-T.EXIT_X:T.EXIT_X, ey=dir==='left'?-T.EXIT_Y:T.EXIT_Y, er=dir==='left'?-T.EXIT_ROT:T.EXIT_ROT;
+        ghost.style.transition=`transform ${T.DUR_EXIT}ms ${T.EASE}, opacity ${T.DUR_EXIT}ms ${T.EASE}`;
+        ghost.style.transform=`translate(${ex}px,${ey}px) rotate(${er}deg)`; ghost.style.opacity='0';
+        c.style.transition=`transform ${T.DUR_ENTER}ms ${T.EASE} ${T.ENTER_DELAY}ms, opacity ${T.DUR_ENTER}ms ${T.EASE} ${T.ENTER_DELAY}ms`;
+        c.style.transform='translateY(0) rotate(0deg)'; c.style.opacity='1';
+      }
+    }));
+
+    const total=(this.reduced?T.REDUCED_FADE:T.DUR_EXIT)+T.ENTER_DELAY+40;
+    setTimeout(()=>{
+      if(ghost.parentNode) ghost.parentNode.removeChild(ghost);
+      if(this.cardRef.current){ this.cardRef.current.style.transition=''; this.cardRef.current.style.opacity='1'; this.cardRef.current.style.transform=''; }
+      this.busy=false;
+    }, total);
+  }
+
+  fadeInCard(){
+    const c=this.cardRef.current; if(!c) return;
+    c.style.transition='none'; c.style.opacity='0'; c.style.transform='none';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      c.style.transition='opacity 160ms linear'; c.style.opacity='1';
+    }));
+  }
+
+  focusRow(i){
+    if(this.busy) return;
+    this.setState({focusedIndex:i, activeTab:'story', listenPlaying:false});
+    this.fadeInCard();
+  }
+  undo(i){
+    this.setState(s=>({completed:s.completed.filter(x=>x!==i)}));
+  }
+  toggleCompleted = ()=> this.setState(s=>({completedExpanded:!s.completedExpanded}));
+
+  onComplete = ()=>{
+    if(this.busy) return;
+    const f=this.state.focusedIndex;
+    if(this.isC(f)){ this.undo(f); return; }
+    if(!this.isLeftNoop()){ this.commit('left'); return; }
+    this.setState(s=>({completed: s.completed.includes(f)?s.completed:[...s.completed,f]}));
+  };
+
+  onStory = ()=> this.setState({activeTab:'story'});
+  onFacts = ()=> this.setState({activeTab:'facts'});
+  onExp = ()=> this.setState({activeTab:'experience'});
+  onListen = ()=> this.setState(s=>({listenPlaying:!s.listenPlaying}));
+
+  onDirections = ()=>{
+    this.setState({flash:'↗  Handing off to your maps app…'});
+    if(this._flashTimer) clearTimeout(this._flashTimer);
+    this._flashTimer=setTimeout(()=>this.setState({flash:''}),1500);
+  };
+
+  toggleTheme = ()=>{
+    const next=this.state.theme==='dark'?'light':'dark';
+    const st=this.stageRef.current;
+    if(st){ st.classList.remove('vy-dark','vy-light'); st.classList.add('vy-'+next); }
+    this.setState({theme:next});
+  };
+  toggleReduced = ()=>{ this.reduced=!this.reduced; this.setState({reducedShown:this.reduced}); };
+
+  onReset = ()=>{
+    this.busy=false;
+    if(this.ghostLayerRef.current) this.ghostLayerRef.current.innerHTML='';
+    if(this.cardRef.current){ this.cardRef.current.style.transition=''; this.cardRef.current.style.transform=''; this.cardRef.current.style.opacity='1'; }
+    this.setState({completed:[0,1], focusedIndex:2, completedExpanded:true, activeTab:'story', listenPlaying:false, flash:''});
+  };
+
+  rowVM(i, done){
+    const s=this.stops[i];
+    return { number:i+1, name:s.name, meta:s.meta, onFocus:()=>this.focusRow(i), onUndo: done?()=>this.undo(i):null };
+  }
+
+  tabStyle(active){
+    return 'flex:none;background:transparent;border:0;padding:0 0 9px;margin-bottom:-1px;cursor:pointer;font-family:\'JetBrains Mono\',monospace;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;font-weight:'+(active?'600':'500')+';color:'+(active?'var(--ink)':'var(--muted)')+';border-bottom:2px solid '+(active?'var(--sig-link)':'transparent')+';';
+  }
+
+  renderVals(){
+    const T=this.T;
+    const st=this.stops, f=this.state.focusedIndex, completed=this.state.completed;
+    const isC=(i)=>completed.includes(i);
+    let current=-1; for(let i=0;i<st.length;i++){ if(!isC(i)){ current=i; break; } }
+    const allDone=current<0;
+    const currentNumber = allDone?st.length:current+1;
+    const focusedCompleted=isC(f);
+    const completedOpen=this.state.completedExpanded || focusedCompleted;
+
+    const completedIdx=st.map((s,i)=>i).filter(i=>isC(i));
+    const completedRows=completedIdx.filter(i=>i!==f).map(i=>this.rowVM(i,true));
+    const upcomingRows=st.map((s,i)=>i).filter(i=>!isC(i)&&i!==f).map(i=>this.rowVM(i,false));
+    const completedNames=completedIdx.map(i=>st[i].name);
+    const nC=completedIdx.length;
+    const completedSummary = nC>0 ? `${nC} stop${nC===1?'':'s'} complete · ${completedNames.join(', ')}` : '';
+
+    const fs=st[f];
+    const chipText = focusedCompleted ? 'VISITED' : (fs.eta ? `NOW · ${fs.eta}` : 'NOW');
+    const tab=this.state.activeTab;
+    const tabBody = tab==='story'?fs.story : tab==='facts'?fs.facts : fs.experience;
+    const dotStyle = 'width:6px;height:6px;border-radius:50%;background:#fff;'+(focusedCompleted?'':'animation:vyPulse 1.4s ease-in-out infinite;');
+
+    const checkBtnStyle = 'flex:none;display:grid;place-items:center;width:44px;min-height:44px;border-radius:12px;cursor:pointer;border:1px solid '+(focusedCompleted?'color-mix(in oklab,var(--sig) 40%,transparent)':'var(--hair-strong)')+';background:'+(focusedCompleted?'color-mix(in oklab,var(--sig) 12%,transparent)':'transparent')+';color:'+(focusedCompleted?'var(--sig)':'color-mix(in oklab,var(--ink) 80%,transparent)')+';transition:background .2s,border-color .2s,color .2s;';
+
+    // Progress segments
+    const filled=allDone?st.length:currentNumber;
+    const remaining=st.length-filled;
+    const segs=[];
+    for(let i=0;i<filled;i++){
+      const isCur=!allDone && i===filled-1;
+      segs.push({ style:`flex:1 1 0;height:3px;border-radius:2px;background:var(--sig-btn);${isCur?'animation:vySeg 1.7s ease-in-out infinite;':''}` });
+    }
+    const trackStyle = remaining>0?`flex:${remaining} 1 0;height:3px;border-radius:2px;background:var(--hair);`:'';
+
+    // Listen equalizer (decorative animation node)
+    const playing=this.state.listenPlaying;
+    const eqBars = React.createElement('span',{style:{display:'inline-flex',alignItems:'center',gap:'2.5px',height:'18px'}},
+      [11,17,8,15,10].map((h,i)=>React.createElement('span',{key:i,style:{display:'inline-block',width:'3px',height:h+'px',borderRadius:'2px',background:'var(--sig-link)',transformOrigin:'center',animation:playing?`vyEq .85s ease-in-out ${i*0.11}s infinite`:'none'}})));
+
+    const reducedBtnStyle='font-family:\'JetBrains Mono\',monospace;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;border-radius:9px;padding:7px 11px;cursor:pointer;min-height:34px;border:1px solid '+(this.state.reducedShown?'color-mix(in oklab,var(--sig) 45%,transparent)':'var(--hair)')+';color:'+(this.state.reducedShown?'#fff':'var(--ink)')+';background:'+(this.state.reducedShown?'var(--sig-btn)':'var(--fill)')+';';
+
+    const tokenText =
+'threshold      '+T.THRESHOLD+' px   (commit if |dx| exceeds)\n'+
+'velocity       |vx| > '+T.VEL+' px/ms  &  |dx| > '+T.MIN_FLICK+' px  → flick commit\n'+
+'tilt           '+T.TILT+' deg/px, clamp ±'+T.MAX_TILT+'°\n'+
+'edge elastic   '+T.EDGE_ELASTIC+'  (resistance on a no-op direction)\n'+
+'exit  LEFT     x:-'+T.EXIT_X+'  y:-'+T.EXIT_Y+'  rot:-'+T.EXIT_ROT+'°  opacity:0   (up-left)\n'+
+'exit  RIGHT    x:+'+T.EXIT_X+'  y:+'+T.EXIT_Y+'  rot:+'+T.EXIT_ROT+'°  opacity:0   (down-right)\n'+
+'enter after L  from y:+'+T.ENTER_Y+' (rises from below)\n'+
+'enter after R  from y:-'+T.ENTER_Y+' (drops from above)\n'+
+'throw / enter  '+T.DUR_EXIT+'ms / '+T.DUR_ENTER+'ms  ease '+T.EASE+'  (enter delay '+T.ENTER_DELAY+'ms)\n'+
+'spring back    '+T.DUR_SPRING+'ms  '+T.SPRING+'\n'+
+'reduced motion no tilt · '+T.REDUCED_FADE+'ms cross-fade swap';
+
+    return {
+      stageRef:this.stageRef, cardRef:this.cardRef, ghostLayerRef:this.ghostLayerRef,
+      doneWashRef:this.doneWashRef, backWashRef:this.backWashRef,
+      onPointerDown:this.onPointerDown, onPointerMove:this.onPointerMove, onPointerUp:this.onPointerUp,
+
+      headerText: allDone?'DAY COMPLETE':`STOP ${currentNumber} OF ${st.length}`,
+      segs, showTrack: remaining>0, trackStyle,
+
+      hasCompleted: nC>0,
+      completedSummary,
+      completedOpen,
+      showCompletedRows: completedOpen && completedRows.length>0,
+      chevronDeg: completedOpen?90:0,
+      toggleCompleted:this.toggleCompleted,
+      completedRows, upcomingRows,
+      allDone,
+
+      focused:{ name:fs.name, subtitle:fs.type, number:f+1, completed:focusedCompleted, chipText, heroBg:fs.heroBg, dotStyle },
+
+      tabBody,
+      tabStoryStyle:this.tabStyle(tab==='story'),
+      tabFactsStyle:this.tabStyle(tab==='facts'),
+      tabExpStyle:this.tabStyle(tab==='experience'),
+      onStory:this.onStory, onFacts:this.onFacts, onExp:this.onExp,
+
+      eqBars, listenLabel: playing?'Narrating…':'Listen', speedLabel:'1.75×', onListen:this.onListen,
+
+      onDirections:this.onDirections, onComplete:this.onComplete,
+      checkBtnStyle, checkAria: focusedCompleted?`Mark ${fs.name} not complete`:`Mark ${fs.name} complete`,
+      flash:this.state.flash,
+
+      themeLabel: this.state.theme==='dark'?'◐ Light':'◑ Dark', toggleTheme:this.toggleTheme,
+      reducedLabel:'Reduced motion', reducedBtnStyle, toggleReduced:this.toggleReduced,
+      onReset:this.onReset,
+      tokenText,
+    };
+  }
+}
+</script>
+</body>
+</html>
