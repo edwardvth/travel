@@ -5,6 +5,7 @@ import { dayCount, dayLabel, dayStops } from './helpers'
 import { normalizeHotel, hotelCoords } from './hotel'
 import { cn } from '../lib/utils'
 import type { Stop, Trip } from '../types'
+import { Skeleton } from '../components/ui/Skeleton'
 
 /** A stop+index selection shared between the list and the map. */
 export interface MapSelection {
@@ -369,6 +370,7 @@ export default function TripMapView({
         role="region"
         aria-label="Trip map"
       />
+      {ready === 0 && <Skeleton className="absolute inset-0 rounded-none" aria-label="Loading map" />}
       {!hasStops && (
         <div className="absolute inset-0 grid place-items-center pointer-events-none px-6">
           <div className="text-center max-w-xs pointer-events-auto bg-raised/90 backdrop-blur rounded-card border border-hair px-6 py-6 shadow-soft">
