@@ -27,9 +27,17 @@ The Guide premium spec (`2026-06-20-voyager-guide-premium-modern.md`, lines 77 &
 2. **The elegant chain is preserved.** "Guide → Open in Maps → walk → arrive → story → complete → next" stays intact. **Directions remains the only navigation path.** The minimap adds zero routing.
 3. **Guardrails are re-drawn, not removed** (below). The minimap is bounded so it *cannot* slide into a maps clone.
 
-**Revised guardrail (supersedes the old line for Guide — pending the user's explicit sign-off, since they authored the lock):**
+**Revised guardrail (supersedes the old "no embedded map" line for Guide — APPROVED 2026-06-22):**
 
-> Guide contains **no *navigation* map** — no turn-by-turn, no routed/road-snapped polylines, no rerouting, no live turn guidance, no permanent split-screen map. It **may** contain an **orientation minimap**: a user-toggled, single-stop, glanceable view showing *you*, the *destination*, and a *stylized direct path* between them, that always defers real navigation to the device maps app.
+> Guide contains **no *navigation* map**. It **may** contain an **orientation minimap**: a user-toggled, single-stop, glanceable view showing *you*, the *destination*, and a *stylized direct path* between them, that always defers real navigation to the device maps app.
+
+The distinction is the whole product line and must stay crisp in every future decision:
+
+**✅ Allowed (orientation):** user location · destination location · stylized direct path · quick spatial awareness · a user-controlled minimap toggle.
+
+**🚫 Never allowed (navigation):** turn-by-turn navigation · routed walking paths · rerouting · voice navigation · multi-stop navigation · navigation instructions · *any* attempt to replace Apple Maps or Google Maps.
+
+**Directions remains the only navigation action.** The minimap exists solely to answer **"Where am I relative to this place?"** — never **"How do I get there?"** The moment a traveler needs the second question answered, they tap Directions and hand off to their maps app, exactly as today.
 
 ### What the minimap IS / IS NOT
 
@@ -92,22 +100,40 @@ The **Directions** action stays exactly where it is and still hands off to the d
 
 ## Auto-discovery teaching sequence
 
-Most travelers won't find the toggle. So on the **first advance to a new stop in a trip**, Guide plays a one-time **teaching morph**, then hands control to the user forever after.
+Most travelers won't find the toggle on their own, so Guide plays a brief **teaching morph** to reveal it. This is **onboarding / rediscovery behaviour, not a core workflow** — it must teach infrequent travelers without nagging active ones. It is never "every stop," never "once per calendar day," and never a permanent repeating animation.
 
-**Decision — frequency (recommended):** play the **full sequence once per trip** (the first completion→advance), tracked in `profiles.settings` (cross-device) with a local fallback. Rationale: the 4-stage choreography is ~9 s; running it on *every* advance becomes tedious fast and fights the snappy swipe-deck we just built. A one-time teach delivers the "oh, there's a map" learning without nagging. (Alternatives considered: every advance — too heavy; first-N advances — middle ground; a setting toggle — overkill for v1. Open for the user to override.)
+### When it plays — once per *travel session*
 
-The sequence, only in the `traveling` phase (never during `arriving`/`arrived` — see *Integration*), and only if `prefers-reduced-motion` is *not* set:
+The morph plays on the **first focused stop of a new travel session**, then not again that session. A "travel session" is defined by an **inactivity gap**, not a calendar boundary:
 
-| Stage | ~Duration | What | Purpose |
+> **A new travel session begins when Guide is opened and the last recorded Guide activity was more than `SESSION_GAP` ago.** Recommended **`SESSION_GAP = 24 h`**. Persist `lastGuideActiveAt` in `profiles.settings` (cross-device) with a `localStorage` fallback; refresh it whenever Guide is used.
+
+Why this is the best-UX definition (and why I rejected the alternatives you listed):
+- **Inactivity gap, not "once per calendar day" / "per trip-day"** (which you ruled out): a 24 h rolling window never re-triggers during continuous use — a daily-use multi-day trip sees the morph only on **day 1** (each day's gap is < 24 h). No midnight resets, no per-day repetition.
+- **Not "once per trip"**: an infrequent traveler returning weeks or months later (gap ≫ 24 h) **rediscovers** it — the occasional rediscovery you asked for.
+- **Matches your examples exactly:** Day 1 first stop → morph; later that day → none; a future trip after days/weeks/months → morph again on that session's first stop.
+
+`SESSION_GAP` is a single tunable constant (24 h recommended); trivially adjustable after real use.
+
+**Additional gates:** only in the `traveling` phase (never during `arriving`/`arrived`), only if `prefers-reduced-motion` is *not* set, and only if the stop has coordinates.
+
+### Timing — fast & premium (~3.4 s total)
+
+The earlier 3 + 3 + 3 + 1 ≈ 10 s was far too slow for a walking workflow. Redesigned to a tight **~3.4 s** that still reads as *destination → where it is relative to you → you're in control*. The deck advance has already placed the hero on screen, so the opening beat is short:
+
+| Stage | Budget | What | Communicates |
 |---|---|---|---|
-| 1 — Hero | ~3 s | The new stop's hero photo (the deck advance already landed it) | Destination + excitement |
-| 2 — Morph | ~3 s | Hero **crossfades + subtly scales** into the minimap (no hard swap) | "A minimap exists" |
-| 3 — Route draw | ~3 s | The stylized path **draws itself**, the destination pin drops, the user dot appears | Communicate orientation value |
-| 4 — Return | ~1 s | Minimap morphs back to the hero photo | Hand control to the user |
+| 1 — Hero beat | ~0.4 s | Hold on the just-arrived hero photo | "Here's the destination" |
+| 2 — Morph in | ~0.45 s | Photo **crossfades + subtly scales** into the minimap | (transition) |
+| 3 — Orient reveal | ~1.0 s | Stylized path **draws itself**, destination pin drops, user dot pulses in (begins as the morph lands) | "Here's where it is relative to you" |
+| 4 — Map hold | ~0.6 s | Hold the minimap so it registers | (recognition) |
+| 5 — Morph out | ~0.45 s | Minimap morphs back to the hero photo | "You now control the view" |
 
-**Interruption (mandatory):** *any* user input during the sequence — tapping the toggle, swiping the deck, tapping Directions/Listen/a tab, or completing — **immediately cancels** it (clear timers) and yields control. The sequence is a gentle teach, never a modal.
+≈ **3.4 s** end-to-end (Stage 3 overlaps Stage 4's start). Fast enough to feel premium and intentional, never a delay. Eased throughout; the morphs reuse the photo↔map crossfade defined in *Animation system*.
 
-**Reduced motion:** skip Stages 2–4 entirely (no morph, no draw). Optionally show a one-time *static* hint (a brief tooltip near the toggle) so the feature is still discoverable without motion.
+**Interruption (mandatory):** *any* user input during the sequence — tapping the toggle, swiping the deck, tapping Directions/Listen/a tab, or completing — **immediately cancels** it (clear timers, resolve to the photo) and yields control. A gentle teach, never a modal or a blocker.
+
+**Reduced motion:** skip Stages 2–5 entirely (stay on the photo). Show a one-time, static, dismissible hint near the toggle instead, so the feature is still discoverable without motion.
 
 ## Architecture
 
@@ -163,6 +189,22 @@ This is deliberately separate from `TripMapView` (the Plan split-view map with d
 - **Tiles:** CARTO tiles are CDN-cached; the bounded single-stop view loads ~a dozen tiles. Acceptable on mobile data; the offline phase removes even that.
 - **One map instance at a time** in Guide (the focused stop). The swipe deck must tear down the previous stop's map on advance.
 
+### Interaction model — pinch-zoom yes, one-finger pan no (decision)
+
+You asked whether to allow pinch-to-zoom and drag/pan instead of a fully static map. **Recommendation: enable pinch-to-zoom + double-tap-zoom; do NOT enable one-finger drag-pan in Phase 1.**
+
+Leaflet config: `dragging: false`, `touchZoom: true`, `doubleClickZoom: true`, `scrollWheelZoom: false`, `zoomControl: false`, `attributionControl: false`. Auto fit-bounds to user + destination on open / stop change; a subtle **recenter** affordance appears if the user has zoomed away, snapping back to the orientation framing.
+
+**Why zoom-yes / pan-no:**
+
+| | Pinch-zoom (✅ allow) | One-finger drag-pan (❌ defer) |
+|---|---|---|
+| Usability | Real value — see more/less context around you and the destination | Marginal for a glance (already fit-bounded to both points) |
+| Gesture conflict | **None** — pinch is two-finger; the deck's one-finger horizontal **swipe-to-advance** is untouched | **Direct conflict** — a one-finger horizontal drag on the map *is* the deck's swipe-to-advance gesture |
+| Navigation drift | Low — zooming a fixed framing is still "orient at a glance" | Higher — free panning makes it an explorable map, edging toward a maps app |
+
+The **gesture conflict is decisive**: the minimap lives *inside the swipe deck*, where a one-finger horizontal drag means advance/back. Enabling map pan would either steal that gesture or force suspending the deck swipe in map mode — losing the fast advance and pushing toward a navigation surface. Pinch-zoom sidesteps all of it and delivers the usability you wanted without the "artificially restricted" feel. **Full pan stays deferred** — revisit only if validated, and only with an explicit deck-swipe-suspension model. This keeps us firmly in *orientation*, not *exploration*.
+
 ### Location permission handling
 
 Reuse `useGeolocation(enabled)` — already running while Guide is open. The minimap reads `GeoState`: `granted` → show user dot + path; `denied`/`unsupported` → destination-only + enable hint; `prompt`/`idle` → destination-only until resolved. **No new permission prompts beyond Guide's existing one.** GPS itself works offline (no network needed); only tiles/reverse-geocoding need connectivity.
@@ -172,13 +214,13 @@ Reuse `useGeolocation(enabled)` — already running while Guide is open. The min
 A small state machine, owned by the Guide orchestrator (it already owns focus, the swipe deck, and the `phase` machine), ideally extracted to a hook `useStopMinimap(stopKey, phase, reduced)`:
 
 ```
-mode: 'photo' | 'map'                      // user-controlled toggle, resets to 'photo' on stopKey change
-intro: 'idle' | 'photo' | 'map' | 'route'  // the one-time teaching sequence
+mode: 'photo' | 'map'                                       // user toggle; resets to 'photo' on stopKey change
+intro: 'idle' | 'hero' | 'map' | 'reveal' | 'hold' | 'out'  // the once-per-session teaching morph
 ```
 
 - **Reset on `stopKey` change** (the deck advance) — every new stop starts in `photo`.
 - **Toggle** flips `mode` and cancels any running `intro`.
-- **Intro trigger:** on the first advance per trip *and* `phase === 'traveling'` *and* not reduced-motion *and* not yet taught → run the staged timers; persist "taught" to `profiles.settings.minimapTaught` (via `useAccountSettings`, cross-device) with a localStorage fallback.
+- **Intro trigger (once per *travel session*):** on the **first focused stop of a Guide session** *and* `phase === 'traveling'` *and* not reduced-motion *and* the stop has coords → if `now − lastGuideActiveAt > SESSION_GAP` (24 h) run the staged timers. `lastGuideActiveAt` lives in `profiles.settings` (via `useAccountSettings`, cross-device) with a `localStorage` fallback, and is refreshed on ordinary Guide use so the inactivity window rolls.
 - **Teardown:** clear all intro timers on unmount, stop change, phase change, or any user input.
 
 ### Integration with Guide's existing timed flows (critical)
@@ -212,6 +254,39 @@ The minimap is built so the offline phase slots in without UI changes:
 - **Claret signature:** the path polyline and the destination `MapPin` use `--sig`/`--sig-btn`; the user dot is a white/claret pulsing dot (reuse `vyPulse`).
 - **Frame:** rounded to the hero's radius, the existing top gradient + the chip/badge preserved on top, so photography's visual language carries into map mode.
 - Result should read like **Airbnb/Apple trip aesthetics**, not logistics/delivery software. Photography remains dominant — the map is a *mode*, not a permanent fixture.
+
+---
+
+## Success metrics
+
+The goal is **not** "Guide replaces Maps." It is **"Guide → quick orientation → continue walking"** — reducing unnecessary context-switching while preserving the Directions hand-off for real navigation.
+
+> ⚠️ **Instrumentation note:** Voyager has **no analytics today** (a known gap). The quantitative metrics below are what to instrument *when* analytics lands; for Phase 1, success is judged by the **qualitative indicators** + design intent. Don't block Phase 1 on analytics — but these are the right events to add when it arrives.
+
+**Desired user behaviour**
+- A traveler glances at the minimap to orient, then **continues in Voyager** (back to photo, keeps walking, completes the stop) instead of leaving for Maps just to check "which way."
+- When they genuinely need to *navigate*, they still tap **Directions** and hand off. Directions usage should **not** collapse to zero — that would mean people are mis-using the minimap as navigation.
+
+**Quantitative metrics (when instrumented)**
+- **Minimap engagement:** % of Guide sessions where the minimap is opened ≥ once (toggle or via the teach).
+- **Glance-not-navigate ratio:** minimap-open events vs Directions hand-offs — a *healthy split* (both used) is good; Directions near zero is a failure signal, not a win.
+- **Orient-then-continue:** % of minimap opens followed by a stop completion **without** an app-switch away from Voyager (proxy for "oriented and kept walking").
+- **Teach effectiveness:** % of users who use the toggle *after* seeing the teach morph.
+- **Cost guardrails:** no regression in stop-completion rate or time-in-Guide; no rise in error/crash rate from the map.
+
+**Qualitative indicators (Phase-1 judgement, no analytics needed)**
+- Photography still reads as the dominant visual; the map feels like a calm *mode*, not a fixture.
+- Testers say "I can quickly see where it is," **not** "it's a maps app" / "it's trying to navigate me."
+- No confusion getting back to the photo or advancing stops; the morph teaches without annoying.
+- Feels premium (Airbnb/Apple), not raw-Leaflet/logistics.
+
+**Failure modes to watch**
+- **Navigation creep** — users expect turn-by-turn and get lost → tighten guardrails; it must never *look* routable.
+- **Discovery failure** — nobody finds the toggle, the teach is too subtle → tune the session model / static hint.
+- **Annoyance** — the teach feels repetitive → the 24 h session gap should prevent this; revisit `SESSION_GAP` if reported.
+- **Gesture confusion** — map interaction fights the swipe deck → mitigated by zoom-only (pan deferred); watch reports.
+- **Perf/battery** — the live map stutters/drains on mid-range phones → enforce mount-only-in-map-mode + single instance.
+- **Premium drift** — the map looks like raw Google/Leaflet → the *Visual design* composition rules are the guard.
 
 ---
 
@@ -262,7 +337,7 @@ AI chat, live recommendations, real-time/enrichment-on-demand, sync operations, 
 | Risk | Mitigation |
 |---|---|
 | **Reversing the locked "no map" decision slides Guide toward a maps clone** | Re-drawn guardrails + the IS/IS-NOT table; orientation-only; Directions remains the sole navigation path; routing explicitly out. |
-| Auto-discovery choreography becomes tedious | Teach **once per trip**, then user-driven; fully cancellable; reduced-motion skips it. |
+| Auto-discovery choreography becomes tedious | Teach **once per travel session** (24 h gap), ~3.4 s; fully cancellable; reduced-motion skips it. |
 | Real routing dependency (paid/ops) | **Stylized direct path** only — no routing service. |
 | Premium feel hard on raster tiles | Composition (claret path/pin, hidden chrome, rounded frame) over the clean CARTO basemap; vector later. |
 | Map perf/battery on mobile | Mount only in map-mode for the focused stop; tear down after; one instance; GPS already running. |
@@ -278,7 +353,7 @@ AI chat, live recommendations, real-time/enrichment-on-demand, sync operations, 
 Hero gets a minimap **toggle**; map mode shows user + destination + **stylized path**, premium-styled, Directions still hands off. Online CARTO via the `TileSource`/`MinimapView` seam. Per-stop mode state; graceful degradation. **No auto-discovery yet.** Acceptance: toggle works, degrades cleanly (denied location / no coords), photography stays primary, a11y + reduced-motion, no perf regression, tests green, deploy + smoke.
 
 **Phase 2 — Auto-discovery teaching sequence**
-The 4-stage morph + route-draw on the first advance per trip; reduced-motion + interruption handling; integrates with the arrival/swipe precedence; "taught" persisted in `profiles.settings`. Acceptance: plays once, never fights arrival/swipe, fully cancellable, reduced-motion path.
+The ~3.4 s teaching morph (hero → minimap → route-draw → hero) **once per travel session** (24 h inactivity gap); reduced-motion + interruption handling; integrates with the arrival/swipe precedence; `lastGuideActiveAt` persisted in `profiles.settings`. Acceptance: plays once per session, never fights arrival/swipe, fully cancellable, reduced-motion path, ~3.4 s total.
 
 **Phase 3 — Offline-ready minimap (with the offline/SW workstream)**
 Migrate the `TileSource` to vector/PMTiles (or a bounded raster cache); minimap tiles become part of trip download. Gated on Initiative 2 + workstream #2 (SW/PWA).
@@ -287,13 +362,14 @@ Migrate the `TileSource` to vector/PMTiles (or a bounded raster cache); minimap 
 
 ---
 
-# Open decisions — need sign-off before implementation
+# Approved decisions (resolved 2026-06-22)
 
-1. **Revise the locked "no embedded map in Guide" decision** to the re-drawn *orientation-minimap* guardrail above. *(Recommended: yes — it preserves the lock's intent.)*
-2. **Map provider:** Leaflet + CARTO now, vector/PMTiles at the offline phase. *(Recommended.)*
-3. **Route display:** stylized direct path, no routing. *(Recommended.)*
-4. **Auto-discovery frequency:** teach once per trip. *(Recommended; alternatives noted.)*
-5. **Scope:** minimap in **Guide only** for Phase 1 (not Plan/StopDetail). *(Recommended.)*
+1. ✅ **Locked "no embedded map in Guide" decision revised** to the orientation-minimap guardrail (allowed/never lists above). Directions remains the only navigation action.
+2. ✅ **Map provider:** Leaflet + CARTO now (no new deps/keys); vector/PMTiles deferred to the offline phase, behind the `TileSource` seam.
+3. ✅ **Route display:** stylized direct path only — no routing.
+4. ✅ **Scope:** Guide only for Phase 1 (not Plan / StopDetail / Dashboard / other surfaces).
+5. ✅ **Auto-discovery:** once per **travel session** (24 h inactivity gap), ~3.4 s fast morph — not every stop, not per calendar day, not once-per-trip.
+6. ✅ **Interaction:** pinch-zoom + double-tap-zoom allowed; one-finger pan deferred (swipe-deck gesture conflict).
 
 # Out of scope (this initiative)
 
