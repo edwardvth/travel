@@ -62,6 +62,9 @@ export const StopMinimap = forwardRef<
   const mapRef = useRef<Leaflet.Map | null>(null)
   const leafletRef = useRef<typeof Leaflet | null>(null)
   const layerRef = useRef<Leaflet.LayerGroup | null>(null)
+  // Fit the view exactly once (on open); after that, respect the user's zoom/pan
+  // and never auto-re-fit on a GPS update (that was zooming the map back out).
+  const fittedRef = useRef(false)
   const [ready, setReady] = useState(0)
 
   useImperativeHandle(
@@ -161,7 +164,11 @@ export const StopMinimap = forwardRef<
         lineCap: 'round',
       }).addTo(layer)
     }
-    fitView()
+    // Frame the view only on the first draw; later GPS updates just move the dot.
+    if (!fittedRef.current) {
+      fitView()
+      fittedRef.current = true
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, destination.lat, destination.lng, user?.lat, user?.lng])
 
