@@ -817,6 +817,8 @@ export default function Guide() {
               stopNumber={stopIndex + 1}
               activeTab={activeTab}
               onTabChange={setActiveTab}
+              enableMinimap
+              userPos={geo.pos}
             />
           )}
         </motion.div>
