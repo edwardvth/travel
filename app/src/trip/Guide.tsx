@@ -240,7 +240,9 @@ export default function Guide() {
   // and fades out on a right-drag so it doesn't fight the back peek.
   const peekScale = useTransform(x, [-SWIPE.thresholdPx, 0], [1, SWIPE.peek.scale], { clamp: true })
   const peekLift = useTransform(x, [-SWIPE.thresholdPx, 0], [0, SWIPE.peek.y], { clamp: true })
-  const peekOpacity = useTransform(x, [-SWIPE.thresholdPx, 0, SWIPE.thresholdPx], [1, SWIPE.peek.opacity, 0], { clamp: true })
+  // Hidden at rest (opacity 0); fades in only as you drag left, and stays hidden
+  // on a right-drag (clamped).
+  const peekOpacity = useTransform(x, [-SWIPE.thresholdPx, 0], [1, 0], { clamp: true })
   // Back deck peek (previous card) descends from the top and exponentially fades
   // in as you drag right; hidden at rest and on a left-drag.
   const prevDrop = useTransform(x, [0, SWIPE.thresholdPx], [SWIPE.prevPeek.fromY, 0], { clamp: true })
