@@ -203,7 +203,9 @@ Leaflet config: `dragging: false`, `touchZoom: true`, `doubleClickZoom: true`, `
 | Gesture conflict | **None** — pinch is two-finger; the deck's one-finger horizontal **swipe-to-advance** is untouched | **Direct conflict** — a one-finger horizontal drag on the map *is* the deck's swipe-to-advance gesture |
 | Navigation drift | Low — zooming a fixed framing is still "orient at a glance" | Higher — free panning makes it an explorable map, edging toward a maps app |
 
-The **gesture conflict is decisive**: the minimap lives *inside the swipe deck*, where a one-finger horizontal drag means advance/back. Enabling map pan would either steal that gesture or force suspending the deck swipe in map mode — losing the fast advance and pushing toward a navigation surface. Pinch-zoom sidesteps all of it and delivers the usability you wanted without the "artificially restricted" feel. **Full pan stays deferred** — revisit only if validated, and only with an explicit deck-swipe-suspension model. This keeps us firmly in *orientation*, not *exploration*.
+The **gesture conflict is decisive**: the minimap lives *inside the swipe deck*, where a one-finger horizontal drag means advance/back. Pinch-zoom sidesteps the conflict (two fingers); one-finger pan does not.
+
+> **UPDATE (2026-06-22): pan is now ENABLED**, via the explicit deck-suspension model anticipated above. While any pointer is down on the minimap, Guide's swipe deck is disabled (`mapLock`); it re-enables when the last pointer lifts. The lock is **pointer-lifecycle driven (no timers)** — `StopMinimap` counts active pointers (so pinch's two fingers are handled) via **capture-phase** `pointerdown`/`pointerup`/`pointercancel` listeners (so Leaflet's internal `stopPropagation` can't hide them), calls `onInteracting(true|false)` → `CurrentStopCard` → Guide flips `drag` off/on. Cleanup releases the lock if the component unmounts mid-gesture, and the per-stop reset clears it defensively. A subtle inset ring on the hero signals "the map owns this gesture." So pan + pinch + double-tap all feel native, and **no map gesture can advance a stop** — the deck only responds to swipes outside the map (the card body) or after you toggle back to the photo. We're still firmly in *orientation*, not *exploration* (no routing, Directions still owns navigation).
 
 ### Location permission handling
 
@@ -369,7 +371,7 @@ Migrate the `TileSource` to vector/PMTiles (or a bounded raster cache); minimap 
 3. ✅ **Route display:** stylized direct path only — no routing.
 4. ✅ **Scope:** Guide only for Phase 1 (not Plan / StopDetail / Dashboard / other surfaces).
 5. ✅ **Auto-discovery:** once per **travel session** (24 h inactivity gap), ~3.4 s fast morph — not every stop, not per calendar day, not once-per-trip.
-6. ✅ **Interaction:** pinch-zoom + double-tap-zoom allowed; one-finger pan deferred (swipe-deck gesture conflict).
+6. ✅ **Interaction:** pinch-zoom + double-tap + **pan all enabled** (updated 2026-06-22). The swipe-deck conflict is resolved by a **gesture-ownership lock** — touching the minimap disables the deck swipe (pointer-lifecycle driven, no timers; releases on lift) — so map gestures feel native and never advance a stop.
 
 # Out of scope (this initiative)
 

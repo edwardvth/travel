@@ -47,8 +47,17 @@ export interface StopMinimapHandle {
 
 export const StopMinimap = forwardRef<
   StopMinimapHandle,
-  { destination: LatLng; user: LatLng | null; stopName: string; className?: string }
->(function StopMinimap({ destination, user, stopName, className }, ref) {
+  {
+    destination: LatLng
+    user: LatLng | null
+    stopName: string
+    className?: string
+    /** Fired `true` on the first pointer down on the map and `false` when the
+     *  last pointer lifts — lets the parent disable the swipe deck while the user
+     *  pans/pinches, so the two gesture systems never fight. */
+    onInteracting?: (active: boolean) => void
+  }
+>(function StopMinimap({ destination, user, stopName, className, onInteracting }, ref) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<Leaflet.Map | null>(null)
   const leafletRef = useRef<typeof Leaflet | null>(null)
@@ -77,7 +86,7 @@ export const StopMinimap = forwardRef<
         leafletRef.current = L
         if (mapRef.current) return
         const map = L.map(containerRef.current, {
-          dragging: false, // no pan — preserves the deck's swipe-to-advance
+          dragging: true, // pan enabled — the deck lock (onInteracting) prevents conflict
           touchZoom: true,
           doubleClickZoom: true,
           scrollWheelZoom: false,
@@ -173,6 +182,37 @@ export const StopMinimap = forwardRef<
     ro.observe(el)
     return () => ro.disconnect()
   }, [ready])
+
+  // Gesture ownership: while any pointer is down on the map, tell the parent to
+  // disable the Guide swipe deck so pan/pinch never trigger a stop change.
+  // Pointer-count based (pinch = two fingers) and lifecycle-driven (no timers);
+  // releases the lock if we unmount mid-interaction so the deck never sticks.
+  const onInteractingRef = useRef(onInteracting)
+  onInteractingRef.current = onInteracting
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    let pointers = 0
+    const down = () => {
+      pointers += 1
+      if (pointers === 1) onInteractingRef.current?.(true)
+    }
+    const up = () => {
+      if (pointers === 0) return
+      pointers -= 1
+      if (pointers === 0) onInteractingRef.current?.(false)
+    }
+    // Capture phase so we fire before Leaflet's own handlers can stopPropagation.
+    el.addEventListener('pointerdown', down, true)
+    window.addEventListener('pointerup', up, true)
+    window.addEventListener('pointercancel', up, true)
+    return () => {
+      el.removeEventListener('pointerdown', down, true)
+      window.removeEventListener('pointerup', up, true)
+      window.removeEventListener('pointercancel', up, true)
+      if (pointers > 0) onInteractingRef.current?.(false) // unmounted mid-gesture
+    }
+  }, [])
 
   return (
     <div className={'relative h-full w-full ' + (className ?? '')}>

@@ -191,6 +191,9 @@ export default function Guide() {
   // from the peek at release so the hand-off is seamless (set in launchGhost).
   const enterStartRef = useRef<{ scale: number; y: number; opacity: number } | null>(null)
   const [ghost, setGhost] = useState<GhostState | null>(null)
+  // Gesture ownership: true while the user is touching the focused stop's
+  // minimap, which disables the deck swipe so map pan/pinch never advance a stop.
+  const [mapLock, setMapLock] = useState(false)
 
   // ── Current stop = first not-completed in the active day ──────────────────
   const currentIndex = currentStopIndex(dayIndex, stopNames, data?.completed)
@@ -289,6 +292,7 @@ export default function Guide() {
     clearTimer()
     setPhase('traveling')
     setActiveTab('story')
+    setMapLock(false) // defensive: never carry a minimap gesture lock across stops
   }, [stopKey, clearTimer])
 
   // Geofence: on the first arrival flip, surface the soft banner + ~5s timer.
@@ -784,7 +788,7 @@ export default function Guide() {
         </motion.div>
       )}
       <motion.div
-        drag={canEdit && !ghost ? 'x' : false}
+        drag={canEdit && !ghost && !mapLock ? 'x' : false}
         dragDirectionLock
         dragMomentum={false}
         onDragEnd={onCardDragEnd}
@@ -819,6 +823,7 @@ export default function Guide() {
               onTabChange={setActiveTab}
               enableMinimap
               userPos={geo.pos}
+              onMinimapInteracting={setMapLock}
             />
           )}
         </motion.div>

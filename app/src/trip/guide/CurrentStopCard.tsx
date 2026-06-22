@@ -59,6 +59,7 @@ export function CurrentStopCard({
   onTabChange,
   enableMinimap = false,
   userPos = null,
+  onMinimapInteracting,
 }: {
   stop: Stop
   heroUrl?: string | null
@@ -84,6 +85,9 @@ export function CurrentStopCard({
   enableMinimap?: boolean
   /** Live user position (from Guide's geolocation) for the minimap; null if unknown. */
   userPos?: LatLng | null
+  /** Called while the user is touching the minimap (pan/pinch) so the parent can
+   *  lock the swipe deck. True on first pointer down, false when the last lifts. */
+  onMinimapInteracting?: (active: boolean) => void
 }) {
   const reduce = useReducedMotion() ?? false
   const [mode, setMode] = useState<'photo' | 'map'>('photo')
@@ -96,6 +100,13 @@ export function CurrentStopCard({
   const heroRef = useRef<HTMLDivElement>(null)
   const minimapRef = useRef<StopMinimapHandle>(null)
   const [heroW, setHeroW] = useState(0)
+  // True while the user is touching the minimap — drives both the deck lock
+  // (via onMinimapInteracting) and a subtle "map is active" ring.
+  const [interacting, setInteracting] = useState(false)
+  const handleInteracting = (active: boolean) => {
+    setInteracting(active)
+    onMinimapInteracting?.(active)
+  }
   useEffect(() => {
     const el = heroRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
@@ -122,10 +133,14 @@ export function CurrentStopCard({
 
   return (
     <div className="rounded-[18px] overflow-hidden bg-raised border border-hair shadow-[0_1px_2px_rgba(0,0,0,.4),0_26px_60px_-28px_rgba(0,0,0,.9)]">
-      {/* Hero — animates to a 1:1 square in map mode (keeps its width) */}
+      {/* Hero — animates to a 1:1 square in map mode (keeps its width). A subtle
+          inset ring (clipped hero → inset) signals the map owns the gesture. */}
       <motion.div
         ref={heroRef}
-        className="relative w-full overflow-hidden bg-raised"
+        className={
+          'relative w-full overflow-hidden bg-raised transition-shadow duration-200 ' +
+          (interacting && showingMap ? 'ring-2 ring-inset ring-white/45' : '')
+        }
         animate={{ height: heroHeight }}
         transition={{ duration: reduce ? 0 : 0.42, ease: [0.4, 0, 0.2, 1] }}
       >
@@ -150,7 +165,13 @@ export function CurrentStopCard({
             animate={{ opacity: 1 }}
             transition={{ duration: reduce ? 0 : 0.4, ease: [0.4, 0, 0.2, 1] }}
           >
-            <StopMinimap ref={minimapRef} destination={dest} user={userPos ?? null} stopName={stop.name} />
+            <StopMinimap
+              ref={minimapRef}
+              destination={dest}
+              user={userPos ?? null}
+              stopName={stop.name}
+              onInteracting={handleInteracting}
+            />
           </motion.div>
         )}
 
