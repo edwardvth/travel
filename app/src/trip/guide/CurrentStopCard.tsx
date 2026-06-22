@@ -3,8 +3,8 @@ import { motion, useReducedMotion } from 'framer-motion'
 import type { Stop } from '../../types'
 import { ListenButton } from './ListenButton'
 import { StoryTabs, type StoryTab } from './StoryTabs'
-import { Check, Map as MapIcon, Image as ImageIcon } from 'lucide-react'
-import { StopMinimap } from './StopMinimap'
+import { Check, Map as MapIcon, Image as ImageIcon, Plus, Minus } from 'lucide-react'
+import { StopMinimap, type StopMinimapHandle } from './StopMinimap'
 import { stopCoords, type LatLng } from '../walk'
 
 /** "480 m" / "1.2 km" from a distance in metres; null when unknown. */
@@ -94,6 +94,7 @@ export function CurrentStopCard({
   // Measure the hero width so map mode can expand the hero to a 1:1 square
   // (height = current width) — animated. Photo mode stays the 160px band.
   const heroRef = useRef<HTMLDivElement>(null)
+  const minimapRef = useRef<StopMinimapHandle>(null)
   const [heroW, setHeroW] = useState(0)
   useEffect(() => {
     const el = heroRef.current
@@ -130,7 +131,7 @@ export function CurrentStopCard({
       >
         {/* Photo layer (always mounted; fades under the map) */}
         <motion.div
-          className="absolute inset-0"
+          className="absolute inset-0 z-0"
           animate={{ opacity: showingMap ? 0 : 1 }}
           transition={{ duration: reduce ? 0 : 0.4, ease: [0.4, 0, 0.2, 1] }}
         >
@@ -144,30 +145,30 @@ export function CurrentStopCard({
         {/* Map layer — mounted only in map mode (Leaflet only lives while shown) */}
         {showingMap && dest && (
           <motion.div
-            className="absolute inset-0"
+            className="absolute inset-0 z-0"
             initial={{ opacity: reduce ? 1 : 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: reduce ? 0 : 0.4, ease: [0.4, 0, 0.2, 1] }}
           >
-            <StopMinimap destination={dest} user={userPos ?? null} stopName={stop.name} />
+            <StopMinimap ref={minimapRef} destination={dest} user={userPos ?? null} stopName={stop.name} />
           </motion.div>
         )}
 
-        {/* Gradient + badge + chip (unchanged, above both layers) */}
+        {/* Gradient + badge + chip (above both layers) */}
         <div
-          className="absolute inset-0 pointer-events-none"
+          className="absolute inset-0 z-0 pointer-events-none"
           aria-hidden="true"
           style={{ background: 'linear-gradient(180deg,rgba(0,0,0,.28) 0%,transparent 30%,transparent 40%,rgba(0,0,0,.55))' }}
         />
         {stopNumber != null && (
           <span
-            className="absolute left-[13px] top-[11px] grid place-items-center min-w-[26px] h-[26px] px-1.5 rounded-full bg-black/45 backdrop-blur-[4px] border border-white/25 font-mono text-[12px] font-semibold text-white"
+            className="absolute left-[13px] top-[11px] z-10 grid place-items-center min-w-[26px] h-[26px] px-1.5 rounded-full bg-black/45 backdrop-blur-[4px] border border-white/25 font-mono text-[12px] font-semibold text-white"
             aria-label={`Stop ${stopNumber}`}
           >
             {stopNumber}
           </span>
         )}
-        <div className="absolute left-[13px] bottom-[11px] inline-flex items-center gap-[7px] font-mono text-[10px] tracking-[0.07em] text-white bg-sig-btn/85 px-2.5 py-[5px] rounded-full backdrop-blur-[4px]">
+        <div className="absolute left-[13px] bottom-[11px] z-10 inline-flex items-center gap-[7px] font-mono text-[10px] tracking-[0.07em] text-white bg-sig-btn/85 px-2.5 py-[5px] rounded-full backdrop-blur-[4px]">
           <span
             className="w-[6px] h-[6px] rounded-full bg-white"
             style={completed ? undefined : { animation: 'vyPulse 1.4s ease-in-out infinite' }}
@@ -176,6 +177,29 @@ export function CurrentStopCard({
           {chipParts.join(' · ')}
         </div>
 
+        {/* Zoom +/- (map mode only) — bottom-right, stacked above the toggle */}
+        {showingMap && (
+          <div className="absolute right-[11px] bottom-[64px] z-10 flex flex-col rounded-full bg-black/45 backdrop-blur-[4px] border border-white/25 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => minimapRef.current?.zoomIn()}
+              aria-label="Zoom in"
+              className="grid place-items-center w-11 h-9 text-white cursor-pointer transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
+            >
+              <Plus size={16} aria-hidden="true" />
+            </button>
+            <span className="h-px bg-white/25" aria-hidden="true" />
+            <button
+              type="button"
+              onClick={() => minimapRef.current?.zoomOut()}
+              aria-label="Zoom out"
+              className="grid place-items-center w-11 h-9 text-white cursor-pointer transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white/70"
+            >
+              <Minus size={16} aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
         {/* Minimap toggle (Phase 1) — bottom-right, opposite the chip */}
         {hasMinimap && (
           <button
@@ -183,7 +207,7 @@ export function CurrentStopCard({
             onClick={() => setMode((m) => (m === 'photo' ? 'map' : 'photo'))}
             aria-pressed={mode === 'map'}
             aria-label={mode === 'map' ? 'Show photo' : 'Show minimap'}
-            className="absolute right-[11px] bottom-[11px] grid place-items-center w-11 h-11 rounded-full bg-black/45 backdrop-blur-[4px] border border-white/25 text-white cursor-pointer transition-colors hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            className="absolute right-[11px] bottom-[11px] z-10 grid place-items-center w-11 h-11 rounded-full bg-black/45 backdrop-blur-[4px] border border-white/25 text-white cursor-pointer transition-colors hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
           >
             {mode === 'map' ? <ImageIcon size={17} aria-hidden="true" /> : <MapIcon size={17} aria-hidden="true" />}
           </button>

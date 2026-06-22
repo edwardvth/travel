@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import type * as Leaflet from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { MapPin } from 'lucide-react'
 import { Skeleton } from '../../components/ui/Skeleton'
 import { stylizedPath } from './minimap-geom'
 import type { LatLng } from '../walk'
@@ -40,22 +39,30 @@ function userIcon(L: typeof Leaflet) {
  * deck keeps its one-finger horizontal gesture. Leaflet is dynamically imported
  * (its own chunk) and skipped under jsdom.
  */
-export function StopMinimap({
-  destination,
-  user,
-  stopName,
-  className,
-}: {
-  destination: LatLng
-  user: LatLng | null
-  stopName: string
-  className?: string
-}) {
+/** Imperative zoom handle so the card's control layer can drive the map. */
+export interface StopMinimapHandle {
+  zoomIn: () => void
+  zoomOut: () => void
+}
+
+export const StopMinimap = forwardRef<
+  StopMinimapHandle,
+  { destination: LatLng; user: LatLng | null; stopName: string; className?: string }
+>(function StopMinimap({ destination, user, stopName, className }, ref) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<Leaflet.Map | null>(null)
   const leafletRef = useRef<typeof Leaflet | null>(null)
   const layerRef = useRef<Leaflet.LayerGroup | null>(null)
   const [ready, setReady] = useState(0)
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      zoomIn: () => mapRef.current?.zoomIn(),
+      zoomOut: () => mapRef.current?.zoomOut(),
+    }),
+    [],
+  )
 
   // Create the map once (jsdom-safe, StrictMode-safe), like TripMapView.
   useEffect(() => {
@@ -167,8 +174,6 @@ export function StopMinimap({
     return () => ro.disconnect()
   }, [ready])
 
-  const recenter = () => fitView()
-
   return (
     <div className={'relative h-full w-full ' + (className ?? '')}>
       <div
@@ -187,18 +192,8 @@ export function StopMinimap({
           Enable location to see where you are
         </div>
       )}
-      {ready > 0 && (
-        <button
-          type="button"
-          onClick={recenter}
-          aria-label="Recenter minimap"
-          className="absolute right-[10px] top-[10px] grid place-items-center w-8 h-8 rounded-full bg-black/45 backdrop-blur-[4px] border border-white/25 text-white cursor-pointer hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-        >
-          <MapPin size={14} aria-hidden="true" />
-        </button>
-      )}
     </div>
   )
-}
+})
 
 export default StopMinimap
