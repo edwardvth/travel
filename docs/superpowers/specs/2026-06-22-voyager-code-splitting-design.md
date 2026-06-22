@@ -32,7 +32,9 @@ Decided during brainstorming — the "focused & safe" tier:
 
 1. **`app/src/App.tsx`** — convert these five from eager `import` to `React.lazy(() => import('...'))`:
    `PlannerLayout`, `Itinerary`, `Guide`, `Trip`, `StopDetail`.
-   `Landing`, `Auth`, `Dashboard`, `SplashIntro` **stay eager** (entry points + the global splash). Wrap the `<Routes>` element in a single `<Suspense fallback={<RouteFallback/>}>`. Only the lazy planner elements ever suspend it; eager routes never trigger a fallback.
+   `Landing`, `Auth`, `Dashboard`, `SplashIntro` **stay eager** — they are first-hit routes that need immediate paint and are comparatively small, so deferring them would hurt more than help (the classic "don't split everything" trap). Wrap the `<Routes>` element in a single `<Suspense fallback={<RouteFallback/>}>`. Only the lazy planner elements ever suspend it; eager routes never trigger a fallback.
+
+   The lazy `import()` calls are defined once as named thunks in a small shared module **`app/src/trip/lazyRoutes.ts`** (`export const importGuide = () => import('./Guide')`, etc.) so the same module specifier is reused for both `lazy()` (in `App.tsx`) and preload-on-intent (in the tab bar) — see below. Same specifier → same chunk.
 
 2. **`app/src/trip/PlannerLayout.tsx`** — wrap its `<Outlet/>` in a second `<Suspense fallback={<PlannerContentFallback/>}>`. Because each tab element (`Itinerary`/`Guide`/`Trip`/`StopDetail`) is now its own lazy chunk, switching tabs suspends only the Outlet — the shell (day rail, header, tab bar, lifted autosave/`SyncIndicator`) stays mounted and a content skeleton fills the body. This prevents a full-page blank on tab change.
 
@@ -62,6 +64,28 @@ All three are built from the existing `components/ui/Skeleton` primitive + CSS-v
 
 Keep them minimal and on-brand; reuse existing per-surface skeletons (e.g. Guide's `CardSkeleton`) only if it's a clean fit — otherwise a single tasteful generic skeleton per boundary is preferred over bespoke per-tab skeletons (YAGNI).
 
+### Preload on intent (make tab switches feel instant)
+
+A bare `lazy()` still flashes a skeleton on the *first* visit to a tab. Hide almost all of it by **preloading the chunk on intent**: when the user hovers / focuses / touches a tab before clicking, start the fetch early. The `PlannerLayout` tab bar wires the shared thunks from `lazyRoutes.ts` onto each tab control:
+
+```tsx
+onPointerEnter={importGuide} onFocus={importGuide} onTouchStart={importGuide}
+```
+
+Applies to **Guide, Trip, StopDetail, and Itinerary**. Calling an already-started import is a no-op (the module promise is cached), so this is cheap and idempotent. It is an **enhancement, not an acceptance gate** — correctness must not depend on the preload having finished (the `lazy()` + Suspense still covers the cold case).
+
+### Chunk error boundary (no white screen on a failed fetch)
+
+A dynamic `import()` can reject — a **stale chunk after a redeploy** (hashes changed, old URL gone), a network blip, a service-worker hiccup, or resuming the app after a long time offline. Bare `<Suspense>` does **not** catch that, so the app would white-screen. Wrap the Suspense boundaries in a `ChunkErrorBoundary`:
+
+```tsx
+<ChunkErrorBoundary>
+  <Suspense fallback={…}>…</Suspense>
+</ChunkErrorBoundary>
+```
+
+`ChunkErrorBoundary` is a small **class component** (`app/src/components/ChunkErrorBoundary.tsx`) — the one class in the codebase, because React error boundaries must be classes. On a caught error it renders a calm, branded recovery card: a lucide icon, "Couldn't load this section." and a **Retry** button — token-themed, light/dark, keyboard-focusable, `aria`-labelled. **Retry performs a full `window.location.reload()`**: that's the only reliable recovery for the most common cause (a stale chunk hash after a deploy — re-mounting alone can't fetch a URL that no longer exists; a reload pulls the fresh `index.html` + new hashes). Autosave persists to Supabase, so a reload loses no work. Wrap at least the top-level `<Routes>` Suspense; the planner `<Outlet/>` Suspense reuses the same boundary so a failed *tab* chunk recovers in place rather than taking down the shell.
+
 ## Testing
 
 - **Component/unit tests are unaffected.** They import components directly (e.g. `import Guide from './Guide'`), bypassing the `lazy()` wrappers that live only in `App.tsx` / `PlannerLayout` / `Itinerary`.
@@ -69,19 +93,43 @@ Keep them minimal and on-brand; reuse existing per-surface skeletons (e.g. Guide
   1. Any test that renders `<App/>` and navigates routes would now hit Suspense and must `await screen.findBy…` / `waitFor`. (Route reachability is currently smoke-tested via `curl` against the deployed Worker, not vitest, so there is likely no such test — verify.)
   2. `Itinerary` tests that touch the now-lazy `TripMapView`: assert on list content, or `await`/`waitFor` the map. (Leaflet doesn't fully render in jsdom anyway, so existing tests likely already avoid asserting on it.)
 - Fix any affected test by **awaiting the Suspense boundary, never by weakening the assertion**.
+- **New components get unit tests:** `ChunkErrorBoundary` — a throwing child renders the recovery card with a working, labelled **Retry** control (assert presence; the `window.location.reload` side-effect can be stubbed). The fallback skeletons are presentational; a light render test is enough.
 
 ## Acceptance criteria
 
 1. `npm run build` emits **separate chunks** for `PlannerLayout`, `Itinerary`, `Guide`, `Trip`, `StopDetail`, and `TripMapView`/Leaflet (visible in the build output).
-2. The **entry chunk shrinks materially** vs the current ~820 KB once the planner + Leaflet leave it. Record before/after sizes in the implementation notes (no hard byte target committed here, but the entry must no longer contain Guide/Itinerary/Trip/StopDetail/Leaflet).
-3. `npm test` → **516 passing**; `npx tsc -b` → clean; `npm run build` → succeeds.
-4. **Cloudflare smoke after deploy:** `/`, `/trips`, `/trip/stl` (Plan), `/trip/stl/guide`, `/trip/stl/trip` all return 200, render correctly, and the lazy `dist/assets/*.js` chunks fetch successfully (hashed chunk paths are real assets, so the Worker's SPA fallback to `index.html` does not intercept them — confirm in the network panel / via a direct chunk fetch).
-5. No visible layout shift or spinner-jank when a chunk loads; fallbacks honour light/dark + reduced-motion.
+2. The **entry chunk shrinks materially** vs the current ~820 KB once the planner + Leaflet leave it (no hard byte target, but the entry must no longer contain Guide/Itinerary/Trip/StopDetail/Leaflet). Record the before/after table in the implementation notes (template below).
+3. **Chunk independence (no barrel-file leakage):** confirm the planner chunks don't cross-contaminate — in particular that **`Guide` code is absent from the `StopDetail` / `Itinerary` / `Trip` chunks**. Route-level splitting is silently defeated when a shared barrel (`index.ts` re-export) or a transitive import drags a heavy module into a sibling chunk. Verify with a bundle visualizer (`npx vite-bundle-visualizer`) or by inspecting the emitted chunk contents; fix any leak by importing the specific module path instead of a barrel.
+4. `npm test` → **516 (+ the `ChunkErrorBoundary` test) passing**; `npx tsc -b` → clean; `npm run build` → succeeds.
+5. **Cloudflare smoke after deploy:** `/`, `/trips`, `/trip/stl` (Plan), `/trip/stl/guide`, `/trip/stl/trip` all return 200, render correctly, and the lazy `dist/assets/*.js` chunks fetch successfully (hashed chunk paths are real assets, so the Worker's SPA fallback to `index.html` does not intercept them — confirm in the network panel / via a direct chunk fetch).
+6. No visible layout shift or spinner-jank when a chunk loads; fallbacks honour light/dark + reduced-motion.
+
+## Implementation notes (record on completion)
+
+Fill in the before/after chunk sizes so future contributors have a baseline:
+
+```
+Before                          After
+Chunk          gzip             Chunk            gzip
+index          ~820 KB (raw)    index            ____
+                                PlannerLayout    ____
+                                Itinerary        ____
+                                Guide            ____
+                                Trip             ____
+                                StopDetail       ____
+                                TripMapView      ____  (Leaflet)
+```
+
+## Expected outcome (prediction, for context)
+
+Assuming the current ~820 KB entry contains the planner shell + Guide + Trip + StopDetail + Leaflet, we expect: **entry-chunk reduction on the order of 35–55%**; Landing/Dashboard TTI noticeably improved on mobile; the *first* trip-open slightly slower (a one-time chunk fetch, largely hidden by preload-on-intent); subsequent tab navigation effectively instant (browser-cached); and Leaflet no longer penalising non-map users. These are predictions to sanity-check the measured table against, not acceptance gates.
 
 ## Risks & mitigations
 
-- **Tab-switch flash:** mitigated by the inner Suspense keeping the shell mounted + a content skeleton; chunks are small so the fallback is brief.
-- **Worker not serving a hashed chunk (SPA fallback intercepting):** low risk — `worker.js` serves `app/dist` via the ASSETS binding and only falls back to `index.html` for non-asset paths; acceptance #4 explicitly verifies a chunk fetch.
+- **Tab-switch flash:** mitigated by the inner Suspense keeping the shell mounted + a content skeleton + preload-on-intent; chunks are small so the fallback is brief.
+- **Worker not serving a hashed chunk (SPA fallback intercepting):** low risk — `worker.js` serves `app/dist` via the ASSETS binding and only falls back to `index.html` for non-asset paths; acceptance #5 explicitly verifies a chunk fetch.
+- **Failed chunk fetch (stale deploy / offline):** caught by `ChunkErrorBoundary` → branded Retry (full reload), instead of a white screen.
+- **Barrel-file leakage defeating the split:** caught by acceptance #3 (bundle-visualizer check).
 - **A test renders `<App/>`:** handled by awaiting Suspense (see Testing).
 - **Reduced-motion:** no extra work — the global CSS rule already stills skeleton shimmer.
 
