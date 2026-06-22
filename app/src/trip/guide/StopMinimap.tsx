@@ -99,6 +99,29 @@ export function StopMinimap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Fit the view to user + destination, or center on the destination alone.
+  const fitView = () => {
+    const L = leafletRef.current
+    const map = mapRef.current
+    if (!L || !map) return
+    if (user) {
+      try {
+        const b = L.latLngBounds([
+          [user.lat, user.lng],
+          [destination.lat, destination.lng],
+        ])
+        if (b.isValid()) map.fitBounds(b, { padding: [38, 38], maxZoom: 16 })
+      } catch {
+        /* degenerate bounds — ignore */
+      }
+    } else {
+      map.setView([destination.lat, destination.lng], 15)
+    }
+  }
+  // Latest-closure ref so the resize observer always fits with current points.
+  const fitRef = useRef(fitView)
+  fitRef.current = fitView
+
   // Draw / redraw the pins + path when the map is ready or the points change.
   useEffect(() => {
     const L = leafletRef.current
@@ -121,37 +144,33 @@ export function StopMinimap({
         dashArray: '1 7',
         lineCap: 'round',
       }).addTo(layer)
-      try {
-        const b = L.latLngBounds([
-          [user.lat, user.lng],
-          [destination.lat, destination.lng],
-        ])
-        if (b.isValid()) map.fitBounds(b, { padding: [38, 38], maxZoom: 16 })
-      } catch {
-        /* degenerate bounds — ignore */
-      }
-    } else {
-      map.setView([destination.lat, destination.lng], 15)
     }
+    fitView()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, destination.lat, destination.lng, user?.lat, user?.lng])
 
-  const recenter = () => {
-    const L = leafletRef.current
+  // Keep Leaflet sized to its container: fixes a blank map when the container
+  // was mid-layout at init, and re-fits while the hero animates open to a square.
+  useEffect(() => {
     const map = mapRef.current
-    if (!L || !map) return
-    if (user) {
-      const b = L.latLngBounds([
-        [user.lat, user.lng],
-        [destination.lat, destination.lng],
-      ])
-      if (b.isValid()) map.fitBounds(b, { padding: [38, 38], maxZoom: 16 })
-    } else {
-      map.setView([destination.lat, destination.lng], 15)
-    }
-  }
+    const el = containerRef.current
+    if (!map || !el || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(() => {
+      try {
+        map.invalidateSize()
+        fitRef.current()
+      } catch {
+        /* invalidateSize can throw mid-teardown — ignore */
+      }
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [ready])
+
+  const recenter = () => fitView()
 
   return (
-    <div className={'relative ' + (className ?? '')}>
+    <div className={'relative h-full w-full ' + (className ?? '')}>
       <div
         ref={containerRef}
         className="absolute inset-0 bg-fill"

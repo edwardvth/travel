@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { Stop } from '../../types'
 import { ListenButton } from './ListenButton'
@@ -91,6 +91,20 @@ export function CurrentStopCard({
   const hasMinimap = enableMinimap && dest != null
   const showingMap = hasMinimap && mode === 'map'
 
+  // Measure the hero width so map mode can expand the hero to a 1:1 square
+  // (height = current width) — animated. Photo mode stays the 160px band.
+  const heroRef = useRef<HTMLDivElement>(null)
+  const [heroW, setHeroW] = useState(0)
+  useEffect(() => {
+    const el = heroRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    setHeroW(el.clientWidth)
+    const ro = new ResizeObserver((entries) => setHeroW(entries[0].contentRect.width))
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+  const heroHeight = showingMap && heroW ? heroW : 160
+
   const dist = formatDistance(distanceM)
   const eta = etaMin != null && Number.isFinite(etaMin) ? `${Math.round(etaMin)} MIN` : null
   const heading = headingLabel || null
@@ -107,8 +121,13 @@ export function CurrentStopCard({
 
   return (
     <div className="rounded-[18px] overflow-hidden bg-raised border border-hair shadow-[0_1px_2px_rgba(0,0,0,.4),0_26px_60px_-28px_rgba(0,0,0,.9)]">
-      {/* Hero */}
-      <div className="relative h-[160px] overflow-hidden bg-raised">
+      {/* Hero — animates to a 1:1 square in map mode (keeps its width) */}
+      <motion.div
+        ref={heroRef}
+        className="relative w-full overflow-hidden bg-raised"
+        animate={{ height: heroHeight }}
+        transition={{ duration: reduce ? 0 : 0.42, ease: [0.4, 0, 0.2, 1] }}
+      >
         {/* Photo layer (always mounted; fades under the map) */}
         <motion.div
           className="absolute inset-0"
@@ -130,7 +149,7 @@ export function CurrentStopCard({
             animate={{ opacity: 1 }}
             transition={{ duration: reduce ? 0 : 0.4, ease: [0.4, 0, 0.2, 1] }}
           >
-            <StopMinimap destination={dest} user={userPos ?? null} stopName={stop.name} className="absolute inset-0" />
+            <StopMinimap destination={dest} user={userPos ?? null} stopName={stop.name} />
           </motion.div>
         )}
 
@@ -174,7 +193,7 @@ export function CurrentStopCard({
             {showingMap ? 'Minimap shown' : 'Photo shown'}
           </span>
         )}
-      </div>
+      </motion.div>
 
       {/* Body */}
       <div className="px-[17px] pt-4 pb-[15px]">
