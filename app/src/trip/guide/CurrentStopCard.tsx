@@ -1,7 +1,11 @@
+import { useState } from 'react'
+import { motion, useReducedMotion } from 'framer-motion'
 import type { Stop } from '../../types'
 import { ListenButton } from './ListenButton'
 import { StoryTabs, type StoryTab } from './StoryTabs'
-import { Check } from 'lucide-react'
+import { Check, Map as MapIcon, Image as ImageIcon } from 'lucide-react'
+import { StopMinimap } from './StopMinimap'
+import { stopCoords, type LatLng } from '../walk'
 
 /** "480 m" / "1.2 km" from a distance in metres; null when unknown. */
 function formatDistance(m: number | null | undefined): string | null {
@@ -53,6 +57,8 @@ export function CurrentStopCard({
   stopNumber,
   activeTab,
   onTabChange,
+  enableMinimap = false,
+  userPos = null,
 }: {
   stop: Stop
   heroUrl?: string | null
@@ -73,7 +79,18 @@ export function CurrentStopCard({
   canComplete?: boolean
   activeTab: StoryTab
   onTabChange: (tab: StoryTab) => void
+  /** Phase-1 minimap: when true (the focused live card only), show the
+   *  orientation-minimap toggle in the hero. Off for deck peeks / the throw ghost. */
+  enableMinimap?: boolean
+  /** Live user position (from Guide's geolocation) for the minimap; null if unknown. */
+  userPos?: LatLng | null
 }) {
+  const reduce = useReducedMotion() ?? false
+  const [mode, setMode] = useState<'photo' | 'map'>('photo')
+  const dest = stopCoords(stop)
+  const hasMinimap = enableMinimap && dest != null
+  const showingMap = hasMinimap && mode === 'map'
+
   const dist = formatDistance(distanceM)
   const eta = etaMin != null && Number.isFinite(etaMin) ? `${Math.round(etaMin)} MIN` : null
   const heading = headingLabel || null
@@ -92,13 +109,34 @@ export function CurrentStopCard({
     <div className="rounded-[18px] overflow-hidden bg-raised border border-hair shadow-[0_1px_2px_rgba(0,0,0,.4),0_26px_60px_-28px_rgba(0,0,0,.9)]">
       {/* Hero */}
       <div className="relative h-[160px] overflow-hidden bg-raised">
-        {heroUrl ? (
-          <img src={heroUrl} alt={stop.name} className="absolute inset-0 w-full h-full object-cover" />
-        ) : (
-          <HeroPlaceholder />
-        )}
-        <div
+        {/* Photo layer (always mounted; fades under the map) */}
+        <motion.div
           className="absolute inset-0"
+          animate={{ opacity: showingMap ? 0 : 1 }}
+          transition={{ duration: reduce ? 0 : 0.4, ease: [0.4, 0, 0.2, 1] }}
+        >
+          {heroUrl ? (
+            <img src={heroUrl} alt={stop.name} className="absolute inset-0 w-full h-full object-cover" />
+          ) : (
+            <HeroPlaceholder />
+          )}
+        </motion.div>
+
+        {/* Map layer — mounted only in map mode (Leaflet only lives while shown) */}
+        {showingMap && dest && (
+          <motion.div
+            className="absolute inset-0"
+            initial={{ opacity: reduce ? 1 : 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: reduce ? 0 : 0.4, ease: [0.4, 0, 0.2, 1] }}
+          >
+            <StopMinimap destination={dest} user={userPos ?? null} stopName={stop.name} className="absolute inset-0" />
+          </motion.div>
+        )}
+
+        {/* Gradient + badge + chip (unchanged, above both layers) */}
+        <div
+          className="absolute inset-0 pointer-events-none"
           aria-hidden="true"
           style={{ background: 'linear-gradient(180deg,rgba(0,0,0,.28) 0%,transparent 30%,transparent 40%,rgba(0,0,0,.55))' }}
         />
@@ -118,6 +156,24 @@ export function CurrentStopCard({
           />
           {chipParts.join(' · ')}
         </div>
+
+        {/* Minimap toggle (Phase 1) — bottom-right, opposite the chip */}
+        {hasMinimap && (
+          <button
+            type="button"
+            onClick={() => setMode((m) => (m === 'photo' ? 'map' : 'photo'))}
+            aria-pressed={mode === 'map'}
+            aria-label={mode === 'map' ? 'Show photo' : 'Show minimap'}
+            className="absolute right-[11px] bottom-[11px] grid place-items-center w-11 h-11 rounded-full bg-black/45 backdrop-blur-[4px] border border-white/25 text-white cursor-pointer transition-colors hover:bg-black/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          >
+            {mode === 'map' ? <ImageIcon size={17} aria-hidden="true" /> : <MapIcon size={17} aria-hidden="true" />}
+          </button>
+        )}
+        {hasMinimap && (
+          <span className="sr-only" aria-live="polite">
+            {showingMap ? 'Minimap shown' : 'Photo shown'}
+          </span>
+        )}
       </div>
 
       {/* Body */}
