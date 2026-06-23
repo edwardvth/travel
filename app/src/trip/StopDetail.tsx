@@ -8,6 +8,7 @@ import { Calendar, CheckCircle2, Lightbulb, MapPin, kindIcon, kindLabel, stopKin
 import { remapCompletedAfterDelete, toggleCompleted } from './itinerary-helpers'
 import { reservationStatus, setReservation, type Reservation } from './reservation'
 import { applyLocation, type PlaceLocation } from './location'
+import { useGeocodeBackfill } from '../data/useGeocodeBackfill'
 import { coverPhoto } from './photo'
 import { formatInline } from './richtext'
 import { StopPhotos } from './StopPhotos'
@@ -27,6 +28,7 @@ export default function StopDetail() {
   const { trip, canEdit, save } = useOutletContext<PlannerOutletContext>()
   const navigate = useNavigate()
   const { day: dayParam, n: nParam } = useParams<{ day: string; n: string }>()
+  const { backfillCoords } = useGeocodeBackfill(trip.id, save)
 
   const day = Number(dayParam)
   const n = Number(nParam)
@@ -116,6 +118,11 @@ export default function StopDetail() {
     if (!current) return
     data.days[day].stops[n] = applyLocation(current, place)
     save({ data })
+    // Fire-and-forget: resolve coordinates for a coordless re-pick so the
+    // relocated stop still earns a pin. Guarded against a further relocate race.
+    if (place.lat == null) {
+      backfillCoords(day, place.name, place.address, destinationOf(trip))
+    }
   }
 
   const photos = stop.photos ?? []
