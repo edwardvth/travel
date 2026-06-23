@@ -1,0 +1,96 @@
+# Voyager — Suggest Day Parity Restoration (design)
+
+> **Status:** Design for review. · **Date:** 2026-06-23 · **Branch:** `main`
+> Read `CLAUDE.md` (principles, stack, conventions), `handoff.md` (current state), and the parent initiative spec `docs/superpowers/specs/2026-06-22-voyager-plan-parity-design.md` first.
+> This is a **planning document**. No implementation until approved. After approval it gets a step-by-step plan (`docs/superpowers/plans/2026-06-23-voyager-suggest-day-parity.md`) built via subagent-driven-development.
+
+---
+
+## North star
+
+> ### "Suggest a day" should generate a **complete, realistic travel day** — a scheduled, meal-anchored morning→evening arc — not a short list of attractions.
+
+A spun-off, focused workstream within the **Plan-tab parity** initiative. The owner flagged that Voyager's "Suggest a day" feels thin (~4 stops) versus the old travel-guide.ai, which consistently produced full days. This restores that density while keeping Voyager's **single-prompt architecture** and design language — the smallest set of changes that gets there.
+
+## What the investigation found (evidence)
+
+Verbatim comparison of `Trip.html` (legacy = travel-guide.ai) vs `app/src/trip/suggest.ts`:
+
+- **Legacy density was multi-feature, and its day-builder prompts were far richer.** The primary day-builder was **"Fill empty slots with AI"** (`doFillItinerary`, ~`Trip.html:11379`) running on an **8000-token** budget with: a **9am–midnight time window**, explicit **meal anchors** (*"breakfast ~9-10am, lunch ~12-2pm, dinner ~6-8pm"*, `~L11392`), **geographic clustering**, and rich per-stop output (`time`, `duration`, `type_label`, `history`, `todo`). A **multi-day optimizer** (`~L11920`) re-balanced meals/museums (*"breakfast 9-10:30 AM, lunch 12-2 PM, dinner 7-9:30 PM"*, `~L11971`). Place search returned **6** results (`~L10258`), each carrying `duration`, `tips`, `hours`, `priceLevel`, `goodFor`. Durations came from a **rule-based lookup table** (coffee 45 / lunch 75 / dinner 90 / museum 90 / park 60 / walk 30 min, `~L4580`) with an AI fallback. Traveler context was injected into **every** prompt (`travelerCtxLine()`, `~L2357`).
+- **Voyager's `suggestDay` collapsed all of that** into one thin call: *"Plan a single, coherent day of **4** real, notable stops … a sensible mix"* (`suggest.ts:48–57`), **no `time`, no `duration`, no meal anchors, no traveler context, maxTokens 1500**.
+
+| Lever | Legacy | Voyager today |
+|---|---|---|
+| Stops per day | filled to the time window (~6–8) | **4** |
+| Meal anchors | ✅ explicit times in prompt | ❌ "lunch spot" hint |
+| `time` per stop | ✅ AI-assigned | ❌ |
+| `duration` per stop | ✅ AI + rule-based lookup | ❌ |
+| Morning→evening window | ✅ 9am–midnight enforced | ❌ textual hint |
+| Traveler context | ✅ every prompt | ❌ |
+| Token budget | up to 8000 | 1500 |
+
+The gap is not subtle: **Voyager asks for a short list; legacy assembled a scheduled, meal-anchored, duration-aware full day.**
+
+---
+
+## Scope — the smallest changes that restore full days
+
+Keep ONE prompt (Voyager architecture). No gap-fill engine, no multi-day optimizer rebuild.
+
+### 1. Rewrite `buildSuggestDayPrompt` into a *complete-day* prompt
+A day-planner persona that returns a **complete, realistic day**:
+- **Density target: typically 6–10 stops, ~8–12 hours — adaptive.** The prompt asks for a full day *appropriate to the destination and the traveler's pace* (a packed capital differs from a slow coastal town); 6–10 is the guide, not a hard quota.
+- **Morning→evening skeleton with explicit meal anchors:** coffee/breakfast (~8–9:30) · a morning highlight · **lunch (~12–1:30)** · one or two afternoon stops · an optional break/coffee · **dinner (~7–8:30)** · an optional evening pick.
+- **Geographically coherent** so the day flows (cluster nearby; minimise backtracking).
+- **Notable-not-touristy bias** — real, characterful places (insider as well as marquee), the way legacy read.
+- **Assign `time` and `duration` per stop** (realistic, e.g. coffee 45m, museum 90m, dinner 90m) so the day arrives **scheduled**.
+- Keep the existing JSON-array contract + robust parser; keep the "real places, accurate coords or omit" guard.
+
+### 2. Capture `time` + `duration` from the model
+Extend the parser (`toStop` in `suggest.ts`) to read `time` (string, e.g. `"10:00 AM"` → `Stop.time`) and `duration` (e.g. `"90 min"` → `Stop.duration` minutes via a new `normalizeDuration`). Both already exist on `Stop` — **additive, no migration**. Stops now arrive scheduled, which also makes **Tier 3's day-utilization summary** meaningful immediately.
+
+### 3. Shared `defaultDuration` helper (one helper, three consumers)
+A pure `app/src/trip/duration.ts` → `defaultDurationMinutes(stop)` mirroring legacy's lookup (coffee/breakfast 45 · lunch/brunch 75 · dinner/restaurant 90 · museum/gallery 90 · theatre 150 · park 60 · walk 30 · default 60), keyed off `kind`/`type`/name. Fills any stop the model leaves without a duration. **Reused by Tier 2c (duration suggestions) and Tier 3d (day-utilization).**
+
+### 4. Token budget
+`suggestDay` **maxTokens 1500 → 4000** (a 6–10-stop day with time/duration/note fits comfortably; no truncation risk — you pay only for tokens generated).
+
+### 5. Traveler-context hook (thin; full feature is Tier 2d)
+The prompt builders accept an optional `travelerContext?: string` (added to `SuggestContext`) and fold it in when present. The caller reads it opportunistically from `trip.config` (via the existing `[k:string]:unknown` index signature, guarded as a string) — **no `TripConfig` change here**. Until Tier 2d ships the field + the UI to set it, this is simply inert. Legacy injected traveler context into every prompt; this leaves the hook so days tailor the moment Tier 2d lands.
+
+### 6. (Tiny) `suggestPlaces` 5 → 6 results
+Match legacy's 6-result search. Trivial; same parser.
+
+---
+
+## Out of scope (related legacy features — *not* needed for full "Suggest a day")
+
+Called out so we don't imply parity we didn't build:
+- **Gap-fill an existing day** (legacy `doFillItinerary`) — filling time holes around *existing* stops is a separate feature; a possible future addition.
+- **Multi-day optimize** (legacy cross-day rebalancing) — already the **Tier 2 stretch**.
+- **Magic landmark tour** — out (Guide-adjacent discovery).
+- **Per-stop `hours` / `priceLevel` / `goodFor` from suggestions** — that enrichment depth lives in **Tier 3b**; this workstream sets only `time` + `duration`.
+
+## Data model & back-compat
+
+No new fields. `Stop.time` (string) and `Stop.duration` (number, minutes) already exist; we now populate them from suggestions. Reads stay back-compat (older suggested stops simply lack `time`/`duration`). The `defaultDuration` helper covers any stop missing a duration so downstream consumers always have a number.
+
+## Relationship to the tiers
+
+- **Generation vs. ordering stay separate:** `suggestDay` *generates* a scheduled day; **Tier 2's deterministic "Optimize this day"** later *re-sequences* it. No overlap, no conflict.
+- **`defaultDuration` is the shared dependency** that makes Tier 2c and Tier 3d concrete.
+- **Traveler context**: the typed `TripConfig.travelerContext` field + the UI to set it remain **Tier 2d**; this spec only consumes it if present.
+
+## Where it slots
+
+Run **before Tier 3** — AI is live now (Phase 0 resolved 2026-06-23), this is the highest-visible parity gap the owner flagged, and it's a contained change to `suggest.ts` + one shared helper. Revised order: Phase 0 ✅ → Tier 1 ✅ → **Suggest Day Parity** → Tier 3 → Tier 2.
+
+## Testing
+
+- **Pure, unit-tested (vitest):** `normalizeDuration` ("90 min"/"1h 30m"/"45m"/bare number/garbage → minutes|undefined); `toStop` now capturing `time`+`duration`; `defaultDurationMinutes` per kind/type; `parseSuggestions` still robust. Prompt-builder assertions: `buildSuggestDayPrompt` contains the density target, meal-anchor language, the `time`/`duration` fields, and folds `travelerContext` when supplied.
+- Suite stays green (`cd app && npm test`); `tsc -b` clean; `npm run build`; deploy.
+- **Manual smoke:** "Suggest a day for me" on an empty day → a full, scheduled, meal-anchored day (~6–10 stops) with times + durations and coherent geography.
+
+## Open decision (resolved)
+
+- **Density target:** **6–10 stops / ~8–12h, adaptive** (owner-approved default). Not a hard quota — the prompt adapts to destination and pace.
