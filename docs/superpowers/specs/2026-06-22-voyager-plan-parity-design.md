@@ -72,7 +72,19 @@ Standing theory (`handoff.md` → "Backend / AI status"): the **`ai-proxy` slug 
    - confirm `profiles.role` / `credits`
    - smoke-test: a Suggest Places call returns results, not `403`/`429`.
 
-The client (`ai.ts:callAI`) is already correct — **no app code changes in Phase 0.** Exit criterion: a live AI call from Voyager returns content.
+## Smoke test matrix (exit gate)
+
+Don't declare "AI works" after testing one endpoint — run the matrix so a half-working gate is caught:
+
+| Check | Expected |
+|---|---|
+| Suggest Places | Returns places |
+| Suggest Day | Returns an itinerary |
+| Enrich Stop | Returns story / facts |
+| Non-founder, zero credits | `403` (gate holds) |
+| Founder account | Unlimited (no `403`/`429`) |
+
+The client (`ai.ts:callAI`) is already correct — **no app code changes in Phase 0.** Exit criterion: the **full matrix** passes (not just one endpoint).
 
 ---
 
@@ -107,8 +119,9 @@ Per the locked principle (*the map orients, never navigates*), remove the surfac
 When a place is added or relocated and **no finite coordinates are present** (typed-by-name, or the model omitted lat/lng), resolve coordinates from a free geocoder so the stop still earns a map pin and walk-time connectors.
 
 - **Shared platform helper `lib/geocode.ts`** (NOT `trip/geocode.ts`) — location resolution is a **platform utility, not a Plan utility**. The same data-model-many-lenses principle applies to location: Plan, Guide, destination search, the parked photo→landmark feature, and the future shared-location cache will all want it. `geocodePlace(query, near?) → { lat, lng, address? } | null`. Uses a free, key-less forward geocoder (**Photon** — already used by the new-trip destination autocomplete, `components/DestinationInput.tsx` — for consistency; Nominatim as the documented alternative). Biases the query with the trip destination (`destinationOf(trip)`) for disambiguation. Pure network boundary; never throws (returns `null` on miss/error). Unit-tested with mocked fetch.
-- **Coordinate provenance (additive):** when coordinates are set, stamp `stop.coordinateSource?: 'ai' | 'geocoder' | 'user'` — `'ai'` for model-supplied coords, `'geocoder'` for a Photon fill, `'user'` for an explicit relocate. Optional, no migration. This is invaluable for tracing "this stop is pinned in the wrong city" later — you can immediately tell whether the AI, Photon, or a user move produced the pin. Set it in `location.ts:placeFromSuggestion`/`applyLocation` (the single mapping site) so it's stamped in exactly one place.
-- **Wiring:** `location.ts:placeFromSuggestion` and `applyLocation` stay the single source of the "suggestion → location" mapping. `AddStop.addStop` / `addTyped` and `ChangeLocation.pickTyped` call `geocodePlace` **only when coords are absent**, then merge the resolved coords (+ `coordinateSource: 'geocoder'`) before saving. AI-provided coords are always preferred (no extra call). Geocoding is **fire-and-forget-friendly**: if it resolves after the stop is saved, patch the stop immutably (same pattern as the existing landmark-photo backfill in `AddStop`).
+- **Coordinate provenance (additive) — origin vs. edit-history kept separate:** stamp `stop.coordinateSource?: 'ai' | 'geocoder'` to record *where the numbers originated* (model-supplied vs. a Photon fill), and — **distinctly** — `stop.locationEditedAt?: string` (ISO timestamp) when a user manually relocates. These answer two different questions: *"where did these coordinates come from?"* vs. *"has a human touched this stop?"*. Conflating them into a `'user'` source loses the origin the instant a user nudges a stop, and breaks entirely after an AI→move→move→geocoder sequence. Both optional, no migration; stamped at the single mapping site (`location.ts:placeFromSuggestion`/`applyLocation`) so each is set in exactly one place. Invaluable for tracing "this stop is pinned in the wrong city."
+- **Wiring:** `location.ts:placeFromSuggestion` and `applyLocation` stay the single source of the "suggestion → location" mapping. `AddStop.addStop` / `addTyped` and `ChangeLocation.pickTyped` call `geocodePlace` **only when coords are absent**, then merge the resolved coords (+ `coordinateSource: 'geocoder'`) before saving. AI-provided coords are always preferred (no extra call). Geocoding is **fire-and-forget-friendly** — it may resolve after the stop is saved, then patch immutably (same pattern as the existing landmark-photo backfill in `AddStop`).
+- **Stale-write guard (last-write-wins, explicit):** an async geocoder result may patch a stop **only if** the stop *still lacks coordinates* **and** *still matches the unresolved location query that initiated the lookup* (same name/address). If the user relocated the stop — or it otherwise gained coords — while the lookup was in flight, the result is **discarded**. This kills the race: create → geocoder starts → user relocates → geocoder returns → stale result clobbers the user's choice.
 - **No coords + geocoder miss** stays graceful exactly as today (the "No map pin for this one yet" copy in `ChangeLocation`, no connector in `StopList`).
 
 **Walk times stay haversine.** Per the approved decision, we do **not** add OSRM. The existing `walk.ts` (calibrated, tested, offline-friendly) remains the engine for connector times; the map draws clean straight lines. This fits "not Google Maps", serves the future offline/PWA goal, and adds no rate-limited dependency.
@@ -174,7 +187,9 @@ Because `enrich.ts` is **shared** by Plan and Guide, this fix lands in both surf
 
 ## 3b. Richer enrichment fields (gap D)
 
-Add to the enrichment shape (additive, all optional): **opening hours**, **price level** (`$`–`$$$$`), and a **"good for"** tag (e.g. "Romantic dinner", "Architecture lovers"). Generated by the same single prompt (extends the JSON schema), parsed by `parseStopDetail`, rendered as compact metadata chips on `StopDetail` (and available to Guide). Subject to the same "shorten/skip when unsure, never fabricate" rule — these may legitimately be empty.
+Add to the enrichment shape (additive, all optional): **opening hours** (`hours?: string`), **price level**, and a **"good for"** tag (`goodFor?: string`, e.g. "Romantic dinner", "Architecture lovers"). Generated by the same single prompt (extends the JSON schema), rendered as compact metadata chips on `StopDetail` (and available to Guide). Subject to the same "shorten/skip when unsure, never fabricate" rule — these may legitimately be empty.
+
+**Price is a normalized enum, not a free string:** `price?: '$' | '$$' | '$$$' | '$$$$'`. The prompt asks for one of those tokens, and `parseStopDetail` **normalizes on the way in** — mapping common variants ("cheap"/"budget" → `$`, "moderate" → `$$`, "expensive"/"luxury" → `$$$$`, stray words → dropped) to the canonical symbols so the chip renders consistently forever. Anything unmappable becomes empty rather than arbitrary text. (Avoids the `"$"` / `"Cheap"` / `"Luxury"` mess that makes consistent rendering impossible later.)
 
 ## 3c. Per-stop hourly weather
 
@@ -206,7 +221,7 @@ The invariants section exists so these are explicitly tested rather than discove
 
 ## Data model (all additive JSONB — no migration)
 
-- `Stop` gains (all optional): `duration?` (2c — already in the type), `hours?: string`, `price?: string`, `goodFor?: string` (3b), `coordinateSource?: 'ai' | 'geocoder' | 'user'` (1c provenance), `bookingRecommendation?: { confidence: 'high' | 'medium' | 'low'; reason: string }` (2b). `notice?` is **deprecated** (still read for back-compat; no longer written).
+- `Stop` gains (all optional): `duration?` (2c — already in the type), `hours?: string`, `price?: '$' | '$$' | '$$$' | '$$$$'` (normalized enum — see 3b), `goodFor?: string` (3b), `coordinateSource?: 'ai' | 'geocoder'` (**origin only** — 1c), `locationEditedAt?: string` (ISO timestamp of a manual relocate — **edit history, distinct from origin** — 1c), `bookingRecommendation?: { confidence: 'high' | 'medium' | 'low'; reason: string }` (2b). `notice?` is **deprecated** (still read for back-compat; no longer written).
 - `TripConfig` gains: `travelerContext?: string`, and — reserved, not surfaced yet — `travelerProfile?: { groupSize?: number; pace?: string; accessibility?: string }` (2d).
 - `Day.title?` / `Day.note?` are already in the shape; day management just makes them editable.
 - Back-compat reads preserved everywhere (`stop.booking`, string `hotel`, missing `config`, legacy `notice`).
@@ -217,7 +232,7 @@ lucide icons only (no emoji); token classes (`bg-base`, `text-muted`, `border-ha
 
 ## Testing
 
-- **Pure logic unit-tested (vitest):** `lib/geocode.ts` (mocked fetch, miss/error → null) + coordinate-provenance stamping; enrichment prompt/parse changes incl. facts/notice back-compat (`enrich.test.ts`); the **deterministic** optimizer (ordering + locked-anchor respect, independent of AI); what-to-book selection + confidence shape; day-utilization sum; **day-level remappers + the four Day-Reorder Invariants** (completed keys, reservation-travels-with-stop, selected-day stability, position-independent weather key).
+- **Pure logic unit-tested (vitest):** `lib/geocode.ts` (mocked fetch, miss/error → null), coordinate-provenance stamping (origin vs. `locationEditedAt`), and the **stale-write guard** (an in-flight geocoder result is discarded after a relocate); enrichment prompt/parse changes incl. facts/notice back-compat **and price normalization** (`enrich.test.ts`); the **deterministic** optimizer (ordering + locked-anchor respect, independent of AI); what-to-book selection + confidence shape; day-utilization sum; **day-level remappers + the four Day-Reorder Invariants** (completed keys, reservation-travels-with-stop, selected-day stability, position-independent weather key).
 - **Render checks:** Plan `StopDetail` and Guide `StoryTabs` read the same `facts[]`; navigation affordances removed from `StopDetail`.
 - The full suite (~526 today, growing with new tests) must stay green; `npx tsc -b` clean; `npm run build` succeeds before each deploy.
 
