@@ -31,6 +31,8 @@ Verbatim comparison of `Trip.html` (legacy = travel-guide.ai) vs `app/src/trip/s
 
 The gap is not subtle: **Voyager asks for a short list; legacy assembled a scheduled, meal-anchored, duration-aware full day.**
 
+**The decisive lever was the time window, not the meal anchors.** Legacy never targeted a stop count — it filled gaps across a **~9am–midnight** window (`~L11127`) / **10am–10:30pm** in the optimizer (`~L11961`), filling every gap ≥45 min (`~L11155–11164`), with **no count cap**. Stops were a *consequence* of filling the day by duration. Derived from that model (3 meals ≈ 3.5h + attractions ~90 min + transit), dense capitals (Paris/Tokyo/Rome) land ~**8–11+** stops, slower places (e.g. Yerevan) ~**6–8**. So the right objective is **day-completeness, not a stop quota.**
+
 ---
 
 ## Scope — the smallest changes that restore full days
@@ -39,15 +41,21 @@ Keep ONE prompt (Voyager architecture). No gap-fill engine, no multi-day optimiz
 
 ### 1. Rewrite `buildSuggestDayPrompt` into a *complete-day* prompt
 A day-planner persona that returns a **complete, realistic day**:
-- **Density target: typically 6–10 stops, ~8–12 hours — adaptive.** The prompt asks for a full day *appropriate to the destination and the traveler's pace* (a packed capital differs from a slow coastal town); 6–10 is the guide, not a hard quota.
+- **Completeness over count — fill the day window; durations govern.** The objective is a *realistically full travel day*, not a stop quota. Schedule from the morning (~8–9am) through the evening (dinner and usually an evening pick, ~9–10pm+), and use each stop's `duration` plus realistic transit to judge when the day is genuinely full — **keep adding worthwhile stops until it is, and do not stop at an arbitrary number.** Stop count is a **consequence, not the goal**: a dense capital (Paris, Tokyo, Rome) naturally fills with more, a slower place (a small town, Yerevan) with fewer. In practice this usually lands around **6–11 stops**, but that's an observed range to sanity-check against, never a target the model should satisfy and stop at. (Mirrors legacy exactly — it filled a ~9am–midnight / 10am–10:30pm window by duration, no count cap.)
 - **Morning→evening skeleton with explicit meal anchors:** coffee/breakfast (~8–9:30) · a morning highlight · **lunch (~12–1:30)** · one or two afternoon stops · an optional break/coffee · **dinner (~7–8:30)** · an optional evening pick.
 - **Geographically coherent** so the day flows (cluster nearby; minimise backtracking).
 - **Notable-not-touristy bias** — real, characterful places (insider as well as marquee), the way legacy read.
 - **Assign `time` and `duration` per stop** (realistic, e.g. coffee 45m, museum 90m, dinner 90m) so the day arrives **scheduled**.
 - Keep the existing JSON-array contract + robust parser; keep the "real places, accurate coords or omit" guard.
 
-### 2. Capture `time` + `duration` from the model
-Extend the parser (`toStop` in `suggest.ts`) to read `time` (string, e.g. `"10:00 AM"` → `Stop.time`) and `duration` (e.g. `"90 min"` → `Stop.duration` minutes via a new `normalizeDuration`). Both already exist on `Stop` — **additive, no migration**. Stops now arrive scheduled, which also makes **Tier 3's day-utilization summary** meaningful immediately.
+### 2. Capture `time` + `duration` + `mealAnchor` from the model
+Extend the parser (`toStop` in `suggest.ts`) to read `time` (string, e.g. `"10:00 AM"` → `Stop.time`), `duration` (e.g. `"90 min"` → `Stop.duration` minutes via a new `normalizeDuration`), and the new optional **`mealAnchor`** (validated to `'breakfast' | 'lunch' | 'dinner'` → `Stop.mealAnchor`; anything else dropped). `time`/`duration` already exist on `Stop`; `mealAnchor` is one small **additive** field (see Data model). Stops arrive scheduled *and* meal stops are self-identifying — feeding **Tier 3's day-utilization** and **Tier 2a's Optimize Day** (which otherwise has to regex stop names to find meals, exactly as legacy did).
+
+The JSON contract becomes:
+```json
+[{"name":"...","type":"e.g. Cafe / Museum / Restaurant / Park","address":"street, city","lat":0.0,"lng":0.0,"time":"9:00 AM","duration":"45 min","mealAnchor":"breakfast","note":"1 short sentence"}]
+```
+`mealAnchor` is set only on the three main meal stops; all other stops omit it.
 
 ### 3. Shared `defaultDuration` helper (one helper, three consumers)
 A pure `app/src/trip/duration.ts` → `defaultDurationMinutes(stop)` mirroring legacy's lookup (coffee/breakfast 45 · lunch/brunch 75 · dinner/restaurant 90 · museum/gallery 90 · theatre 150 · park 60 · walk 30 · default 60), keyed off `kind`/`type`/name. Fills any stop the model leaves without a duration. **Reused by Tier 2c (duration suggestions) and Tier 3d (day-utilization).**
@@ -73,7 +81,7 @@ Called out so we don't imply parity we didn't build:
 
 ## Data model & back-compat
 
-No new fields. `Stop.time` (string) and `Stop.duration` (number, minutes) already exist; we now populate them from suggestions. Reads stay back-compat (older suggested stops simply lack `time`/`duration`). The `defaultDuration` helper covers any stop missing a duration so downstream consumers always have a number.
+**One small additive field.** `Stop.time` (string) and `Stop.duration` (number, minutes) already exist; we now populate them from suggestions. New optional **`Stop.mealAnchor?: 'breakfast' | 'lunch' | 'dinner'`** — additive, no migration — marks a stop as a meal so downstream logic (especially **Tier 2a Optimize Day**) identifies meals from a field instead of a name regex. Reads stay back-compat (older suggested stops simply lack `time`/`duration`/`mealAnchor`). The `defaultDuration` helper covers any stop missing a duration so downstream consumers always have a number.
 
 ## Relationship to the tiers
 
@@ -87,10 +95,11 @@ Run **before Tier 3** — AI is live now (Phase 0 resolved 2026-06-23), this is 
 
 ## Testing
 
-- **Pure, unit-tested (vitest):** `normalizeDuration` ("90 min"/"1h 30m"/"45m"/bare number/garbage → minutes|undefined); `toStop` now capturing `time`+`duration`; `defaultDurationMinutes` per kind/type; `parseSuggestions` still robust. Prompt-builder assertions: `buildSuggestDayPrompt` contains the density target, meal-anchor language, the `time`/`duration` fields, and folds `travelerContext` when supplied.
+- **Pure, unit-tested (vitest):** `normalizeDuration` ("90 min"/"1h 30m"/"45m"/bare number/garbage → minutes|undefined); `toStop` now capturing `time`+`duration`+`mealAnchor` (and dropping an out-of-enum `mealAnchor`); `defaultDurationMinutes` per kind/type; `parseSuggestions` still robust. Prompt-builder assertions: `buildSuggestDayPrompt` frames a **full-day window / completeness (NOT a hard stop count)** — assert the "fill the whole day / until genuinely full / not an arbitrary number" language — plus meal-anchor language, the `time`/`duration`/`mealAnchor` fields, and folds `travelerContext` when supplied.
 - Suite stays green (`cd app && npm test`); `tsc -b` clean; `npm run build`; deploy.
 - **Manual smoke:** "Suggest a day for me" on an empty day → a full, scheduled, meal-anchored day (~6–10 stops) with times + durations and coherent geography.
 
-## Open decision (resolved)
+## Open decisions (resolved)
 
-- **Density target:** **6–10 stops / ~8–12h, adaptive** (owner-approved default). Not a hard quota — the prompt adapts to destination and pace.
+- **Generation objective:** **completeness-driven, NOT count-driven** (owner-approved 2026-06-23, after a legacy re-review). Fill a realistic morning→evening window using durations; stop count is a consequence (observed ~6–11, never a target). Supersedes the earlier "6–10 stops / 8–12h" framing; matches legacy's window-fill behavior. *Implementation note:* done via prompt instruction (single call, no gap-fill engine); a cheap "completeness top-up" second call is a possible future stretch if days under-fill in practice.
+- **Meal anchors:** add optional `mealAnchor` to the response + `Stop` (strengthens Tier 2a's meal detection; nearly free while the schema is already changing).

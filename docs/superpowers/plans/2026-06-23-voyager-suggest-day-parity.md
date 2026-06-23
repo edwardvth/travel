@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Make "Suggest a day" generate a complete, realistic, scheduled day (typically 6–10 stops / ~8–12h, meal-anchored, morning→evening) instead of a thin 4-stop list — by enriching the single `suggestDay` prompt and capturing `time`/`duration`, plus a shared duration helper.
+**Goal:** Make "Suggest a day" generate a **complete, realistic, scheduled day** — fill a morning→evening window using stop durations so the day is genuinely full (stop count is a consequence, observed ~6–11, never a target), meal-anchored — instead of a thin 4-stop list. Done by reframing the single `suggestDay` prompt around day-completeness, capturing `time`/`duration`/`mealAnchor`, plus a shared duration helper.
 
-**Architecture:** Spec: `docs/superpowers/specs/2026-06-23-voyager-suggest-day-parity-design.md`. Keep Voyager's single-prompt architecture (`app/src/trip/suggest.ts`). `Stop.time` (string) + `Stop.duration` (number, minutes) already exist — additive, no migration. A new pure `app/src/trip/duration.ts` (`normalizeDuration`, `defaultDurationMinutes`, `ensureDurations`) is shared by this work and the later Tier 2c/Tier 3d. Generation stays creative; Tier 2's deterministic "Optimize this day" re-sequences later. No gap-fill engine, no multi-day optimizer.
+**Architecture:** Spec: `docs/superpowers/specs/2026-06-23-voyager-suggest-day-parity-design.md`. Keep Voyager's single-prompt architecture (`app/src/trip/suggest.ts`) — the prompt is reframed around **day-completeness (fill the window by duration), not a stop count**. `Stop.time` (string) + `Stop.duration` (number) already exist; one new additive `Stop.mealAnchor?: 'breakfast'|'lunch'|'dinner'`. No migration. A new pure `app/src/trip/duration.ts` (`normalizeDuration`, `defaultDurationMinutes`, `ensureDurations`) is shared by this work and the later Tier 2c/Tier 3d. Generation stays creative; Tier 2's deterministic "Optimize this day" re-sequences later. No gap-fill engine, no multi-day optimizer.
 
 **Tech Stack:** Vite + React 18 + TS + Tailwind + Supabase `ai-proxy` (Claude) + vitest
 
@@ -153,28 +153,40 @@ export function ensureDurations(stops: Stop[]): Stop[] {
 
 ---
 
-## Task 2 — `suggest.ts` `toStop`: capture `time` + `duration`
+## Task 2 — `types.ts` + `suggest.ts` `toStop`: capture `time` + `duration` + `mealAnchor`
 
-The day prompt will now return `time` and `duration`; capture them. `time` is kept as the model's display string (e.g. `"10:00 AM"` → `Stop.time`). `duration` runs through `normalizeDuration` → `Stop.duration` (minutes).
+The day prompt returns `time`, `duration`, and (on the three meals) `mealAnchor`. Add the additive `Stop.mealAnchor` field, then capture all three in `toStop`. `time` kept as the model's display string (`"10:00 AM"` → `Stop.time`); `duration` → `normalizeDuration` → minutes; `mealAnchor` validated to the enum (anything else dropped).
 
-- [ ] **2.1** Add to `app/src/trip/suggest.test.ts` (read the file first; reuse its existing imports of `parseSuggestions`):
+- [ ] **2.1** Add `mealAnchor` to the `Stop` interface in `app/src/types.ts` (additive, after `duration?`):
 
 ```ts
-describe('parseSuggestions — time + duration (suggest-day parity)', () => {
-  it('captures time (string) and duration (normalized minutes)', () => {
-    const stops = parseSuggestions('[{"name":"Cafe","time":"9:00 AM","duration":"45 min"}]')
-    expect(stops[0]).toMatchObject({ name: 'Cafe', time: '9:00 AM', duration: 45 })
+  /**
+   * When this stop is one of the three timed meals — set by the day suggestion
+   * so meal-aware logic (Tier 2a Optimize Day) identifies meals from a field
+   * rather than a fragile name regex. Optional/additive.
+   */
+  mealAnchor?: 'breakfast' | 'lunch' | 'dinner'
+```
+
+- [ ] **2.2** Add to `app/src/trip/suggest.test.ts` (read it first; reuse the existing `parseSuggestions` import):
+
+```ts
+describe('parseSuggestions — time + duration + mealAnchor (suggest-day parity)', () => {
+  it('captures time (string), duration (minutes), and a valid mealAnchor', () => {
+    const stops = parseSuggestions('[{"name":"Cafe","time":"9:00 AM","duration":"45 min","mealAnchor":"breakfast"}]')
+    expect(stops[0]).toMatchObject({ name: 'Cafe', time: '9:00 AM', duration: 45, mealAnchor: 'breakfast' })
   })
-  it('omits time/duration when absent or unparseable', () => {
-    const stops = parseSuggestions('[{"name":"X","duration":"soon"}]')
+  it('omits time/duration when unparseable, and drops an out-of-enum mealAnchor', () => {
+    const stops = parseSuggestions('[{"name":"X","duration":"soon","mealAnchor":"snack"}]')
     expect(stops[0].time).toBeUndefined()
     expect(stops[0].duration).toBeUndefined()
+    expect(stops[0].mealAnchor).toBeUndefined()
   })
 })
 ```
 
-- [ ] **2.2** Run — fails: `cd app && npx vitest run src/trip/suggest.test.ts` → the new cases fail (`time`/`duration` undefined).
-- [ ] **2.3** Edit `app/src/trip/suggest.ts`:
+- [ ] **2.3** Run — fails: `cd app && npx vitest run src/trip/suggest.test.ts` → the new cases fail.
+- [ ] **2.4** Edit `app/src/trip/suggest.ts`:
   - Add the import: `import { normalizeDuration } from './duration'` (top of file).
   - In `toStop`, after the `note` block (before the `lat`/`lng` block), insert:
 
@@ -183,10 +195,11 @@ describe('parseSuggestions — time + duration (suggest-day parity)', () => {
   if (time) stop.time = time
   const duration = normalizeDuration(raw.duration)
   if (duration !== undefined) stop.duration = duration
+  const meal = str(raw.mealAnchor)
+  if (meal === 'breakfast' || meal === 'lunch' || meal === 'dinner') stop.mealAnchor = meal
 ```
 
-- [ ] **2.4** Run — passes: `cd app && npx vitest run src/trip/suggest.test.ts` → all green.
-- [ ] **2.5** `cd app && npx tsc -b` clean. Commit: `Suggest-day parity: capture time + duration from suggestions (toStop)`.
+- [ ] **2.5** Run — passes: `cd app && npx vitest run src/trip/suggest.test.ts` → all green. `cd app && npx tsc -b` clean. Commit: `Suggest-day parity: add Stop.mealAnchor; capture time + duration + mealAnchor (toStop)`.
 
 ---
 
@@ -198,15 +211,17 @@ Rewrite `buildSuggestDayPrompt` into a complete-day prompt; add `travelerContext
 
 ```ts
 describe('buildSuggestDayPrompt — complete-day parity', () => {
-  it('asks for a full, multi-stop day with meal anchors, time + duration', () => {
+  it('frames a full-day window (completeness, NOT a stop count) with meals, time, duration, mealAnchor', () => {
     const p = buildSuggestDayPrompt({ tripTitle: 'Rome', near: 'Rome, Italy' })
     expect(p).toMatch(/complete|full/i)
-    expect(p).toMatch(/6.?10|6 to 10|6–10/) // density target present
+    expect(p.toLowerCase()).toMatch(/fill the whole day|until the day is genuinely full|arbitrary number/) // window/completeness
+    expect(p).not.toMatch(/\b6.?10\b/) // NOT a hard stop quota
     expect(p.toLowerCase()).toContain('breakfast')
     expect(p.toLowerCase()).toContain('lunch')
     expect(p.toLowerCase()).toContain('dinner')
     expect(p).toContain('"time"')
     expect(p).toContain('"duration"')
+    expect(p).toContain('"mealAnchor"')
     expect(p).toContain('Rome, Italy')
   })
   it('folds traveler context when supplied, omits it otherwise', () => {
@@ -264,21 +279,21 @@ export function buildSuggestDayPrompt(ctx: SuggestContext): string {
   const locationCtx = where ? ` in the destination for this trip: "${where}"` : ''
   return `You are an expert local trip planner. Plan ONE complete, realistic day${locationCtx} — a full morning-to-evening itinerary the way a great local would actually spend the day, not a short list of attractions.
 
-Build a full day, typically 6–10 stops and roughly 8–12 hours, adapting to the destination and pace (a major city packs more in than a quiet town). Follow a natural arc with real meal stops:
+Fill the whole day. Schedule from the morning (around 8–9am) through the evening (dinner, and usually something after — a bar, viewpoint, show or stroll), and keep adding worthwhile stops until the day is genuinely full. Use each stop's duration plus realistic travel time between places to judge when the day is complete — do NOT stop at an arbitrary number of places. A dense city (Paris, Tokyo, Rome) will naturally fill with more stops; a slower place fills with fewer. Include the real meal stops at the right times:
 - a morning coffee or breakfast (around 8–9:30am)
 - a morning highlight
 - lunch (around 12–1:30pm)
 - one or two afternoon stops
 - an optional afternoon break or coffee
 - dinner (around 7–8:30pm)
-- an optional evening pick (a bar, viewpoint, show or stroll)
+- an optional evening pick
 
-Keep it geographically coherent so the day flows (cluster nearby places; avoid backtracking). Favour genuinely notable, characterful places — a mix of marquee sights and insider spots — over generic tourist traps. Order the stops as someone would actually visit them, and give each a realistic time-of-day and how long to spend.${travelerLine(ctx)}
+Keep it geographically coherent so the day flows (cluster nearby places; avoid backtracking). Favour genuinely notable, characterful places — a mix of marquee sights and insider spots — over generic tourist traps. Order the stops as someone would actually visit them. For each stop give a realistic time-of-day and how long to spend, and tag the three main meals with "mealAnchor".${travelerLine(ctx)}
 
 Use real places that genuinely exist, with accurate coordinates when you are confident. Prefer to omit lat/lng (leave them out) rather than invent inaccurate coordinates.
 
 Respond with ONLY a JSON array — no markdown, no code fences, no preamble:
-[{"name":"...","type":"e.g. Cafe / Museum / Restaurant / Park","address":"street, city","lat":0.0,"lng":0.0,"time":"9:00 AM","duration":"45 min","note":"1 short sentence on why it's worth it / what to do here"}]`
+[{"name":"...","type":"e.g. Cafe / Museum / Restaurant / Park","address":"street, city","lat":0.0,"lng":0.0,"time":"9:00 AM","duration":"45 min","mealAnchor":"breakfast","note":"1 short sentence on why it's worth it / what to do here"}]`
 }
 ```
 
@@ -358,17 +373,17 @@ Pass the destination (`near`) and any traveller context (read opportunistically 
 ## Definition of done
 
 - [ ] **Suite green / tsc clean / build ok / deployed.**
-- [ ] **`suggestDay` produces a complete day** — complete-day prompt (6–10 stops, meal anchors, morning→evening, geographic coherence, notable-not-touristy), 4000-token budget.
-- [ ] **Stops arrive scheduled** — `time` + `duration` captured from the model (`toStop` + `normalizeDuration`); every stop has a duration (`ensureDurations` + `defaultDurationMinutes`).
+- [ ] **`suggestDay` produces a complete day** — completeness/window-driven prompt (fill the day by duration, **NOT a stop quota**; meal anchors, morning→evening, geographic coherence, notable-not-touristy), 4000-token budget.
+- [ ] **Stops arrive scheduled + meal-tagged** — `time` + `duration` + `mealAnchor` captured (`toStop` + `normalizeDuration`, enum-validated); every stop has a duration (`ensureDurations` + `defaultDurationMinutes`).
 - [ ] **Shared duration helper** — `trip/duration.ts` exists and is the single source for Tier 2c + Tier 3d.
 - [ ] **Traveler-context hook** — both builders fold `ctx.travelerContext` when present; the caller reads `trip.config.travelerContext` opportunistically (typed field + UI remain Tier 2d).
 - [ ] **6-result search** — `buildSuggestPrompt` asks for 6.
-- [ ] **Additive / back-compat** — only existing `Stop.time`/`Stop.duration` populated; no migration; older stops still parse.
+- [ ] **Additive / back-compat** — existing `Stop.time`/`Stop.duration` populated; one new additive `Stop.mealAnchor?` field; no migration; older stops still parse.
 - [ ] **Conventions** — pure builders/parsers unit-tested, network a thin boundary; commit-per-task with the Co-Authored-By trailer on `main`.
 
 ## Writing-plans self-review
 
-- **Spec coverage:** complete-day prompt → Task 3; time/duration capture → Task 2; shared duration helper → Task 1; token bump + guaranteed durations → Task 4; traveler-context hook + caller → Tasks 3 & 5; 6-result search → Task 3. ✔
+- **Spec coverage:** completeness/window-driven prompt → Task 3; `Stop.mealAnchor` + time/duration/mealAnchor capture → Task 2; shared duration helper → Task 1; token bump + guaranteed durations → Task 4; traveler-context hook + caller → Tasks 3 & 5; 6-result search → Task 3. ✔
 - **No placeholders:** every code block is real, compilable TS with exact paths + exact `cd app && npx vitest run <file>` commands. ✔
-- **Type consistency:** `normalizeDuration`/`defaultDurationMinutes`/`ensureDurations` signatures match across `duration.ts`, `suggest.ts`, and the tests; `SuggestContext.travelerContext?: string`; `Stop.time`/`Stop.duration` already exist. No `TripConfig` change (read via index signature). ✔
+- **Type consistency:** `normalizeDuration`/`defaultDurationMinutes`/`ensureDurations` signatures match across `duration.ts`, `suggest.ts`, and the tests; `SuggestContext.travelerContext?: string`; `Stop.time`/`Stop.duration` already exist and `Stop.mealAnchor?: 'breakfast'|'lunch'|'dinner'` is added additively (Task 2.1); the enum literal matches in the type, `toStop` validation, and tests. No `TripConfig` change (read via index signature). ✔
 - **Out-of-scope guard:** no gap-fill, no multi-day optimize, no magic tour; `hours`/`price`/`goodFor` stay Tier 3b; the typed `TripConfig.travelerContext` + UI stay Tier 2d. ✔
