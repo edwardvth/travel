@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { suggestPlaces } from './suggest'
 import { placeFromSuggestion } from './location'
 import { useLandmarkBackfill } from '../data/useLandmarkBackfill'
+import { useGeocodeBackfill } from '../data/useGeocodeBackfill'
 import { destinationOf, stopLandmarkQuery } from './landmark-context'
 import { Check, kindIcon, kindLabel, stopTypeIcon } from './icons'
 import { cn } from '../lib/utils'
@@ -35,6 +36,7 @@ const TITLE_ID = 'add-stop-title'
 
 export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
   const { backfillStop } = useLandmarkBackfill(trip.id, save)
+  const { backfillCoords } = useGeocodeBackfill(trip.id, save)
   const [kind, setKind] = useState<StopKind>('do')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<Status>('idle')
@@ -101,6 +103,11 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
         tagged.address,
         stopLandmarkQuery(tagged.name, destinationOf(trip)),
       )
+    }
+    // Fire-and-forget: resolve coordinates for a typed / coordless stop so it
+    // still earns a pin + walk times. Guarded against the relocate race.
+    if (tagged.lat == null && tagged.lng == null) {
+      backfillCoords(day, tagged.name, tagged.address, destinationOf(trip))
     }
   }
 
