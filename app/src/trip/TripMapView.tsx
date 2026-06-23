@@ -6,6 +6,7 @@ import { normalizeHotel, hotelCoords } from './hotel'
 import { cn } from '../lib/utils'
 import type { Stop, Trip } from '../types'
 import { Skeleton } from '../components/ui/Skeleton'
+import { dayColor } from './map-style'
 
 /** A stop+index selection shared between the list and the map. */
 export interface MapSelection {
@@ -48,15 +49,6 @@ function stopCoords(stop: Stop): { lat: number; lng: number } | null {
   return null
 }
 
-/** Distinct, readable hue per day index (mirrors legacy renderAllMap color ramp). */
-function dayColor(day: number, total: number): string {
-  const n = Math.max(total, 1)
-  return `hsl(${Math.round((day * 360) / n)}, 65%, 48%)`
-}
-
-/** The claret signature, used for single-day routes (matches the design tokens). */
-const CLARET = '#8b2942'
-
 /** Gold accent for the Stay marker's glyph — distinct from the numbered claret pins. */
 const GOLD = '#c79a3b'
 
@@ -64,7 +56,7 @@ const GOLD = '#c79a3b'
  * The Voyage Stay marker — a distinct claret pin carrying a gold bed glyph
  * (vs. the numbered stop pins). Deliberately reads as "base", not "stop N".
  */
-function stayIcon(L: typeof Leaflet): Leaflet.DivIcon {
+function stayIcon(L: typeof Leaflet, color: string): Leaflet.DivIcon {
   const size = 32
   const bed =
     `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="${GOLD}" ` +
@@ -74,9 +66,9 @@ function stayIcon(L: typeof Leaflet): Leaflet.DivIcon {
   return L.divIcon({
     className: '',
     html:
-      `<div style="background:${CLARET};width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;` +
+      `<div style="background:${color};width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;` +
       `transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;` +
-      `border:2.5px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,0.4);">` +
+      `border:2.5px solid #fff;filter:drop-shadow(0 2px 3px rgba(0,0,0,.55));">` +
       `<span style="transform:rotate(45deg);display:flex;">${bed}</span></div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size - 2],
@@ -94,15 +86,15 @@ function pinIcon(L: typeof Leaflet, color: string, order: number, isSelected: bo
   const size = isSelected ? 38 : 28
   const fontSize = isSelected ? 14 : 11
   const ring = isSelected ? 3 : 2.5
-  const glow = isSelected
-    ? `0 0 0 3px ${color}55, 0 4px 14px rgba(0,0,0,0.5)`
-    : '0 2px 8px rgba(0,0,0,0.4)'
+  const shadow = isSelected
+    ? `drop-shadow(0 0 0 3px ${color}55) drop-shadow(0 4px 14px rgba(0,0,0,0.5))`
+    : 'drop-shadow(0 2px 3px rgba(0,0,0,.55))'
   return L.divIcon({
     className: '',
     html:
       `<div style="background:${color};color:#fff;width:${size}px;height:${size}px;border-radius:50% 50% 50% 0;` +
       `transform:rotate(-45deg);display:flex;align-items:center;justify-content:center;` +
-      `border:${ring}px solid #fff;box-shadow:${glow};">` +
+      `border:${ring}px solid #fff;filter:${shadow};">` +
       `<span style="transform:rotate(45deg);font-size:${fontSize}px;font-weight:800;">${order}</span></div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size - 2],
@@ -179,7 +171,7 @@ export default function TripMapView({
 
         const isLight = document.documentElement.classList.contains('light')
         const map = L.map(containerRef.current, {
-          zoomControl: true,
+          zoomControl: false,
           attributionControl: false, // no Leaflet/OSM watermark (matches legacy)
           scrollWheelZoom: false,
         }).setView([20, 0], 2)
@@ -261,6 +253,12 @@ export default function TripMapView({
       return
     }
 
+    // Leaflet writes the polyline color to an SVG `stroke` *attribute*, where a
+    // CSS var won't resolve — read the concrete claret value instead. (The
+    // divIcons above use var() in a `style` attribute, where it does resolve.)
+    const claret =
+      getComputedStyle(document.documentElement).getPropertyValue('--sig-btn').trim() || '#8b2942'
+
     const bounds = L.latLngBounds([])
     let selectedMarker: Leaflet.Marker | null = null
 
@@ -274,7 +272,7 @@ export default function TripMapView({
         `<div style="font-size:14px;font-weight:700;margin-top:2px;">${esc(stay.name)}</div>` +
         (stay.address ? `<div style="color:#555;font-size:11px;margin-top:2px;">${esc(stay.address)}</div>` : '') +
         `</div>`
-      L.marker([stay.lat, stay.lng], { icon: stayIcon(L), zIndexOffset: -500 })
+      L.marker([stay.lat, stay.lng], { icon: stayIcon(L, claret), zIndexOffset: -500 })
         .addTo(layer)
         .bindPopup(stayPopup)
     }
@@ -288,14 +286,15 @@ export default function TripMapView({
     }
 
     for (const [day, stops] of byDay) {
-      const color = scope === 'all' ? dayColor(day, totalDays) : CLARET
+      const color = scope === 'all' ? dayColor(day, totalDays) : claret
       const line = stops.map((s) => [s.lat, s.lng] as [number, number])
       if (line.length > 1) {
         L.polyline(line, {
           color,
-          weight: 4,
-          opacity: scope === 'all' ? 0.55 : 0.85,
-          dashArray: scope === 'all' ? '8,5' : '10,6',
+          weight: 3,
+          opacity: scope === 'all' ? 0.7 : 0.9,
+          dashArray: '1 7',
+          lineCap: 'round',
         }).addTo(layer)
       }
 
