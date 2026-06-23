@@ -8,6 +8,12 @@ export interface Stop {
   kind?: StopKind
   time?: string
   duration?: number
+  /**
+   * When this stop is one of the three timed meals — set by the day suggestion
+   * so meal-aware logic (Tier 2a Optimize Day) identifies meals from a field
+   * rather than a fragile name regex. Optional/additive.
+   */
+  mealAnchor?: 'breakfast' | 'lunch' | 'dinner'
   lat?: number
   lng?: number
   address?: string

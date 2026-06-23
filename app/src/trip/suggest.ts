@@ -1,5 +1,6 @@
 import { callAI, textMessage } from './ai'
 import type { Stop, StopKind } from '../types'
+import { normalizeDuration } from './duration'
 
 export interface SuggestContext {
   tripTitle?: string
@@ -82,6 +83,13 @@ function toStop(raw: Record<string, unknown>): Stop | null {
   if (address) stop.address = address
   const note = str(raw.note) ?? str(raw.why) ?? str(raw.description)
   if (note) stop.note = note
+
+  const time = str(raw.time)
+  if (time) stop.time = time
+  const duration = normalizeDuration(raw.duration)
+  if (duration !== undefined) stop.duration = duration
+  const meal = str(raw.mealAnchor)
+  if (meal === 'breakfast' || meal === 'lunch' || meal === 'dinner') stop.mealAnchor = meal
 
   const lat = finite(raw.lat)
   const lng = finite(raw.lng)
