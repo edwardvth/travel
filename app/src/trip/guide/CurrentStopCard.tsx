@@ -141,6 +141,12 @@ export function CurrentStopCard({
           'relative w-full overflow-hidden bg-raised transition-shadow duration-200 ' +
           (interacting && showingMap ? 'ring-2 ring-inset ring-white/45' : '')
         }
+        // Don't animate height on mount — the card remounts on every swipe, and
+        // the hero's children are all absolute (natural height 0), so a fresh
+        // mount would animate 0→160 and visibly "drop" the title to reveal the
+        // photo. `initial={false}` paints at the correct height immediately;
+        // height still animates on the photo↔map toggle (the square expand).
+        initial={false}
         animate={{ height: heroHeight }}
         transition={{ duration: reduce ? 0 : 0.42, ease: [0.4, 0, 0.2, 1] }}
       >
