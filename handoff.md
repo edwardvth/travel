@@ -34,19 +34,18 @@ All committed + pushed to `main` and deployed to the live URL unless noted.
 - **Code-splitting** — lazy planner routes (`PlannerLayout`/`Itinerary`/`Guide`/`Trip`/`StopDetail`) via `trip/lazyRoutes.ts`, `ChunkErrorBoundary` (chunk-vs-crash + Reload), preload-on-intent on the tab bar, Suspense skeletons. Entry chunk **829 KB → 604 KB (−27%)**. Spec + plan in `docs/superpowers/`.
 - **Stop Minimap (Phase 1)** — orientation minimap in the Guide hero (`StopMinimap.tsx`): user dot + destination pin + stylized curved path (`minimap-geom.ts`), photo↔map toggle that expands the hero to a **1:1 square**, **pinch+pan with a gesture-ownership lock** (touching the map disables the swipe deck via `mapLock`, pointer-lifecycle driven), **+/−** zoom + badge/chip kept above the map. Fits the view once (respects manual zoom). Reverses the old "no embedded map in Guide" lock → now "no *navigation* map; orientation minimap OK." Spec: `docs/superpowers/specs/2026-06-22-voyager-stop-minimap-and-offline-design.md`; plan: `docs/superpowers/plans/2026-06-22-voyager-stop-minimap-phase-1.md`.
 
-## Backend / AI status — ⚠️ has a PENDING operator deploy
+## Backend / AI status — ⚠️ AI needs the ai-proxy slug fixed (pending operator)
 
-**The AI was broken because the `ai-proxy` edge-function slug had the WRONG code deployed** (the trip-invite emailer), so every AI call 403'd before reaching Anthropic. Diagnosed this session. Fixes are **committed to the repo but the edge functions are NOT yet (re)deployed:**
+**Root cause of the AI 403:** the **`ai-proxy` edge-function slug has the wrong function deployed — the trip-invite *emailer* (Resend), which contains no Anthropic call at all**, so it can't return AI results: an AI request (`{messages,...}`) has no `trip_id`, the trip lookup fails, and it returns `403 forbidden` (no Anthropic ever hit; logs show only boot/shutdown). Confirmed by probing the slugs: `send-invite` 404s (doesn't exist), so the invite code is living under `ai-proxy`. *(To re-verify: Dashboard → Edge Functions → `ai-proxy` → Code; if it's Resend/email code it must be replaced; if it calls `api.anthropic.com` it's fine and only the profile/key below matter.)*
 
-- `supabase/functions/ai-proxy/index.ts` — the correct Claude proxy. Gate mirrors the old app: **`role === 'founder'` = unlimited; `credits > 0` = family & friends (1 credit/call); else 403.** Shared `ANTHROPIC_API_KEY` server-side; passes Anthropic's response through.
-- `supabase/functions/send-invite/index.ts` — the trip-invite emailer (Resend), preserved verbatim. Its slug (`send-invite`) currently 404s, so invite *emails* never sent (membership via the `add_trip_member` RPC still works).
+**Fix is committed to the repo** (`supabase/functions/ai-proxy/index.ts` — the real Claude proxy; gate mirrors the old app: `role === 'founder'` = unlimited, `credits > 0` = family & friends (1 credit/call), else 403; shared `ANTHROPIC_API_KEY`, passes Anthropic's response through). **Pending operator steps for AI:**
+1. **Deploy the Claude proxy to the `ai-proxy` slug** on `wnpanbjzmcsvhfyjdczv` — `npx supabase login` then `npx supabase functions deploy ai-proxy --project-ref wnpanbjzmcsvhfyjdczv` (or paste the repo file in Dashboard → Edge Functions → ai-proxy). **This is required** — it replaces the email code that can't do AI.
+2. Set secret **`ANTHROPIC_API_KEY`** (a current/valid key) on the project.
+3. Ensure the owner's Voyager **`profiles.role = 'founder'`** (Table Editor) — this project's profiles are separate from the old site's.
 
-**PENDING OPERATOR STEPS (do before testing AI):**
-1. Deploy both functions to **`wnpanbjzmcsvhfyjdczv`**: `npx supabase login` then `npx supabase functions deploy ai-proxy --project-ref wnpanbjzmcsvhfyjdczv` and `… deploy send-invite …` (or paste each file in Dashboard → Edge Functions).
-2. Set secret `ANTHROPIC_API_KEY` (a current/valid key) on the project. (`RESEND_API_KEY` for send-invite — likely already set.)
-3. Ensure your Voyager `profiles` row has **`role = 'founder'`** (Table Editor) — the project's profiles are separate from the old site's.
+The client (`app/src/trip/ai.ts` → `callAI`) already calls `ai-proxy` correctly; nothing to change client-side.
 
-The client (`app/src/trip/ai.ts` → `callAI`) already calls `ai-proxy` correctly with `{messages, model, max_tokens}` + the session token; nothing to change client-side.
+**Separately (OPTIONAL, NOT an AI issue):** `supabase/functions/send-invite/index.ts` is preserved in the repo. The `send-invite` slug 404s, so invite *emails* don't send (trip *membership* still works via the `add_trip_member` RPC). Deploy it to a `send-invite` slug only if/when invite emails are wanted — unrelated to AI.
 
 ## Security status
 
