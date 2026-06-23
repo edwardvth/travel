@@ -86,8 +86,12 @@ function pinIcon(L: typeof Leaflet, color: string, order: number, isSelected: bo
   const size = isSelected ? 38 : 28
   const fontSize = isSelected ? 14 : 11
   const ring = isSelected ? 3 : 2.5
+  // `drop-shadow()` takes only x/y/blur (no spread), and an invalid function
+  // voids the whole `filter` — so the selected glow is a valid colored blur in
+  // the pin's own colour (works for both hex tokens and hsl day colours, where
+  // appending an 8-digit-hex alpha would be invalid) plus a soft lift shadow.
   const shadow = isSelected
-    ? `drop-shadow(0 0 0 3px ${color}55) drop-shadow(0 4px 14px rgba(0,0,0,0.5))`
+    ? `drop-shadow(0 0 6px ${color}) drop-shadow(0 4px 14px rgba(0,0,0,0.5))`
     : 'drop-shadow(0 2px 3px rgba(0,0,0,.55))'
   return L.divIcon({
     className: '',
