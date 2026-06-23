@@ -18,6 +18,20 @@ export interface Stop {
   image?: string
   icon?: string
   coords?: { lat: number; lng: number }
+  /**
+   * Where this stop's coordinates ORIGINATED — `'ai'` (model-supplied in a
+   * suggestion) or `'geocoder'` (resolved by lib/geocode.ts after the fact).
+   * Origin only; a later manual relocate does NOT change this (see
+   * `locationEditedAt`). Optional/additive — absent on legacy stops.
+   */
+  coordinateSource?: 'ai' | 'geocoder'
+  /**
+   * ISO timestamp set when a human manually relocated this stop (Change
+   * location). Distinct from `coordinateSource`: it records edit history, not
+   * origin, so an AI→relocate sequence keeps the origin while marking the edit.
+   * Optional/additive.
+   */
+  locationEditedAt?: string
   wikiTitle?: string
   note?: string
   /** Reservation tracking for this stop. Absent until the user marks it. */
