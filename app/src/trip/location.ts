@@ -13,6 +13,7 @@ export interface PlaceLocation {
   lat?: number
   lng?: number
   coords?: { lat: number; lng: number }
+  coordinateSource?: 'ai' | 'geocoder'
 }
 
 /** A finite, non-zero number, or undefined. (0/NaN are the suggest placeholder.) */
@@ -49,6 +50,7 @@ export function placeFromSuggestion(
     place.lat = lat
     place.lng = lng
     place.coords = { lat, lng }
+    place.coordinateSource = 'ai' // origin: the model supplied these numbers
   }
   return place
 }
@@ -68,23 +70,29 @@ export function placeFromSuggestion(
  * any other field. Never mutates the
  * input. Pure + unit-tested.
  */
-export function applyLocation(stop: Stop, place: PlaceLocation): Stop {
-  // Drop everything the location owns or derives; keep the rest verbatim.
+export function applyLocation(
+  stop: Stop,
+  place: PlaceLocation,
+  now: string = new Date().toISOString(),
+): Stop {
+  // Drop everything the location owns or derives (incl. the old origin); keep rest.
   const {
     name: _n, type: _t, address: _a, lat: _la, lng: _lo, coords: _c,
     wikiTitle: _w, facts: _f, history: _h, tips: _ti, image: _i,
+    coordinateSource: _cs,
     ...preserved
   } = stop
   void _n; void _t; void _a; void _la; void _lo; void _c
-  void _w; void _f; void _h; void _ti; void _i
+  void _w; void _f; void _h; void _ti; void _i; void _cs
 
-  const next: Stop = { ...preserved, name: place.name }
+  const next: Stop = { ...preserved, name: place.name, locationEditedAt: now }
   if (place.type) next.type = place.type
   if (place.address) next.address = place.address
   if (place.lat !== undefined && place.lng !== undefined) {
     next.lat = place.lat
     next.lng = place.lng
     next.coords = { lat: place.lat, lng: place.lng }
+    if (place.coordinateSource) next.coordinateSource = place.coordinateSource
   }
   return next
 }

@@ -16,7 +16,7 @@ describe('placeFromSuggestion', () => {
   })
 
   it('carries finite coordinates and mirrors them into coords', () => {
-    expect(placeFromSuggestion({ name: 'X', lat: 51.5, lng: -0.1 })).toEqual({
+    expect(placeFromSuggestion({ name: 'X', lat: 51.5, lng: -0.1 })).toMatchObject({
       name: 'X',
       lat: 51.5,
       lng: -0.1,
@@ -121,5 +121,40 @@ describe('applyLocation', () => {
     })
     expect(next.type).toBeUndefined()
     expect(next.address).toBeUndefined()
+  })
+})
+
+describe('placeFromSuggestion — coordinate provenance', () => {
+  it('stamps coordinateSource "ai" when finite coords are present', () => {
+    expect(placeFromSuggestion({ name: 'X', lat: 48.8584, lng: 2.2945 })).toMatchObject({
+      coordinateSource: 'ai',
+    })
+  })
+
+  it('does NOT stamp a source when there are no coords (typed name)', () => {
+    expect(placeFromSuggestion({ name: 'X' }).coordinateSource).toBeUndefined()
+  })
+})
+
+describe('applyLocation — edit history vs origin', () => {
+  it('sets locationEditedAt to the provided ISO timestamp on relocate', () => {
+    const next = applyLocation(stop({ name: 'Old' }), { name: 'New' }, '2026-06-22T10:00:00.000Z')
+    expect(next.locationEditedAt).toBe('2026-06-22T10:00:00.000Z')
+  })
+
+  it('carries a coordinateSource provided on the place (e.g. geocoder re-pick)', () => {
+    const next = applyLocation(
+      stop({ name: 'Old' }),
+      { name: 'New', lat: 1, lng: 2, coordinateSource: 'geocoder' },
+      '2026-06-22T10:00:00.000Z',
+    )
+    expect(next.coordinateSource).toBe('geocoder')
+    expect(next.locationEditedAt).toBe('2026-06-22T10:00:00.000Z')
+  })
+
+  it('clears a stale coordinateSource when the new place has no coords', () => {
+    const s = stop({ name: 'Old', lat: 1, lng: 1, coordinateSource: 'ai' })
+    const next = applyLocation(s, { name: 'New' }, '2026-06-22T10:00:00.000Z')
+    expect(next.coordinateSource).toBeUndefined()
   })
 })
