@@ -95,3 +95,39 @@ export async function geocodePlace(query: string, near?: string): Promise<GeoPoi
     return null
   }
 }
+
+/** The identity of the unresolved place that initiated a geocoder lookup. */
+export interface GeocodeOrigin {
+  name: string
+  address?: string
+}
+
+/** True when a stop already has finite, non-placeholder coordinates. */
+function hasFiniteCoords(stop: { lat?: number; lng?: number; coords?: { lat: number; lng: number } }): boolean {
+  const lat = stop.lat ?? stop.coords?.lat
+  const lng = stop.lng ?? stop.coords?.lng
+  return (
+    typeof lat === 'number' && typeof lng === 'number' &&
+    Number.isFinite(lat) && Number.isFinite(lng) &&
+    !(lat === 0 && lng === 0) // 0/0 is the suggest placeholder, not a real pin
+  )
+}
+
+/**
+ * Last-write-wins guard: may an in-flight geocoder result patch this stop?
+ *
+ * Only when the stop STILL lacks real coordinates AND STILL matches the
+ * name/address that initiated the lookup. If the user relocated the stop (new
+ * name/address) or it otherwise gained coords while the lookup was in flight,
+ * the result is stale and MUST be discarded. Kills the
+ * create→geocode→relocate→clobber race. Pure + unit-tested.
+ */
+export function canApplyGeocode(
+  current: { name: string; address?: string; lat?: number; lng?: number; coords?: { lat: number; lng: number } },
+  origin: GeocodeOrigin,
+): boolean {
+  if (hasFiniteCoords(current)) return false
+  if (current.name !== origin.name) return false
+  if ((current.address ?? undefined) !== (origin.address ?? undefined)) return false
+  return true
+}

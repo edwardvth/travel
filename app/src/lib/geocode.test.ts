@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { geocodeUrl, parseGeocode, geocodePlace } from './geocode'
+import { geocodeUrl, parseGeocode, geocodePlace, canApplyGeocode } from './geocode'
 
 /** A Photon point feature with geometry + properties. */
 const feat = (lng: number, lat: number, properties: Record<string, unknown> = {}) => ({
@@ -87,5 +87,39 @@ describe('geocodePlace', () => {
   it('returns null when fetch throws (network error) — never throws', async () => {
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('network'))
     await expect(geocodePlace('Nowhere')).resolves.toBeNull()
+  })
+})
+
+describe('canApplyGeocode (stale-write guard, last-write-wins)', () => {
+  const origin = { name: 'Trastevere', address: 'Rome' }
+
+  it('applies when the stop still lacks coords and still matches the query', () => {
+    expect(canApplyGeocode({ name: 'Trastevere', address: 'Rome' }, origin)).toBe(true)
+  })
+
+  it('discards when the stop already gained coords (flat)', () => {
+    expect(canApplyGeocode({ name: 'Trastevere', address: 'Rome', lat: 41.8, lng: 12.4 }, origin)).toBe(false)
+  })
+
+  it('discards when the stop already gained coords (nested)', () => {
+    expect(
+      canApplyGeocode({ name: 'Trastevere', address: 'Rome', coords: { lat: 41.8, lng: 12.4 } }, origin),
+    ).toBe(false)
+  })
+
+  it('discards when the user relocated to a different name (race)', () => {
+    expect(canApplyGeocode({ name: 'Colosseum', address: 'Rome' }, origin)).toBe(false)
+  })
+
+  it('discards when the address changed', () => {
+    expect(canApplyGeocode({ name: 'Trastevere', address: 'Florence' }, origin)).toBe(false)
+  })
+
+  it('matches when neither has an address (typed name only)', () => {
+    expect(canApplyGeocode({ name: 'Foo' }, { name: 'Foo' })).toBe(true)
+  })
+
+  it('discards a zero/non-finite placeholder coord as "no coords" → still applies', () => {
+    expect(canApplyGeocode({ name: 'Foo', lat: 0, lng: 0 }, { name: 'Foo' })).toBe(true)
   })
 })
