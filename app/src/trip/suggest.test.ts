@@ -132,3 +132,31 @@ describe('parseSuggestions — time + duration + mealAnchor (suggest-day parity)
     expect(stops[0].mealAnchor).toBeUndefined()
   })
 })
+
+describe('buildSuggestDayPrompt — complete-day parity', () => {
+  it('frames a full-day window (completeness, NOT a stop count) with meals, time, duration, mealAnchor', () => {
+    const p = buildSuggestDayPrompt({ tripTitle: 'Rome', near: 'Rome, Italy' })
+    expect(p).toMatch(/complete|full/i)
+    expect(p.toLowerCase()).toMatch(/fill the whole day|until the day is genuinely full|arbitrary number/)
+    expect(p).not.toMatch(/\b6.?10\b/)
+    expect(p.toLowerCase()).toContain('breakfast')
+    expect(p.toLowerCase()).toContain('lunch')
+    expect(p.toLowerCase()).toContain('dinner')
+    expect(p.toLowerCase()).toMatch(/walkable|same district|adjacent district/)
+    expect(p.toLowerCase()).toMatch(/alternate|repetitive|varied/)
+    expect(p).toContain('"time"')
+    expect(p).toContain('"duration"')
+    expect(p).toContain('"mealAnchor"')
+    expect(p).toContain('Rome, Italy')
+  })
+  it('folds traveler context when supplied, omits it otherwise', () => {
+    expect(buildSuggestDayPrompt({ travelerContext: 'vegetarian, slow pace' })).toContain('vegetarian, slow pace')
+    expect(buildSuggestDayPrompt({})).not.toMatch(/Traveller context/i)
+  })
+})
+
+describe('buildSuggestPrompt — 6 results', () => {
+  it('asks for 6 places', () => {
+    expect(buildSuggestPrompt('coffee', {})).toMatch(/\b6\b/)
+  })
+})

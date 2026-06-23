@@ -8,6 +8,14 @@ export interface SuggestContext {
   near?: string
   /** Bias the search toward a category (do = sights, eat = food, stay = lodging). */
   kind?: StopKind
+  /** Optional free-text traveller context (group, pace, diet) folded into the prompt. */
+  travelerContext?: string
+}
+
+/** A trailing line that folds traveller context into a prompt, or '' when absent. */
+function travelerLine(ctx: SuggestContext): string {
+  const t = ctx.travelerContext?.trim()
+  return t ? `\n\nTraveller context — tailor the pace, food picks and choices to this group: ${t}` : ''
 }
 
 /** A short phrase describing the kind of place to bias the suggest prompt. */
@@ -33,7 +41,7 @@ export function buildSuggestPrompt(query: string, ctx: SuggestContext): string {
     : ''
   const bias = kindBias(ctx.kind)
   const biasLine = bias ? `\n\n${bias}` : ''
-  return `You are a knowledgeable travel expert. Suggest 5 excellent, real, notable places that match: "${query}"${locationCtx}.${biasLine}
+  return `You are a knowledgeable travel expert. Suggest 6 excellent, real, notable places that match: "${query}"${locationCtx}.${biasLine}${travelerLine(ctx)}
 
 Use real places that genuinely exist, with accurate coordinates when you are confident. Prefer to omit lat/lng (leave them out) rather than invent inaccurate coordinates.
 
@@ -42,19 +50,33 @@ Respond with ONLY a JSON array — no markdown, no code fences, no preamble:
 }
 
 /**
- * Build the "suggest a whole day" prompt. Generates a small, coherent set of
- * stops (~3-5) for one day in the trip's destination, in a sensible order, in
- * the same JSON shape as `buildSuggestPrompt` so we can reuse `parseSuggestions`.
+ * Build the "suggest a whole day" prompt — a COMPLETE, realistic day (a full
+ * morning→evening arc with real meal stops, filled by duration rather than a
+ * stop quota), each stop carrying a time-of-day and a duration. Restores the
+ * density of the legacy travel-guide.ai planner in Voyager's single-prompt
+ * architecture. Same JSON shape as `buildSuggestPrompt` (plus time/duration/
+ * mealAnchor) so `parseSuggestions` is reused.
  */
 export function buildSuggestDayPrompt(ctx: SuggestContext): string {
   const where = [ctx.near, ctx.tripTitle].filter(Boolean).join(' — ')
   const locationCtx = where ? ` in the destination for this trip: "${where}"` : ''
-  return `You are a thoughtful travel planner. Plan a single, coherent day of 4 real, notable stops${locationCtx} — a sensible mix (e.g. a morning sight, a lunch spot, an afternoon highlight, an evening pick), in the order someone would visit them. Keep it geographically realistic so the day flows.
+  return `You are an expert local trip planner. Plan ONE complete, realistic day${locationCtx} — a full morning-to-evening itinerary the way a great local would actually spend the day, not a short list of attractions.
+
+Fill the whole day. Schedule from the morning (around 8–9am) through the evening (dinner, and usually something after — a bar, viewpoint, show or stroll), and keep adding worthwhile stops until the day is genuinely full. Use each stop's duration plus realistic travel time between places to judge when the day is complete — do NOT stop at an arbitrary number of places. A dense city (Paris, Tokyo, Rome) will naturally fill with more stops; a slower place fills with fewer. Include the real meal stops at the right times:
+- a morning coffee or breakfast (around 8–9:30am)
+- a morning highlight
+- lunch (around 12–1:30pm)
+- one or two afternoon stops
+- an optional afternoon break or coffee
+- dinner (around 7–8:30pm)
+- an optional evening pick
+
+The itinerary should feel walkable: consecutive stops should generally stay within the same district or adjacent districts unless there's a compelling reason to travel farther. Cluster nearby places and avoid backtracking. Alternate activity types when possible — avoid repetitive sequences of similar attractions (for example museum after museum) unless a place is genuinely exceptional; the day should feel varied and intentionally paced. Favour genuinely notable, characterful places — a mix of marquee sights and insider spots — over generic tourist traps. Order the stops as someone would actually visit them. For each stop give a realistic time-of-day and how long to spend, and tag the three main meals with "mealAnchor".${travelerLine(ctx)}
 
 Use real places that genuinely exist, with accurate coordinates when you are confident. Prefer to omit lat/lng (leave them out) rather than invent inaccurate coordinates.
 
 Respond with ONLY a JSON array — no markdown, no code fences, no preamble:
-[{"name":"...","type":"e.g. Museum / Restaurant / Park","address":"street, city","lat":0.0,"lng":0.0,"note":"1 short sentence on why it's worth the visit"}]`
+[{"name":"...","type":"e.g. Cafe / Museum / Restaurant / Park","address":"street, city","lat":0.0,"lng":0.0,"time":"9:00 AM","duration":"45 min","mealAnchor":"breakfast","note":"1 short sentence on why it's worth it / what to do here"}]`
 }
 
 /** A finite number, or undefined. Used to gate lat/lng/coords. */
