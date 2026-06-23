@@ -7,7 +7,7 @@
 
 **Voyager** is a premium consumer **travel-planning PWA** (plan a trip day-by-day, with AI place suggestions, maps, photos, weather, walking times, and reservations). It was forked from a generic travel-itinerary app and rebuilt into a polished product. Design north stars: Uber's interaction quality + an editorial/aspirational travel brand.
 
-- **Repo:** `github.com/edwardvth/travel` · **Active branch:** `voyager-redesign` (all redesign work; **not** merged to `main`/`master`).
+- **Repo:** `github.com/edwardvth/travel` (a **fork** of `magakh/travel` — never push to `upstream`) · **Active branch:** `main` (the `voyager-redesign` branch was consolidated into `main` and deleted; all work is on `origin/main`).
 - **Local path:** `C:\Users\edwar\travel` (Windows; shell is Git Bash / PowerShell).
 - **Live:** https://voyager.edwardvth.workers.dev (Cloudflare Worker named `voyager`).
 - The real app lives in **`app/`** (the Vite project). The repo root also has the legacy `Trip.html` single-file app (still served as a fallback for pretty `/<slug>` URLs).
@@ -32,7 +32,7 @@ Principles:
 ## Tech stack
 
 - **Frontend (`app/`):** Vite + React 18 + TypeScript + Tailwind (CSS-variable token theming, dark + light), React Router (nested routes), TanStack Query, Framer Motion, **Leaflet** (OpenStreetMap tiles — no Google Maps), `@dnd-kit` (drag reorder), `lucide-react` (icons). Tests: **vitest**.
-- **Backend:** **Supabase** — a `trips` table holding JSONB `config` + `data`; realtime via `postgres_changes`; RLS-scoped `trip_members`; an `ai-proxy` **edge function** that calls Claude (the AI key is server-side, not in the client). Project ref `gvhtvarqgzjhbjzupdlv`.
+- **Backend:** **Supabase** — a `trips` table holding JSONB `config` + `data`; realtime via `postgres_changes`; RLS-scoped `trip_members`; edge functions `ai-proxy` (Claude proxy, founder/credits-gated, server-side key), `send-invite` (Resend), `hyper-function` (narration), `place-photo`. The AI key is server-side, never in the client. **Live project ref: `wnpanbjzmcsvhfyjdczv`** (the `gvhtvarqgzjhbjzupdlv` in older notes is stale — deploying against it silently misses the live app). Edge-function source lives in `supabase/functions/`.
 - **Hosting:** **Cloudflare Workers** via `wrangler.jsonc` (worker name `voyager`). `worker.js` serves `app/dist` (ASSETS binding) + SPA fallback to `index.html`, and redirects legacy `/<slug>` → `Trip.html`. **No `_redirects` file** — Workers Assets rejects it (SPA fallback is handled in `worker.js`).
 
 ## Commands (run from `app/` unless noted)
@@ -85,7 +85,7 @@ There is **no CI** — deploys are manual. After deploy, smoke-test routes retur
 - **Edit-gated:** all writes guarded by `canEdit`; view-only users (shared trips) see read-only state.
 - **Back-compat:** read legacy fields (`stop.booking`, string `hotel`, missing `config`) gracefully; new fields are additive.
 - **Specs & plans:** design specs in `docs/superpowers/specs/`, implementation plans in `docs/superpowers/plans/`. Build method = **subagent-driven-development** (an opus implementer per task, spec + code-quality review, commit per task, push at checkpoints, a holistic review at the end).
-- **Git:** work on `voyager-redesign`. Commit messages end with the Co-Authored-By trailer. Tags mark milestones (`phase-1-complete`, `phase-2-planner-c`, `phase-3-nav-refactor`).
+- **Git:** work on `main` (push to `origin/main` only — never `upstream`). Commit messages end with the Co-Authored-By trailer. Tags mark milestones (`phase-1-complete`, `phase-2-planner-c`, `phase-3-nav-refactor`).
 
 ## Gotchas
 
