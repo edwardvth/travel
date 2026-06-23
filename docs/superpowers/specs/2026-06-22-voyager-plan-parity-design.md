@@ -22,17 +22,18 @@ The legacy single-file app was a rich planner; Voyager's Plan tab re-built a str
 
 ## Scope at a glance
 
-| Tier | Theme | Ships |
+| Phase | Theme | Ships |
 |---|---|---|
-| **1** | Map & location foundation | Restyle `TripMapView` to the Guide-minimap aesthetic (orientation, not navigation); remove the "navigate the user" affordances; **real coordinates via a geocoder fallback** so typed / AI-coordless stops still map and get walk times |
-| **2** | AI planning power + reliability | **Root-cause + document the AI break** (works on travel-guide.ai, 403 on Voyager); then "Optimize this day", "What should I book?", stop-duration suggestions, traveler-context in planning prompts |
-| **3** | Stop content & day structure | **Fix the Story / Interesting Facts / Experience enrichment** (richness regression + a field-duplication bug); richer enrichment fields (hours / price / "good for"); per-stop hourly weather; **day management** (add / remove / reorder days, edit titles & notes) |
+| **0** | AI reliability (platform) | Verify the `ai-proxy` deploy, `ANTHROPIC_API_KEY`, and the founder-credit bypass; update `handoff.md`; produce an operator runbook. **Gates everything below** — every AI feature depends on it. |
+| **1** | Map & location foundation | Restyle `TripMapView` to the Guide-minimap aesthetic (orientation, not navigation); remove the "navigate the user" affordances; **real coordinates via a shared geocoder** so typed / AI-coordless stops still map and get walk times |
+| **2** | AI planning power | "Optimize this day" (**deterministic-first**, AI breaks ties), "What should I book?" (**with confidence + reason**), stop-duration suggestions, traveler-context in planning prompts |
+| **3** | Stop content & day structure | **Fix the Story / Interesting Facts / Experience enrichment** (richness regression + a field-duplication bug); richer enrichment fields (hours / price / "good for"); per-stop hourly weather; **day utilization summary**; **day management** (add / remove / reorder days, edit titles & notes) |
 
 **Parked (not now):** photo→landmark vision identification (legacy gap F).
 **Next batch (after this one):** a shared per-**location** enrichment cache — noted under Future Work, *not* built here.
 **Explicitly out of scope:** GPS live auto-discovery walking tour (Guide's domain, partially shipped), trip story / blog generator, JSON export/import, any turn-by-turn / in-app navigation.
 
-The three tiers are independent enough to spec, build, and ship in sequence. Recommended order: **Tier 2's AI-reliability investigation first** (cheap, unblocks Tiers 2 & 3), then **Tier 1**, then **Tier 3**. Each tier is demoable on its own.
+Phase 0 is a **platform/infrastructure gate**, not a feature — it's elevated above the tiers because if `ai-proxy` is broken, Suggest Places, Suggest Day, enrichment, Optimize Day, What-to-Book, and (degraded) duration suggestions are *all* broken. The three feature tiers are independent enough to spec, build, and ship in sequence. Recommended order: **Phase 0 first** (it gates every AI feature), then **Tier 1**, then **Tier 3**, then **Tier 2**. Each phase/tier is demoable on its own.
 
 ---
 
@@ -46,6 +47,32 @@ The three tiers are independent enough to spec, build, and ship in sequence. Rec
 - **D — thin stop content.** Enrichment is Story/Facts/Tips only — no hours / price / "good for"; weather is per-day, not per-stop.
 - **E — `DayRail` is read-only.** No add / remove / reorder days; no editing day titles or notes from Plan.
 - **Enrichment regression.** Story/Interesting-Facts/Experience come back sparse or empty vs. travel-guide.ai (diagnosed below).
+
+---
+
+# Phase 0 — AI Reliability Verification (platform gate)
+
+## Intent
+
+Every AI feature in this initiative — plus the *existing* Suggest Places, Suggest Day, and enrichment — depends on the `ai-proxy` edge function, which **works on travel-guide.ai but 403s on Voyager**. This is platform infrastructure, not a Plan feature, so it runs **before any tier begins** and gates everything downstream. Nothing here is app code; it's verification, documentation, and an operator runbook.
+
+## Root cause (to confirm)
+
+Standing theory (`handoff.md` → "Backend / AI status"): the **`ai-proxy` slug has the trip-invite *emailer* deployed instead of the Claude proxy**. An AI request (`{messages,…}`) carries no `trip_id`, the emailer's trip lookup fails, and it returns `403` — no Anthropic call ever happens (logs show only boot/shutdown). Confirm by probing the deployed slug / inspecting logs before declaring it fixed.
+
+## Checklist
+
+1. **Verify the deployed `ai-proxy`** is the real Claude proxy (`supabase/functions/ai-proxy/index.ts`), not the emailer, on project `wnpanbjzmcsvhfyjdczv`.
+2. **Verify `ANTHROPIC_API_KEY`** secret is set and valid on that project.
+3. **Verify the founder-credit bypass** — the gate mirrors legacy: `role === 'founder'` = unlimited, `credits > 0` = 1 credit/call, else `403`. Ensure the owner's `profiles.role = 'founder'`.
+4. **Update `handoff.md`** with the confirmed, current explanation (replace the theory with the finding) and the resolution that was applied.
+5. **Produce an operator runbook** — the exact deploy/secret/role steps (and how to re-verify) so this is recoverable without re-diagnosis:
+   - `npx supabase functions deploy ai-proxy --project-ref wnpanbjzmcsvhfyjdczv`
+   - set `ANTHROPIC_API_KEY`
+   - confirm `profiles.role` / `credits`
+   - smoke-test: a Suggest Places call returns results, not `403`/`429`.
+
+The client (`ai.ts:callAI`) is already correct — **no app code changes in Phase 0.** Exit criterion: a live AI call from Voyager returns content.
 
 ---
 
@@ -73,48 +100,49 @@ Per the locked principle (*the map orients, never navigates*), remove the surfac
 - **`StopDetail.tsx`:** remove the **"Navigate"** button (currently deep-links to `google.com/maps`) and the **Google static-map peek** (`staticmap.openstreetmap.de` image that links into Google Maps). Replace the peek with a small **non-interactive orientation thumbnail** consistent with the minimap look (or simply the pin context already shown in the Plan map), and drop the external nav CTA entirely.
 - No other tab gains a navigation control. (Guide already hands off via its own "Directions" action — unchanged and out of scope here.)
 
-> *Open confirmation for the plan stage:* whether to keep **any** "open in external maps" escape hatch at all. Default decision for this spec: **remove it from Plan** — the Plan tab is for building, not navigating. Guide retains its single Directions hand-off.
+**Locked (owner-approved):** the Plan tab keeps **no** "open in external maps" escape hatch. **Plan = designing, Guide = executing**; Guide retains its single Directions hand-off. Clear mental model, no navigation surface in Plan.
 
 ## 1c. Real coordinates via a geocoder fallback (gap B)
 
 When a place is added or relocated and **no finite coordinates are present** (typed-by-name, or the model omitted lat/lng), resolve coordinates from a free geocoder so the stop still earns a map pin and walk-time connectors.
 
-- **New helper `trip/geocode.ts`** — `geocodePlace(query, near?) → { lat, lng, address? } | null`. Uses a free, key-less forward geocoder (**Photon** — already used by the new-trip destination autocomplete, `components/DestinationInput.tsx` — preferred for consistency; Nominatim as the documented alternative). Biases the query with the trip destination (`destinationOf(trip)`) for disambiguation. Pure network boundary; never throws (returns `null` on miss/error). Unit-tested with mocked fetch.
-- **Wiring:** `location.ts:placeFromSuggestion` and `applyLocation` stay the single source of the "suggestion → location" mapping. `AddStop.addStop` / `addTyped` and `ChangeLocation.pickTyped` call `geocodePlace` **only when coords are absent**, then merge the resolved coords before saving. AI-provided coords are always preferred (no extra call). Geocoding is **fire-and-forget-friendly**: if it resolves after the stop is saved, patch the stop immutably (same pattern as the existing landmark-photo backfill in `AddStop`).
+- **Shared platform helper `lib/geocode.ts`** (NOT `trip/geocode.ts`) — location resolution is a **platform utility, not a Plan utility**. The same data-model-many-lenses principle applies to location: Plan, Guide, destination search, the parked photo→landmark feature, and the future shared-location cache will all want it. `geocodePlace(query, near?) → { lat, lng, address? } | null`. Uses a free, key-less forward geocoder (**Photon** — already used by the new-trip destination autocomplete, `components/DestinationInput.tsx` — for consistency; Nominatim as the documented alternative). Biases the query with the trip destination (`destinationOf(trip)`) for disambiguation. Pure network boundary; never throws (returns `null` on miss/error). Unit-tested with mocked fetch.
+- **Coordinate provenance (additive):** when coordinates are set, stamp `stop.coordinateSource?: 'ai' | 'geocoder' | 'user'` — `'ai'` for model-supplied coords, `'geocoder'` for a Photon fill, `'user'` for an explicit relocate. Optional, no migration. This is invaluable for tracing "this stop is pinned in the wrong city" later — you can immediately tell whether the AI, Photon, or a user move produced the pin. Set it in `location.ts:placeFromSuggestion`/`applyLocation` (the single mapping site) so it's stamped in exactly one place.
+- **Wiring:** `location.ts:placeFromSuggestion` and `applyLocation` stay the single source of the "suggestion → location" mapping. `AddStop.addStop` / `addTyped` and `ChangeLocation.pickTyped` call `geocodePlace` **only when coords are absent**, then merge the resolved coords (+ `coordinateSource: 'geocoder'`) before saving. AI-provided coords are always preferred (no extra call). Geocoding is **fire-and-forget-friendly**: if it resolves after the stop is saved, patch the stop immutably (same pattern as the existing landmark-photo backfill in `AddStop`).
 - **No coords + geocoder miss** stays graceful exactly as today (the "No map pin for this one yet" copy in `ChangeLocation`, no connector in `StopList`).
 
 **Walk times stay haversine.** Per the approved decision, we do **not** add OSRM. The existing `walk.ts` (calibrated, tested, offline-friendly) remains the engine for connector times; the map draws clean straight lines. This fits "not Google Maps", serves the future offline/PWA goal, and adds no rate-limited dependency.
 
 ---
 
-# Tier 2 — AI planning power + reliability
+# Tier 2 — AI planning power
 
-## 2a. FIRST: root-cause and document the AI break
+> Depends on **Phase 0** (AI must be confirmed live). The reliability work that previously lived here is now Phase 0.
 
-Every AI feature (suggestions, enrichment, and all of Tier 2) depends on the `ai-proxy` edge function, which **works on travel-guide.ai but 403s on Voyager**. The standing theory (`handoff.md` → "Backend / AI status"): the **`ai-proxy` slug has the trip-invite *emailer* deployed instead of the Claude proxy**, so an AI request has no `trip_id`, the trip lookup fails, and it returns `403` — no Anthropic call ever happens.
+## 2a. "Optimize this day" — deterministic-first, AI breaks ties
 
-Task: **confirm the root cause** (probe the deployed slug / inspect logs), then **expand `handoff.md`** with a clear, current explanation and the exact operator remediation:
-1. Deploy the real Claude proxy (`supabase/functions/ai-proxy/index.ts`) to the `ai-proxy` slug on project `wnpanbjzmcsvhfyjdczv`.
-2. Set the `ANTHROPIC_API_KEY` secret.
-3. Ensure the owner's `profiles.role = 'founder'` (the gate: founder = unlimited, `credits > 0` = 1/call, else 403).
+**Architecture: the deterministic optimizer runs first; the AI only refines.** This is the most important architectural choice in Tier 2 — it works offline eventually, works when AI is unavailable, and is predictable, cheaper, and easier to test.
 
-The client (`ai.ts:callAI`) is already correct — nothing changes client-side. This sub-task is **investigation + documentation + operator steps**, not new app code, and it gates the rest of Tier 2/3 AI behavior at runtime.
+Flow:
+1. **Deterministic optimizer** proposes an order from signals already on the data — **locked anchors** stay fixed (a reservation time, or a completed stop), then **geographic clustering** (haversine proximity via `walk.ts`), **stop duration**, and **meal timing** (eat-kind stops near mealtimes). Pure, fully unit-tested, no network.
+2. **AI tie-break only:** the model receives *the current order* and *the deterministic proposed order* and is asked to improve **only if necessary** — never inventing, deleting, or relocating stops, always respecting the locked anchors. If AI is unavailable or unchanged, the deterministic result stands.
 
-## 2b. "Optimize this day"
+Applied immutably via `save`, `completed` keys remapped (reuse `itinerary-helpers.remapCompletedAfterReorder`). Edit-gated.
 
-A per-day action that asks the AI to reorder the day's stops into a sensible geographic/time flow, **respecting locked stops** (anything with a reservation time, or marked done). Returns a new order only; never invents, deletes, or relocates stops. Applied immutably via `save`, with `completed` keys remapped (reuse `itinerary-helpers.remapCompletedAfterReorder`). Pure ordering logic lives in a tested helper; the AI call is a thin boundary. Edit-gated.
+## 2b. "What should I book?" — with confidence + reason
 
-## 2c. "What should I book?"
+Scans the itinerary and flags stops that **typically need a reservation** (timed-entry museums, popular restaurants, shows, ferries…). Each flag carries an **additive** `stop.bookingRecommendation?: { confidence: 'high' | 'medium' | 'low'; reason: string }` so the UI can explain itself — e.g. *"Likely requires booking — popular timed-entry museum"* — rather than feeling like an unexplained magic verdict. The user accepts a flag → it becomes a `reservation: { status: 'to_reserve' }` on that stop (reuses `reservation.ts`; no new object type), surfaced in Plan and the Trip tab's reservation lists (already wired to the same field). Edit-gated.
 
-An action that scans the itinerary and flags stops that **typically need a reservation** (timed-entry museums, popular restaurants, shows, ferries…), surfacing them as suggested `reservation: { status: 'to_reserve' }` additions the user can accept. Reuses the existing reservation model (`reservation.ts`) — no new object type. Surfaced in Plan and reflected in the Trip tab's reservation lists (already wired to the same field).
+## 2c. Stop-duration suggestions
 
-## 2d. Stop-duration suggestions
+A per-stop "suggest a typical visit time" that fills `stop.duration` (rule-based fallback by type when AI is unavailable, mirroring legacy). Additive field; edit-gated. Feeds the Tier 3 day-utilization summary.
 
-A per-stop "suggest a typical visit time" that fills `stop.duration` (a rule-based fallback by type when AI is unavailable, mirroring legacy). Additive field; edit-gated.
+## 2d. Traveler context in planning prompts
 
-## 2e. Traveler context in planning prompts
+A per-trip **traveler context**, stored in `config` (additive), folded into the **planning** prompts (`suggest.ts` suggestions, optimize-day, what-to-book) so output is tailored.
 
-A per-trip free-text **traveler context** (group size, pace, dietary/accessibility notes), stored in `config` (additive), folded into the **planning** prompts (`suggest.ts` suggestions, optimize-day, what-to-book) so output is tailored.
+- **Exposed now:** a single freeform field `config.travelerContext?: string` (e.g. *"2 adults, foodies, hate crowds, moderate walking"*).
+- **Structured room left for later (not surfaced now):** the data model also reserves `config.travelerProfile?: { groupSize?: number; pace?: string; accessibility?: string }`. We don't build UI for it yet, but leaving the shape means future prompts can use structure instead of re-parsing freeform text — which degrades into garbage quickly. Additive, no migration.
 
 > **Boundary that protects the future location cache:** traveler context personalizes **planning** prompts only. It must **never** be folded into the encyclopedic **enrichment** prompt (`enrich.ts`), which stays trip-agnostic so a future shared per-location cache (Future Work) remains valid.
 
@@ -152,21 +180,34 @@ Add to the enrichment shape (additive, all optional): **opening hours**, **price
 
 `StopDetail` gains an hourly weather strip for the stop's day/time (Open-Meteo, same source as the per-day `WeatherGlance`), shown only when the stop has coords and the day has a date. Cached per coord+date like the existing weather path; never persisted into trip data.
 
-## 3d. Day management (gap E)
+## 3d. Day utilization summary
+
+Once `stop.duration` exists (Tier 2c), surface a cheap, high-value glance per day: **"4 stops · ~6h planned"**, with a gentle **overloaded** cue past a threshold (e.g. >10–12h). It makes the duration data and Optimize-this-day tangible — you can *see* a day is overstuffed. Pure derived value (sum of stop durations with a sensible default per kind when a stop has none), shown in the day header / `DayRail`. No new persisted data. Reduced-motion friendly, token-themed.
+
+## 3e. Day management (gap E)
 
 `DayRail` is currently read-only. Add edit-gated controls to:
 - **Add a day** (append), **remove a day** (with confirm), **reorder days** (dnd-kit, consistent with stop reorder).
 - **Edit day title and note** (`day.title`, `day.note` already exist on the `Day` shape; `config.dayTitles`/`dayLabels` remain the label source).
-- All mutations immutable via `save`, and must **remap `completed` keys** (which are `"<dayIndex>-<stopIndex>"`) when days are added/removed/reordered — extend `itinerary-helpers` with tested day-level remappers mirroring the existing stop-level ones.
+- All mutations immutable via `save`. UI: add/reorder/edit affordances live in the day rail / a small day-settings sheet, in Voyager's token theming, ≥44px targets, focus-trapped sheet, reduced-motion friendly. View-only users see days but no controls.
 
-UI: the add/reorder/edit affordances live in the day rail / a small day-settings sheet, in Voyager's token theming, ≥44px targets, focus-trapped sheet, reduced-motion friendly. View-only users see days but no controls.
+### Day Reorder Invariants (audit — must hold after add / remove / reorder)
+
+Day-index churn is the regression risk here. Every mutation must preserve all of these, each with a dedicated test:
+
+1. **`completed` keys** — keys are `"<dayIndex>-<stopIndex>"`; remap them. Extend `itinerary-helpers` with tested **day-level** remappers mirroring the existing stop-level ones (`remapCompletedAfterReorder/Delete`).
+2. **Reservations** — verified **safe**: reservations live *on the stop* (`stop.reservation`), not keyed by day index, so they travel with the stop automatically. The audit records this explicitly so a future change doesn't silently introduce day-indexed reservation state.
+3. **Selected day stability** — the lifted `activeDay` (in `PlannerLayout`, mirrored to `?day=N`) must follow the *same day* across a reorder/insert/delete, not a stale index (e.g. viewing Day 3 when Day 2 is removed shouldn't silently jump to a different day's content).
+4. **Weather cache** — must be keyed by **coord + date**, never by day index (per-day dates are derived by position from `config.startDate`, so a reorder changes which date a position maps to). Confirm `WeatherGlance`'s cache key is position-independent; fix if not.
+
+The invariants section exists so these are explicitly tested rather than discovered as regressions.
 
 ---
 
 ## Data model (all additive JSONB — no migration)
 
-- `Stop` gains (all optional): `duration?` (2d — already in the type), `hours?: string`, `price?: string`, `goodFor?: string`. `notice?` is **deprecated** (still read for back-compat; no longer written).
-- `TripConfig` gains: `travelerContext?: string` (2e).
+- `Stop` gains (all optional): `duration?` (2c — already in the type), `hours?: string`, `price?: string`, `goodFor?: string` (3b), `coordinateSource?: 'ai' | 'geocoder' | 'user'` (1c provenance), `bookingRecommendation?: { confidence: 'high' | 'medium' | 'low'; reason: string }` (2b). `notice?` is **deprecated** (still read for back-compat; no longer written).
+- `TripConfig` gains: `travelerContext?: string`, and — reserved, not surfaced yet — `travelerProfile?: { groupSize?: number; pace?: string; accessibility?: string }` (2d).
 - `Day.title?` / `Day.note?` are already in the shape; day management just makes them editable.
 - Back-compat reads preserved everywhere (`stop.booking`, string `hotel`, missing `config`, legacy `notice`).
 
@@ -176,7 +217,7 @@ lucide icons only (no emoji); token classes (`bg-base`, `text-muted`, `border-ha
 
 ## Testing
 
-- **Pure logic unit-tested (vitest):** `geocode.ts` (mocked fetch, miss/error → null), enrichment prompt/parse changes incl. facts/notice back-compat (`enrich.test.ts`), optimize-day ordering + locked-stop respect, what-to-book selection, day-level `completed` remappers.
+- **Pure logic unit-tested (vitest):** `lib/geocode.ts` (mocked fetch, miss/error → null) + coordinate-provenance stamping; enrichment prompt/parse changes incl. facts/notice back-compat (`enrich.test.ts`); the **deterministic** optimizer (ordering + locked-anchor respect, independent of AI); what-to-book selection + confidence shape; day-utilization sum; **day-level remappers + the four Day-Reorder Invariants** (completed keys, reservation-travels-with-stop, selected-day stability, position-independent weather key).
 - **Render checks:** Plan `StopDetail` and Guide `StoryTabs` read the same `facts[]`; navigation affordances removed from `StopDetail`.
 - The full suite (~526 today, growing with new tests) must stay green; `npx tsc -b` clean; `npm run build` succeeds before each deploy.
 
@@ -193,14 +234,16 @@ lucide icons only (no emoji); token classes (`bg-base`, `text-muted`, `border-ha
 ## Open questions resolved
 
 - **OSRM vs. haversine (Tier 1):** **Resolved — no OSRM.** Restyle + haversine walk times + straight lines.
-- **External "open in maps" on Plan:** default **removed**; confirm at plan stage.
+- **External "open in maps" on Plan:** **Resolved — removed** (owner-approved). Plan = designing, Guide = executing.
+- **Optimize-day architecture (Tier 2):** **Resolved — deterministic-first, AI breaks ties.**
+- **Geocoder home:** **Resolved — `lib/geocode.ts`** (shared platform utility, not Plan-local).
 - **Multi-day optimize (Tier 2):** **stretch**, decided at plan stage.
 
 ## Build sequencing (recommended)
 
-1. **Tier 2a** — AI-reliability investigation + handoff.md (cheap; unblocks all AI behavior).
-2. **Tier 1** — map restyle + de-navigation + geocoder fallback.
-3. **Tier 3** — enrichment fix first (most visible), then fields, per-stop weather, day management.
-4. **Tier 2b–2e** — planning assists (once AI confirmed working).
+1. **Phase 0** — AI-reliability verification + `handoff.md` + operator runbook (cheap; gates every AI feature).
+2. **Tier 1** — map restyle + de-navigation + shared geocoder + coordinate provenance.
+3. **Tier 3** — enrichment fix first (highest ROI, most visible), then richer fields, per-stop weather, day-utilization summary, day management (with the reorder-invariants audit).
+4. **Tier 2** — planning assists (once AI confirmed live): deterministic-first Optimize Day, What-to-Book (with confidence), durations, traveler context.
 
-Each tier → its own writing-plans implementation plan → subagent-driven-development → commit per task → push `origin/main` → deploy.
+Each phase/tier → its own writing-plans implementation plan → subagent-driven-development → commit per task → push `origin/main` → deploy.
