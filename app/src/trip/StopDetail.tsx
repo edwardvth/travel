@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
 import { generateStopDetail } from './enrich'
+import { toInputTime, fromInputTime } from './time'
 import { destinationOf } from './landmark-context'
 import { isCompleted } from './helpers'
 import { Calendar, CheckCircle2, Lightbulb, MapPin, kindIcon, kindLabel, stopKind } from './icons'
@@ -520,30 +521,3 @@ export default function StopDetail() {
   )
 }
 
-/**
- * Convert a stored display time (legacy stores "9:00 AM") into a 24h "HH:MM"
- * value for an <input type="time">. Returns '' when unparseable.
- */
-export function toInputTime(time: string | undefined): string {
-  if (!time) return ''
-  const m = time.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/i)
-  if (!m) return ''
-  let h = Number(m[1])
-  const min = m[2]
-  const ap = m[3]?.toLowerCase()
-  if (ap === 'pm' && h < 12) h += 12
-  if (ap === 'am' && h === 12) h = 0
-  return `${String(h).padStart(2, '0')}:${min}`
-}
-
-/** Convert an <input type="time"> "HH:MM" back into a "h:MM AM/PM" display string. */
-export function fromInputTime(value: string): string | undefined {
-  const m = value.match(/^(\d{2}):(\d{2})$/)
-  if (!m) return undefined
-  let h = Number(m[1])
-  const min = m[2]
-  const ap = h >= 12 ? 'PM' : 'AM'
-  h = h % 12
-  if (h === 0) h = 12
-  return `${h}:${min} ${ap}`
-}

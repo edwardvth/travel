@@ -124,7 +124,7 @@ describe('buildSuggestDayPrompt', () => {
 describe('parseSuggestions — time + duration + mealAnchor (suggest-day parity)', () => {
   it('captures time (string), duration (minutes), and a valid mealAnchor', () => {
     const stops = parseSuggestions('[{"name":"Cafe","time":"9:00 AM","duration":"45 min","mealAnchor":"breakfast"}]')
-    expect(stops[0]).toMatchObject({ name: 'Cafe', time: '9:00 AM', duration: 45, mealAnchor: 'breakfast' })
+    expect(stops[0]).toMatchObject({ name: 'Cafe', time: '9:00 AM', suggestedTime: '9:00 AM', duration: 45, mealAnchor: 'breakfast' })
   })
   it('omits time/duration when unparseable, and drops an out-of-enum mealAnchor', () => {
     const stops = parseSuggestions('[{"name":"X","duration":"soon","mealAnchor":"snack"}]')

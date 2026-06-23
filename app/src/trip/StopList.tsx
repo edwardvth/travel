@@ -92,6 +92,18 @@ export function StopList({ trip, day, canEdit, save, selectedIndex, onSelect }: 
     save({ data })
   }
 
+  /** Immutably set or clear a stop's display time and persist. */
+  function handleSetTime(index: number, time: string | undefined) {
+    if (!canEdit) return
+    const data = cloneData()
+    const current = data.days[day].stops[index]
+    if (!current) return
+    data.days[day].stops[index] = time
+      ? { ...current, time }
+      : (() => { const { time: _drop, ...rest } = current; void _drop; return rest })()
+    save({ data })
+  }
+
   function handleConfirmDelete() {
     if (!canEdit || pendingDelete === null) return
     const index = pendingDelete
@@ -146,6 +158,7 @@ export function StopList({ trip, day, canEdit, save, selectedIndex, onSelect }: 
                     onToggleDone={handleToggleDone}
                     onDelete={setPendingDelete}
                     onSetReservation={handleSetReservation}
+                    onSetTime={handleSetTime}
                   />
                 </li>,
               ]

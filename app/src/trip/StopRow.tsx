@@ -1,11 +1,15 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { useNavigate } from 'react-router-dom'
 import { cn } from '../lib/utils'
-import { Calendar, Check, CheckCircle2, ChevronRight, Circle, GripVertical, Trash2, kindIcon, kindLabel, stopKind } from './icons'
+import { Calendar, Check, CheckCircle2, ChevronRight, Circle, Clock, GripVertical, Trash2, kindIcon, kindLabel, stopKind } from './icons'
 import { reservationStatus, type Reservation } from './reservation'
 import { coverPhoto } from './photo'
+import { AnimatePresence } from 'framer-motion'
+import { TimeEditor } from './TimeEditor'
+import { TimeModal } from './TimeModal'
+import { useMediaQuery } from '../lib/useMediaQuery'
 import type { Stop } from '../types'
 
 export interface StopRowProps {
@@ -23,6 +27,8 @@ export interface StopRowProps {
   onDelete: (index: number) => void
   /** Set or clear this stop's reservation (immutable, edit-gated upstream). */
   onSetReservation?: (index: number, patch: Partial<Reservation> | null) => void
+  /** Set or clear this stop's display time (immutable, edit-gated upstream). */
+  onSetTime?: (index: number, time: string | undefined) => void
 }
 
 /**
@@ -31,7 +37,7 @@ export interface StopRowProps {
  * affordances (drag handle, done toggle, delete) are hidden when `!canEdit`.
  */
 export function StopRow({
-  tripId, day, index, stop, done, canEdit, selected = false, onSelect, onToggleDone, onDelete, onSetReservation,
+  tripId, day, index, stop, done, canEdit, selected = false, onSelect, onToggleDone, onDelete, onSetReservation, onSetTime,
 }: StopRowProps) {
   const navigate = useNavigate()
   const rowRef = useRef<HTMLDivElement | null>(null)
@@ -43,6 +49,39 @@ export function StopRow({
   useEffect(() => {
     if (selected) rowRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [selected])
+
+  // Inline time editor: open state. The desktop popover closes on Esc /
+  // pointer-down outside it; the mobile bottom sheet manages its own dismissal.
+  const [editingTime, setEditingTime] = useState(false)
+  const timeWrapRef = useRef<HTMLSpanElement | null>(null)
+  const isDesktop = useMediaQuery('(min-width: 768px)')
+  useEffect(() => {
+    if (!editingTime || !isDesktop) return
+    const onDown = (e: PointerEvent) => {
+      if (timeWrapRef.current && !timeWrapRef.current.contains(e.target as Node)) setEditingTime(false)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setEditingTime(false)
+    }
+    document.addEventListener('pointerdown', onDown, true)
+    document.addEventListener('keydown', onKey, true)
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true)
+      document.removeEventListener('keydown', onKey, true)
+    }
+  }, [editingTime, isDesktop])
+
+  // Baseline for "back to suggested": prefer the AI-captured suggestion, else
+  // snapshot the time once when the editor first opens — so pre-existing stops
+  // (generated before suggestedTime existed) can still be reverted.
+  const suggestedTimeRef = useRef<string | undefined>(undefined)
+  function toggleTimeEditor() {
+    setEditingTime((prev) => {
+      const opening = !prev
+      if (opening) suggestedTimeRef.current = stop.suggestedTime ?? suggestedTimeRef.current ?? stop.time
+      return opening
+    })
+  }
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -109,46 +148,108 @@ export function StopRow({
         </span>
       )}
 
-      {/* Tappable body → select stop (focuses the map) */}
-      <button
-        type="button"
-        onClick={() => onSelect?.(index)}
-        className="flex-1 min-w-0 flex items-center gap-3 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
-      >
-        {/* Thumbnail */}
-        {thumb ? (
-          <img
-            src={thumb}
-            alt=""
-            loading="lazy"
-            className="flex-none w-11 h-11 rounded-[10px] object-cover bg-raised"
-          />
-        ) : (
-          <span className="flex-none grid place-items-center w-11 h-11 rounded-[10px] bg-fill text-muted" aria-hidden="true">
-            <KindIcon size={18} />
-          </span>
-        )}
+      {/* Body: thumbnail + name select the stop (focus the map). The time pill
+          under the name is its OWN button — separate, never nested — so it can
+          open the inline TimeEditor without an invalid button-in-button. */}
+      <div className="flex-1 min-w-0 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => onSelect?.(index)}
+          aria-label={`Focus ${stop.name} on the map`}
+          className="flex-none rounded-[10px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+        >
+          {thumb ? (
+            <img
+              src={thumb}
+              alt=""
+              loading="lazy"
+              className="w-11 h-11 rounded-[10px] object-cover bg-raised"
+            />
+          ) : (
+            <span className="grid place-items-center w-11 h-11 rounded-[10px] bg-fill text-muted" aria-hidden="true">
+              <KindIcon size={18} />
+            </span>
+          )}
+        </button>
 
         <span className="min-w-0 flex-1">
-          <span className={cn(
-            'block font-sans font-semibold text-[14.5px] truncate',
-            done && 'line-through text-muted',
-          )}>
-            {stop.name}
-          </span>
-          <span className="flex items-center gap-1.5 text-[12px] text-muted truncate">
-            <span
-              className="flex-none inline-flex items-center gap-1 rounded-full bg-fill px-1.5 py-0.5 text-[10.5px] font-semibold text-muted"
-            >
+          <button
+            type="button"
+            onClick={() => onSelect?.(index)}
+            className="block w-full text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+          >
+            <span className={cn(
+              'block font-sans font-semibold text-[14.5px] truncate',
+              done && 'line-through text-muted',
+            )}>
+              {stop.name}
+            </span>
+          </button>
+
+          <span className="flex items-center gap-1.5 text-[12px] text-muted">
+            <span className="flex-none inline-flex items-center gap-1 rounded-full bg-fill px-1.5 py-0.5 text-[10.5px] font-semibold text-muted">
               <KindIcon size={11} aria-hidden="true" />
               {kindLabel(kind)}
             </span>
-            <span className="truncate">
-              {[stop.time, stop.type].filter(Boolean).join(' · ') || 'Tap to add details'}
+
+            {/* Editable time pill → opens the inline TimeEditor (edit only). */}
+            <span ref={timeWrapRef} className="relative flex-none">
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={toggleTimeEditor}
+                  aria-label={stop.time ? `Edit time (${stop.time})` : 'Add a time'}
+                  aria-expanded={editingTime}
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-full min-h-[28px] pl-1.5 pr-2 font-mono text-[11.5px] tabular-nums transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link',
+                    editingTime
+                      ? 'bg-sig/10 text-sig-link'
+                      : stop.time
+                        ? 'text-muted hover:bg-fill hover:text-ink'
+                        : 'text-muted/70 hover:bg-fill hover:text-ink',
+                  )}
+                >
+                  <Clock size={11} aria-hidden="true" />
+                  {stop.time ?? 'Add time'}
+                </button>
+              ) : stop.time ? (
+                <span className="inline-flex items-center gap-1 font-mono text-[11.5px] tabular-nums text-muted">
+                  <Clock size={11} aria-hidden="true" />
+                  {stop.time}
+                </span>
+              ) : null}
+
+              {isDesktop
+                ? editingTime && (
+                    <TimeEditor
+                      value={stop.time}
+                      suggested={suggestedTimeRef.current}
+                      onChange={t => onSetTime?.(index, t)}
+                      onClear={() => onSetTime?.(index, undefined)}
+                      onClose={() => setEditingTime(false)}
+                    />
+                  )
+                : (
+                    <AnimatePresence>
+                      {editingTime && (
+                        <TimeModal
+                          key="time-modal"
+                          value={stop.time}
+                          suggested={suggestedTimeRef.current}
+                          onChange={t => onSetTime?.(index, t)}
+                          onClear={() => onSetTime?.(index, undefined)}
+                          onClose={() => setEditingTime(false)}
+                        />
+                      )}
+                    </AnimatePresence>
+                  )}
             </span>
+
+            {stop.type && <span className="truncate">{stop.type}</span>}
           </span>
         </span>
-      </button>
+      </div>
 
       {/* Reservation affordance — explicit, edit-gated. Read-only viewers see the
           state but get no interactive control. */}

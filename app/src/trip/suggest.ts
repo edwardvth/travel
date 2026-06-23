@@ -107,7 +107,10 @@ function toStop(raw: Record<string, unknown>): Stop | null {
   if (note) stop.note = note
 
   const time = str(raw.time)
-  if (time) stop.time = time
+  if (time) {
+    stop.time = time
+    stop.suggestedTime = time
+  }
   const duration = normalizeDuration(raw.duration)
   if (duration !== undefined) stop.duration = duration
   const meal = str(raw.mealAnchor)
