@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseSuggestions, buildSuggestPrompt, buildSuggestDayPrompt } from './suggest'
+import { ensureDurations } from './duration'
 
 describe('parseSuggestions', () => {
   it('parses a clean JSON array into Stops', () => {
@@ -158,5 +159,14 @@ describe('buildSuggestDayPrompt — complete-day parity', () => {
 describe('buildSuggestPrompt — 6 results', () => {
   it('asks for 6 places', () => {
     expect(buildSuggestPrompt('coffee', {})).toMatch(/\b6\b/)
+  })
+})
+
+describe('suggestDay duration guarantee (via ensureDurations)', () => {
+  it('every stop has a duration after ensureDurations', () => {
+    const filled = ensureDurations(parseSuggestions('[{"name":"Cafe","type":"Cafe"},{"name":"X","duration":"90 min"}]'))
+    expect(filled.every(s => typeof s.duration === 'number')).toBe(true)
+    expect(filled[0].duration).toBe(45)
+    expect(filled[1].duration).toBe(90)
   })
 })

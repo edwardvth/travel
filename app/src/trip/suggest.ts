@@ -1,6 +1,6 @@
 import { callAI, textMessage } from './ai'
 import type { Stop, StopKind } from '../types'
-import { normalizeDuration } from './duration'
+import { normalizeDuration, ensureDurations } from './duration'
 
 export interface SuggestContext {
   tripTitle?: string
@@ -169,8 +169,19 @@ export async function suggestPlaces(query: string, ctx: SuggestContext): Promise
   return parseSuggestions(text)
 }
 
-/** Suggest a small, coherent set of stops for an empty day. */
+/**
+ * Suggest a complete, scheduled day (a full morning→evening itinerary),
+ * durations guaranteed. Runs on Claude Opus 4.7 — day generation is the
+ * heaviest reasoning task (completeness, geography, variety, scheduling) and
+ * fires only on an explicit "Suggest a day" click, so the higher cost is
+ * bounded. The 4000-token ceiling prevents a fuller day from truncating
+ * mid-JSON; it is not a prompt to be verbose. (Enrichment + suggestPlaces stay
+ * on the default Sonnet 4.6.)
+ */
 export async function suggestDay(ctx: SuggestContext): Promise<Stop[]> {
-  const text = await callAI(textMessage(buildSuggestDayPrompt(ctx)), { maxTokens: 1500 })
-  return parseSuggestions(text)
+  const text = await callAI(textMessage(buildSuggestDayPrompt(ctx)), {
+    model: 'claude-opus-4-7',
+    maxTokens: 4000,
+  })
+  return ensureDurations(parseSuggestions(text))
 }
