@@ -6,8 +6,9 @@ import { cn } from '../lib/utils'
 import { Calendar, Check, CheckCircle2, ChevronRight, Circle, Clock, GripVertical, Trash2, kindIcon, kindLabel, stopKind } from './icons'
 import { reservationStatus, type Reservation } from './reservation'
 import { coverPhoto } from './photo'
+import { AnimatePresence } from 'framer-motion'
 import { TimeEditor } from './TimeEditor'
-import { TimeSheet } from './TimeSheet'
+import { TimeModal } from './TimeModal'
 import { useMediaQuery } from '../lib/useMediaQuery'
 import type { Stop } from '../types'
 
@@ -207,21 +208,28 @@ export function StopRow({
                 </span>
               ) : null}
 
-              {editingTime && (isDesktop ? (
-                <TimeEditor
-                  value={stop.time}
-                  onChange={t => onSetTime?.(index, t)}
-                  onClear={() => onSetTime?.(index, undefined)}
-                  onClose={() => setEditingTime(false)}
-                />
-              ) : (
-                <TimeSheet
-                  value={stop.time}
-                  onChange={t => onSetTime?.(index, t)}
-                  onClear={() => onSetTime?.(index, undefined)}
-                  onClose={() => setEditingTime(false)}
-                />
-              ))}
+              {isDesktop
+                ? editingTime && (
+                    <TimeEditor
+                      value={stop.time}
+                      onChange={t => onSetTime?.(index, t)}
+                      onClear={() => onSetTime?.(index, undefined)}
+                      onClose={() => setEditingTime(false)}
+                    />
+                  )
+                : (
+                    <AnimatePresence>
+                      {editingTime && (
+                        <TimeModal
+                          key="time-modal"
+                          value={stop.time}
+                          onChange={t => onSetTime?.(index, t)}
+                          onClear={() => onSetTime?.(index, undefined)}
+                          onClose={() => setEditingTime(false)}
+                        />
+                      )}
+                    </AnimatePresence>
+                  )}
             </span>
 
             {stop.type && <span className="truncate">{stop.type}</span>}
