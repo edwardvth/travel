@@ -3,7 +3,7 @@ import { Clock, Minus, Plus, X } from 'lucide-react'
 import { toInputTime, fromInputTime, nudgeTime } from './time'
 import { cn } from '../lib/utils'
 
-const NUDGES = [-15, -5, 5, 15] as const
+const NUDGES = [-30, -15, 15, 30] as const
 
 /**
  * Compact inline time editor, anchored under a stop row's time pill. A native

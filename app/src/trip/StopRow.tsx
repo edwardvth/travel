@@ -7,6 +7,8 @@ import { Calendar, Check, CheckCircle2, ChevronRight, Circle, Clock, GripVertica
 import { reservationStatus, type Reservation } from './reservation'
 import { coverPhoto } from './photo'
 import { TimeEditor } from './TimeEditor'
+import { TimeSheet } from './TimeSheet'
+import { useMediaQuery } from '../lib/useMediaQuery'
 import type { Stop } from '../types'
 
 export interface StopRowProps {
@@ -47,11 +49,13 @@ export function StopRow({
     if (selected) rowRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
   }, [selected])
 
-  // Inline time editor: open state + close on Escape / pointer-down outside it.
+  // Inline time editor: open state. The desktop popover closes on Esc /
+  // pointer-down outside it; the mobile bottom sheet manages its own dismissal.
   const [editingTime, setEditingTime] = useState(false)
   const timeWrapRef = useRef<HTMLSpanElement | null>(null)
+  const isDesktop = useMediaQuery('(min-width: 768px)')
   useEffect(() => {
-    if (!editingTime) return
+    if (!editingTime || !isDesktop) return
     const onDown = (e: PointerEvent) => {
       if (timeWrapRef.current && !timeWrapRef.current.contains(e.target as Node)) setEditingTime(false)
     }
@@ -64,7 +68,7 @@ export function StopRow({
       document.removeEventListener('pointerdown', onDown, true)
       document.removeEventListener('keydown', onKey, true)
     }
-  }, [editingTime])
+  }, [editingTime, isDesktop])
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -203,14 +207,21 @@ export function StopRow({
                 </span>
               ) : null}
 
-              {editingTime && (
+              {editingTime && (isDesktop ? (
                 <TimeEditor
                   value={stop.time}
                   onChange={t => onSetTime?.(index, t)}
                   onClear={() => onSetTime?.(index, undefined)}
                   onClose={() => setEditingTime(false)}
                 />
-              )}
+              ) : (
+                <TimeSheet
+                  value={stop.time}
+                  onChange={t => onSetTime?.(index, t)}
+                  onClear={() => onSetTime?.(index, undefined)}
+                  onClose={() => setEditingTime(false)}
+                />
+              ))}
             </span>
 
             {stop.type && <span className="truncate">{stop.type}</span>}
