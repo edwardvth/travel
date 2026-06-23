@@ -43,7 +43,8 @@ Keep ONE prompt (Voyager architecture). No gap-fill engine, no multi-day optimiz
 A day-planner persona that returns a **complete, realistic day**:
 - **Completeness over count — fill the day window; durations govern.** The objective is a *realistically full travel day*, not a stop quota. Schedule from the morning (~8–9am) through the evening (dinner and usually an evening pick, ~9–10pm+), and use each stop's `duration` plus realistic transit to judge when the day is genuinely full — **keep adding worthwhile stops until it is, and do not stop at an arbitrary number.** Stop count is a **consequence, not the goal**: a dense capital (Paris, Tokyo, Rome) naturally fills with more, a slower place (a small town, Yerevan) with fewer. In practice this usually lands around **6–11 stops**, but that's an observed range to sanity-check against, never a target the model should satisfy and stop at. (Mirrors legacy exactly — it filled a ~9am–midnight / 10am–10:30pm window by duration, no count cap.)
 - **Morning→evening skeleton with explicit meal anchors:** coffee/breakfast (~8–9:30) · a morning highlight · **lunch (~12–1:30)** · one or two afternoon stops · an optional break/coffee · **dinner (~7–8:30)** · an optional evening pick.
-- **Geographically coherent** so the day flows (cluster nearby; minimise backtracking).
+- **Walkable & geographically coherent** (stronger than "cluster nearby"): the itinerary should *feel walkable* — consecutive stops generally stay within the **same district or adjacent districts** unless there's a compelling reason to travel farther; cluster nearby places and avoid backtracking.
+- **Varied, intentional pacing (variety guard):** alternate activity types where possible; **avoid repetitive runs of similar stops** (e.g. museum → museum → museum) unless a place is genuinely exceptional. The day should feel varied, not monotonous.
 - **Notable-not-touristy bias** — real, characterful places (insider as well as marquee), the way legacy read.
 - **Assign `time` and `duration` per stop** (realistic, e.g. coffee 45m, museum 90m, dinner 90m) so the day arrives **scheduled**.
 - Keep the existing JSON-array contract + robust parser; keep the "real places, accurate coords or omit" guard.
@@ -61,13 +62,16 @@ The JSON contract becomes:
 A pure `app/src/trip/duration.ts` → `defaultDurationMinutes(stop)` mirroring legacy's lookup (coffee/breakfast 45 · lunch/brunch 75 · dinner/restaurant 90 · museum/gallery 90 · theatre 150 · park 60 · walk 30 · default 60), keyed off `kind`/`type`/name. Fills any stop the model leaves without a duration. **Reused by Tier 2c (duration suggestions) and Tier 3d (day-utilization).**
 
 ### 4. Token budget
-`suggestDay` **maxTokens 1500 → 4000** (a 6–10-stop day with time/duration/note fits comfortably; no truncation risk — you pay only for tokens generated).
+`suggestDay` **maxTokens 1500 → 4000**. The larger budget exists to **prevent truncation of a richer, full-day itinerary** — it is **not** an instruction to generate unnecessarily verbose content (a full day of structured stops is ~450–700 tokens of real output; you pay only for what's generated). The ceiling simply guarantees a complete day is never cut off mid-JSON.
 
 ### 5. Traveler-context hook (thin; full feature is Tier 2d)
 The prompt builders accept an optional `travelerContext?: string` (added to `SuggestContext`) and fold it in when present. The caller reads it opportunistically from `trip.config` (via the existing `[k:string]:unknown` index signature, guarded as a string) — **no `TripConfig` change here**. Until Tier 2d ships the field + the UI to set it, this is simply inert. Legacy injected traveler context into every prompt; this leaves the hook so days tailor the moment Tier 2d lands.
 
 ### 6. (Tiny) `suggestPlaces` 5 → 6 results
 Match legacy's 6-result search. Trivial; same parser.
+
+### 7. Model: Opus 4.7 for day generation; enrichment stays Sonnet 4.6
+Day generation is the heaviest reasoning task in the planner (completeness, geography, variety, scheduling), so **`suggestDay` runs on Claude Opus 4.7 (`claude-opus-4-7`)** — passed via `callAI`'s `model` option. It fires only on an explicit "Suggest a day" click (not per-stop), so the higher Opus cost is bounded. Everything else stays on the default **Sonnet 4.6 (`claude-sonnet-4-6`)**: `suggestPlaces` (lighter single-place search) and — explicitly — **stop enrichment** (`enrich.ts` Story/Facts/Experience, the Tier 3 work) remain Sonnet. The `ai-proxy` forwards only `{ model, max_tokens, messages }` (no `temperature` / `thinking` / `budget_tokens`), so Opus 4.7's adaptive-thinking-only request surface needs no other change.
 
 ---
 
@@ -95,7 +99,7 @@ Run **before Tier 3** — AI is live now (Phase 0 resolved 2026-06-23), this is 
 
 ## Testing
 
-- **Pure, unit-tested (vitest):** `normalizeDuration` ("90 min"/"1h 30m"/"45m"/bare number/garbage → minutes|undefined); `toStop` now capturing `time`+`duration`+`mealAnchor` (and dropping an out-of-enum `mealAnchor`); `defaultDurationMinutes` per kind/type; `parseSuggestions` still robust. Prompt-builder assertions: `buildSuggestDayPrompt` frames a **full-day window / completeness (NOT a hard stop count)** — assert the "fill the whole day / until genuinely full / not an arbitrary number" language — plus meal-anchor language, the `time`/`duration`/`mealAnchor` fields, and folds `travelerContext` when supplied.
+- **Pure, unit-tested (vitest):** `normalizeDuration` ("90 min"/"1h 30m"/"45m"/bare number/garbage → minutes|undefined); `toStop` now capturing `time`+`duration`+`mealAnchor` (and dropping an out-of-enum `mealAnchor`); `defaultDurationMinutes` per kind/type; `parseSuggestions` still robust. Prompt-builder assertions: `buildSuggestDayPrompt` frames a **full-day window / completeness (NOT a hard stop count)** — assert the "fill the whole day / until genuinely full / not an arbitrary number" language — plus meal-anchor language, the **walkable / same-or-adjacent-district** clustering language, the **variety guard** ("alternate" / "repetitive"), the `time`/`duration`/`mealAnchor` fields, and folds `travelerContext` when supplied. (Model choice — Opus 4.7 for `suggestDay` — is a `callAI` option on the network boundary, not unit-tested.)
 - Suite stays green (`cd app && npm test`); `tsc -b` clean; `npm run build`; deploy.
 - **Manual smoke:** "Suggest a day for me" on an empty day → a full, scheduled, meal-anchored day (~6–10 stops) with times + durations and coherent geography.
 

@@ -4,7 +4,7 @@
 
 **Goal:** Make "Suggest a day" generate a **complete, realistic, scheduled day** — fill a morning→evening window using stop durations so the day is genuinely full (stop count is a consequence, observed ~6–11, never a target), meal-anchored — instead of a thin 4-stop list. Done by reframing the single `suggestDay` prompt around day-completeness, capturing `time`/`duration`/`mealAnchor`, plus a shared duration helper.
 
-**Architecture:** Spec: `docs/superpowers/specs/2026-06-23-voyager-suggest-day-parity-design.md`. Keep Voyager's single-prompt architecture (`app/src/trip/suggest.ts`) — the prompt is reframed around **day-completeness (fill the window by duration), not a stop count**. `Stop.time` (string) + `Stop.duration` (number) already exist; one new additive `Stop.mealAnchor?: 'breakfast'|'lunch'|'dinner'`. No migration. A new pure `app/src/trip/duration.ts` (`normalizeDuration`, `defaultDurationMinutes`, `ensureDurations`) is shared by this work and the later Tier 2c/Tier 3d. Generation stays creative; Tier 2's deterministic "Optimize this day" re-sequences later. No gap-fill engine, no multi-day optimizer.
+**Architecture:** Spec: `docs/superpowers/specs/2026-06-23-voyager-suggest-day-parity-design.md`. Keep Voyager's single-prompt architecture (`app/src/trip/suggest.ts`) — the prompt is reframed around **day-completeness (fill the window by duration), not a stop count**. `Stop.time` (string) + `Stop.duration` (number) already exist; one new additive `Stop.mealAnchor?: 'breakfast'|'lunch'|'dinner'`. No migration. **`suggestDay` runs on Opus 4.7 (`claude-opus-4-7`)** via `callAI`'s `model` option; everything else (suggestPlaces, enrichment) stays on the default Sonnet 4.6. A new pure `app/src/trip/duration.ts` (`normalizeDuration`, `defaultDurationMinutes`, `ensureDurations`) is shared by this work and the later Tier 2c/Tier 3d. Generation stays creative; Tier 2's deterministic "Optimize this day" re-sequences later. No gap-fill engine, no multi-day optimizer.
 
 **Tech Stack:** Vite + React 18 + TS + Tailwind + Supabase `ai-proxy` (Claude) + vitest
 
@@ -219,6 +219,8 @@ describe('buildSuggestDayPrompt — complete-day parity', () => {
     expect(p.toLowerCase()).toContain('breakfast')
     expect(p.toLowerCase()).toContain('lunch')
     expect(p.toLowerCase()).toContain('dinner')
+    expect(p.toLowerCase()).toMatch(/walkable|same district|adjacent district/) // clustering
+    expect(p.toLowerCase()).toMatch(/alternate|repetitive|varied/) // variety guard
     expect(p).toContain('"time"')
     expect(p).toContain('"duration"')
     expect(p).toContain('"mealAnchor"')
@@ -288,7 +290,7 @@ Fill the whole day. Schedule from the morning (around 8–9am) through the eveni
 - dinner (around 7–8:30pm)
 - an optional evening pick
 
-Keep it geographically coherent so the day flows (cluster nearby places; avoid backtracking). Favour genuinely notable, characterful places — a mix of marquee sights and insider spots — over generic tourist traps. Order the stops as someone would actually visit them. For each stop give a realistic time-of-day and how long to spend, and tag the three main meals with "mealAnchor".${travelerLine(ctx)}
+The itinerary should feel walkable: consecutive stops should generally stay within the same district or adjacent districts unless there's a compelling reason to travel farther. Cluster nearby places and avoid backtracking. Alternate activity types when possible — avoid repetitive sequences of similar attractions (for example museum after museum) unless a place is genuinely exceptional; the day should feel varied and intentionally paced. Favour genuinely notable, characterful places — a mix of marquee sights and insider spots — over generic tourist traps. Order the stops as someone would actually visit them. For each stop give a realistic time-of-day and how long to spend, and tag the three main meals with "mealAnchor".${travelerLine(ctx)}
 
 Use real places that genuinely exist, with accurate coordinates when you are confident. Prefer to omit lat/lng (leave them out) rather than invent inaccurate coordinates.
 
@@ -328,15 +330,26 @@ describe('suggestDay duration guarantee (via ensureDurations)', () => {
   - Replace `suggestDay`:
 
 ```ts
-/** Suggest a complete, scheduled day (6–10 stops), durations guaranteed. */
+/**
+ * Suggest a complete, scheduled day (a full morning→evening itinerary),
+ * durations guaranteed. Runs on Claude Opus 4.7 — day generation is the
+ * heaviest reasoning task (completeness, geography, variety, scheduling) and
+ * fires only on an explicit "Suggest a day" click, so the higher cost is
+ * bounded. The 4000-token ceiling prevents a fuller day from truncating
+ * mid-JSON; it is not a prompt to be verbose. (Enrichment + suggestPlaces stay
+ * on the default Sonnet 4.6.)
+ */
 export async function suggestDay(ctx: SuggestContext): Promise<Stop[]> {
-  const text = await callAI(textMessage(buildSuggestDayPrompt(ctx)), { maxTokens: 4000 })
+  const text = await callAI(textMessage(buildSuggestDayPrompt(ctx)), {
+    model: 'claude-opus-4-7',
+    maxTokens: 4000,
+  })
   return ensureDurations(parseSuggestions(text))
 }
 ```
 
 - [ ] **4.4** Run the suite — green: `cd app && npm test`.
-- [ ] **4.5** `cd app && npx tsc -b` clean. Commit: `Suggest-day parity: suggestDay 4000-token budget + guaranteed durations`.
+- [ ] **4.5** `cd app && npx tsc -b` clean. Commit: `Suggest-day parity: suggestDay on Opus 4.7, 4000-token budget + guaranteed durations`.
 
 ---
 
@@ -373,7 +386,7 @@ Pass the destination (`near`) and any traveller context (read opportunistically 
 ## Definition of done
 
 - [ ] **Suite green / tsc clean / build ok / deployed.**
-- [ ] **`suggestDay` produces a complete day** — completeness/window-driven prompt (fill the day by duration, **NOT a stop quota**; meal anchors, morning→evening, geographic coherence, notable-not-touristy), 4000-token budget.
+- [ ] **`suggestDay` produces a complete day** — completeness/window-driven prompt (fill the day by duration, **NOT a stop quota**; meal anchors, morning→evening, **walkable same/adjacent-district clustering**, **variety guard**, notable-not-touristy), on **Opus 4.7**, 4000-token budget (truncation headroom, not a verbosity prompt).
 - [ ] **Stops arrive scheduled + meal-tagged** — `time` + `duration` + `mealAnchor` captured (`toStop` + `normalizeDuration`, enum-validated); every stop has a duration (`ensureDurations` + `defaultDurationMinutes`).
 - [ ] **Shared duration helper** — `trip/duration.ts` exists and is the single source for Tier 2c + Tier 3d.
 - [ ] **Traveler-context hook** — both builders fold `ctx.travelerContext` when present; the caller reads `trip.config.travelerContext` opportunistically (typed field + UI remain Tier 2d).
@@ -383,7 +396,7 @@ Pass the destination (`near`) and any traveller context (read opportunistically 
 
 ## Writing-plans self-review
 
-- **Spec coverage:** completeness/window-driven prompt → Task 3; `Stop.mealAnchor` + time/duration/mealAnchor capture → Task 2; shared duration helper → Task 1; token bump + guaranteed durations → Task 4; traveler-context hook + caller → Tasks 3 & 5; 6-result search → Task 3. ✔
+- **Spec coverage:** completeness/window-driven prompt + walkable-clustering + variety-guard → Task 3; `Stop.mealAnchor` + time/duration/mealAnchor capture → Task 2; shared duration helper → Task 1; Opus-4.7 model + token bump + guaranteed durations → Task 4; traveler-context hook + caller → Tasks 3 & 5; 6-result search → Task 3. ✔
 - **No placeholders:** every code block is real, compilable TS with exact paths + exact `cd app && npx vitest run <file>` commands. ✔
 - **Type consistency:** `normalizeDuration`/`defaultDurationMinutes`/`ensureDurations` signatures match across `duration.ts`, `suggest.ts`, and the tests; `SuggestContext.travelerContext?: string`; `Stop.time`/`Stop.duration` already exist and `Stop.mealAnchor?: 'breakfast'|'lunch'|'dinner'` is added additively (Task 2.1); the enum literal matches in the type, `toStop` validation, and tests. No `TripConfig` change (read via index signature). ✔
 - **Out-of-scope guard:** no gap-fill, no multi-day optimize, no magic tour; `hours`/`price`/`goodFor` stay Tier 3b; the typed `TripConfig.travelerContext` + UI stay Tier 2d. ✔
