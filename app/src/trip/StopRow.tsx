@@ -186,7 +186,7 @@ export function StopRow({
             </span>
           </button>
 
-          <span className="flex items-center gap-1.5 text-[12px] text-muted">
+          <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px] text-muted">
             <span className="flex-none inline-flex items-center gap-1 rounded-full bg-fill px-1.5 py-0.5 text-[10.5px] font-semibold text-muted">
               <KindIcon size={11} aria-hidden="true" />
               {kindLabel(kind)}
@@ -246,7 +246,7 @@ export function StopRow({
                   )}
             </span>
 
-            {stop.type && <span className="truncate">{stop.type}</span>}
+            {stop.type && <span className="min-w-0 truncate">{stop.type}</span>}
           </span>
         </span>
       </div>
