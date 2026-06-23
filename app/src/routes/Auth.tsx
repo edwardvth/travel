@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence, useMotionValue, useTransform, useReducedMotion } from 'framer-motion'
+import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, useReducedMotion } from 'framer-motion'
 import type { TargetAndTransition, Transition } from 'framer-motion'
 import { Mail, Lock, Eye, EyeClosed, ArrowRight } from 'lucide-react'
 import { useAuth } from '../auth/useAuth'
@@ -36,15 +36,24 @@ export default function Auth() {
   // 3D tilt — disabled when the user prefers reduced motion.
   const mouseX = useMotionValue(0)
   const mouseY = useMotionValue(0)
-  const rotateX = useTransform(mouseY, [-300, 300], [8, -8])
-  const rotateY = useTransform(mouseX, [-300, 300], [-8, 8])
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (reduce) return
-    const rect = e.currentTarget.getBoundingClientRect()
-    mouseX.set(e.clientX - rect.left - rect.width / 2)
-    mouseY.set(e.clientY - rect.top - rect.height / 2)
+  // Spring-smoothed so even a quick tap produces a visible lean-and-settle — a
+  // raw .set snaps so fast that on a tap nothing reads on screen.
+  const springX = useSpring(mouseX, { stiffness: 260, damping: 18, mass: 0.6 })
+  const springY = useSpring(mouseY, { stiffness: 260, damping: 18, mass: 0.6 })
+  const rotateX = useTransform(springY, [-200, 200], [14, -14])
+  const rotateY = useTransform(springX, [-200, 200], [-14, 14])
+  const tiltFrom = (clientX: number, clientY: number, el: Element) => {
+    const rect = el.getBoundingClientRect()
+    mouseX.set(clientX - rect.left - rect.width / 2)
+    mouseY.set(clientY - rect.top - rect.height / 2)
   }
-  const handleMouseLeave = () => { mouseX.set(0); mouseY.set(0) }
+  const resetTilt = () => { mouseX.set(0); mouseY.set(0) }
+  // Pointer events unify mouse + touch + pen. Down/move tilt toward the point;
+  // release/leave snap back. Mouse keeps its hover-follow (don't reset on click).
+  const handlePointerTilt = (e: React.PointerEvent) => {
+    if (!reduce) tiltFrom(e.clientX, e.clientY, e.currentTarget)
+  }
+  const handlePointerUp = (e: React.PointerEvent) => { if (e.pointerType !== 'mouse') resetTilt() }
 
   // Looping ambient props drop out entirely (→ static) when motion is reduced.
   const loop = (animate: TargetAndTransition, transition: Transition) => (reduce ? {} : { animate, transition })
@@ -113,13 +122,16 @@ export default function Auth() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7 }}
         className="w-full max-w-sm relative z-10"
-        style={{ perspective: 1500 }}
+        style={{ perspective: 900 }}
       >
         <motion.div
           className="relative"
-          style={{ rotateX, rotateY }}
-          onMouseMove={handleMouseMove}
-          onMouseLeave={handleMouseLeave}
+          style={{ rotateX, rotateY, touchAction: 'none' }}
+          onPointerMove={handlePointerTilt}
+          onPointerDown={handlePointerTilt}
+          onPointerLeave={resetTilt}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={resetTilt}
         >
           <div className="relative group">
             {/* Traveling light beams — warm white, gated by reduced-motion */}
