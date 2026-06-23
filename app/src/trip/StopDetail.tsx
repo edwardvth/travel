@@ -167,11 +167,6 @@ export default function StopDetail() {
     navigate(`/trip/${trip.id}`)
   }
 
-  const hasCoords = stop.lat != null && stop.lng != null
-  const mapsUrl = hasCoords
-    ? `https://www.google.com/maps/search/?api=1&query=${stop.lat},${stop.lng}`
-    : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent([stop.name, stop.address].filter(Boolean).join(' '))}`
-
   const prev = n > 0 ? n - 1 : null
   const next = n < stops.length - 1 ? n + 1 : null
 
@@ -229,36 +224,7 @@ export default function StopDetail() {
                 </button>
               )}
             </div>
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="flex-none inline-flex items-center gap-1.5 rounded-btn px-3 py-2 text-[13px] font-bold bg-fill text-ink hover:bg-fill-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
-            >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
-              </svg>
-              Navigate
-            </a>
           </div>
-
-          {/* Map peek — only when we have coordinates */}
-          {hasCoords && (
-            <a
-              href={mapsUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="block mt-4 rounded-card overflow-hidden border border-hair focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
-              aria-label={`Open ${stop.name} in maps`}
-            >
-              <img
-                src={`https://staticmap.openstreetmap.de/staticmap.php?center=${stop.lat},${stop.lng}&zoom=15&size=640x180&markers=${stop.lat},${stop.lng},red-pushpin`}
-                alt={`Map showing ${stop.name}`}
-                loading="lazy"
-                className="w-full h-[120px] object-cover bg-raised"
-              />
-            </a>
-          )}
         </div>
       </div>
 
