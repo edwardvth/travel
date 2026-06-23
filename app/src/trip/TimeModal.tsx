@@ -144,7 +144,7 @@ export function TimeModal({
               className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-btn bg-fill py-2.5 font-mono text-[13px] font-bold tabular-nums text-sig-link transition-colors hover:bg-fill-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
             >
               <RotateCcw size={13} aria-hidden="true" />
-              Back to suggested · {suggested}
+              Reset to {suggested}
             </button>
           )}
 

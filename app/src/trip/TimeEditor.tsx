@@ -100,7 +100,7 @@ export function TimeEditor({
           className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-btn bg-fill py-2 font-mono text-[12px] font-bold tabular-nums text-sig-link transition-colors hover:bg-fill-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
         >
           <RotateCcw size={12} aria-hidden="true" />
-          Back to suggested · {suggested}
+          Reset to {suggested}
         </button>
       )}
 
