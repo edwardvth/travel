@@ -71,6 +71,18 @@ export function StopRow({
     }
   }, [editingTime, isDesktop])
 
+  // Baseline for "back to suggested": prefer the AI-captured suggestion, else
+  // snapshot the time once when the editor first opens — so pre-existing stops
+  // (generated before suggestedTime existed) can still be reverted.
+  const suggestedTimeRef = useRef<string | undefined>(undefined)
+  function toggleTimeEditor() {
+    setEditingTime((prev) => {
+      const opening = !prev
+      if (opening) suggestedTimeRef.current = stop.suggestedTime ?? suggestedTimeRef.current ?? stop.time
+      return opening
+    })
+  }
+
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -185,7 +197,7 @@ export function StopRow({
               {canEdit ? (
                 <button
                   type="button"
-                  onClick={() => setEditingTime(v => !v)}
+                  onClick={toggleTimeEditor}
                   aria-label={stop.time ? `Edit time (${stop.time})` : 'Add a time'}
                   aria-expanded={editingTime}
                   className={cn(
@@ -212,7 +224,7 @@ export function StopRow({
                 ? editingTime && (
                     <TimeEditor
                       value={stop.time}
-                      suggested={stop.suggestedTime}
+                      suggested={suggestedTimeRef.current}
                       onChange={t => onSetTime?.(index, t)}
                       onClear={() => onSetTime?.(index, undefined)}
                       onClose={() => setEditingTime(false)}
@@ -224,7 +236,7 @@ export function StopRow({
                         <TimeModal
                           key="time-modal"
                           value={stop.time}
-                          suggested={stop.suggestedTime}
+                          suggested={suggestedTimeRef.current}
                           onChange={t => onSetTime?.(index, t)}
                           onClear={() => onSetTime?.(index, undefined)}
                           onClose={() => setEditingTime(false)}
