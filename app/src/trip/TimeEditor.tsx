@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Clock, Minus, Plus, X } from 'lucide-react'
+import { Clock, Minus, Plus, RotateCcw, X } from 'lucide-react'
 import { toInputTime, fromInputTime, nudgeTime } from './time'
 import { cn } from '../lib/utils'
 
@@ -18,14 +18,18 @@ export function TimeEditor({
   onChange,
   onClear,
   onClose,
+  suggested,
 }: {
   value: string | undefined
   onChange: (time: string | undefined) => void
   onClear: () => void
   onClose: () => void
+  /** The AI-suggested time, if any — enables a "back to suggested" reset. */
+  suggested?: string
 }) {
   const inputRef = useRef<HTMLInputElement | null>(null)
   const hasTime = toInputTime(value) !== ''
+  const canReset = !!suggested && suggested !== value
 
   // Focus the exact-time field when the editor opens.
   useEffect(() => {
@@ -88,6 +92,17 @@ export function TimeEditor({
           </button>
         ))}
       </div>
+
+      {canReset && (
+        <button
+          type="button"
+          onClick={() => onChange(suggested)}
+          className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-btn bg-fill py-2 font-mono text-[12px] font-bold tabular-nums text-sig-link transition-colors hover:bg-fill-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+        >
+          <RotateCcw size={12} aria-hidden="true" />
+          Back to suggested · {suggested}
+        </button>
+      )}
 
       {hasTime && (
         <button

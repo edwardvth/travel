@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { motion, MotionConfig } from 'framer-motion'
-import { Clock, Minus, Plus } from 'lucide-react'
+import { Clock, Minus, Plus, RotateCcw } from 'lucide-react'
 import { Button } from '../components/ui/Button'
 import { TimeWheelPicker } from './TimeWheelPicker'
 import { nudgeTime, toInputTime } from './time'
@@ -24,14 +24,18 @@ export function TimeModal({
   onChange,
   onClear,
   onClose,
+  suggested,
 }: {
   value: string | undefined
   onChange: (time: string | undefined) => void
   onClear: () => void
   onClose: () => void
+  /** The AI-suggested time, if any — enables a "back to suggested" reset. */
+  suggested?: string
 }) {
   const cardRef = useRef<HTMLDivElement>(null)
   const hasTime = toInputTime(value) !== ''
+  const canReset = !!suggested && suggested !== value
 
   // Focus into the card on open; Esc closes; Tab cycles within; restore on close.
   useEffect(() => {
@@ -132,6 +136,17 @@ export function TimeModal({
               </button>
             ))}
           </div>
+
+          {canReset && (
+            <button
+              type="button"
+              onClick={() => onChange(suggested)}
+              className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-btn bg-fill py-2.5 font-mono text-[13px] font-bold tabular-nums text-sig-link transition-colors hover:bg-fill-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+            >
+              <RotateCcw size={13} aria-hidden="true" />
+              Back to suggested · {suggested}
+            </button>
+          )}
 
           <div className="mt-6 flex items-center justify-between gap-3">
             {hasTime ? (

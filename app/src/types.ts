@@ -7,6 +7,12 @@ export interface Stop {
   /** Coarse category — derived from `type`/name when unset (see `stopKind`). */
   kind?: StopKind
   time?: string
+  /**
+   * The time the day-suggestion AI originally proposed for this stop, captured
+   * at generation. Lets the time editor offer "back to suggested" after a manual
+   * change; preserved through manual time edits. Optional/additive.
+   */
+  suggestedTime?: string
   duration?: number
   /**
    * When this stop is one of the three timed meals — set by the day suggestion

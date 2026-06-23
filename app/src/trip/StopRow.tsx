@@ -212,6 +212,7 @@ export function StopRow({
                 ? editingTime && (
                     <TimeEditor
                       value={stop.time}
+                      suggested={stop.suggestedTime}
                       onChange={t => onSetTime?.(index, t)}
                       onClear={() => onSetTime?.(index, undefined)}
                       onClose={() => setEditingTime(false)}
@@ -223,6 +224,7 @@ export function StopRow({
                         <TimeModal
                           key="time-modal"
                           value={stop.time}
+                          suggested={stop.suggestedTime}
                           onChange={t => onSetTime?.(index, t)}
                           onClear={() => onSetTime?.(index, undefined)}
                           onClose={() => setEditingTime(false)}
