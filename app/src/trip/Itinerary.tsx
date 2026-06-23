@@ -62,7 +62,12 @@ export default function Itinerary() {
     setSuggestingDay(true)
     setSuggestError(null)
     try {
-      const stops = await suggestDay({ tripTitle: trip.title })
+      const stops = await suggestDay({
+        tripTitle: trip.title,
+        near: destinationOf(trip),
+        travelerContext:
+          typeof trip.config?.travelerContext === 'string' ? trip.config.travelerContext : undefined,
+      })
       if (!stops.length) {
         setSuggestError('I couldn’t shape a day just now — try adding a stop yourself, or give it another go.')
         return
