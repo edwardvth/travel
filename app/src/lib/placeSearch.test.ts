@@ -49,4 +49,8 @@ describe('parseDetails', () => {
     expect(parseDetails({ displayName: { text: 'X' } })).toBeNull()
     expect(parseDetails(null)).toBeNull()
   })
+  it('omits the address key when formattedAddress is absent or empty', () => {
+    const r = parseDetails({ location: { latitude: 1, longitude: 2 }, displayName: { text: 'X' }, types: [] })
+    expect(r).not.toHaveProperty('address')
+  })
 })
