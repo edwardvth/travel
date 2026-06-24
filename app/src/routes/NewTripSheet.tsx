@@ -5,6 +5,7 @@ import { Button } from '../components/ui/Button'
 import { DestinationInput } from '../components/DestinationInput'
 import { hasProfanity } from '../lib/trip-helpers'
 import { useCreateTrip, useBackfillCoverImage } from '../data/useTrips'
+import { useBackfillDestinationGeo } from '../data/useBackfillDestinationGeo'
 
 const REASONS: Record<string, string> = {
   slug_taken: "Couldn't find a free trip address — try a slightly different title.",
@@ -21,6 +22,7 @@ export function NewTripSheet({ open, onClose, onCreated, isTeaser }:
   const [err, setErr] = useState<string | null>(null)
   const create = useCreateTrip()
   const backfillCover = useBackfillCoverImage()
+  const backfillDestinationGeo = useBackfillDestinationGeo()
 
   // Fresh form each time the sheet opens (it stays mounted between opens).
   useEffect(() => {
@@ -45,6 +47,7 @@ export function NewTripSheet({ open, onClose, onCreated, isTeaser }:
         config: { title, ...(destination.trim() ? { destination: destination.trim() } : null) },
         data: { days: [], completed: [] },
       })
+      void backfillDestinationGeo({ id, destination, config: { title, ...(destination.trim() ? { destination: destination.trim() } : null) } })
       onCreated(id)
     }
     catch (e) { setErr(REASONS[(e as Error).message] ?? "Couldn't create this trip. Try again.") }

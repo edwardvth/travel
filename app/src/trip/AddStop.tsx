@@ -4,6 +4,7 @@ import { placeFromSuggestion } from './location'
 import { useLandmarkBackfill } from '../data/useLandmarkBackfill'
 import { useGeocodeBackfill } from '../data/useGeocodeBackfill'
 import { useBackfillPlaceDetails } from '../data/useBackfillPlaceDetails'
+import { useBackfillDestinationGeo } from '../data/useBackfillDestinationGeo'
 import { destinationOf, stopLandmarkQuery } from './landmark-context'
 import { Check, kindIcon, kindLabel, stopTypeIcon } from './icons'
 import { cn } from '../lib/utils'
@@ -43,6 +44,7 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
   const { backfillStop } = useLandmarkBackfill(trip.id, save)
   const { backfillCoords } = useGeocodeBackfill(trip.id, save)
   const { backfillPlaceDetails } = useBackfillPlaceDetails(trip.id, save)
+  const backfillDestinationGeo = useBackfillDestinationGeo()
   const [kind, setKind] = useState<StopKind>('do')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<Status>('idle')
@@ -63,6 +65,9 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
     setAddedCount(0)
     setLastAdded(null)
     setDupNotice(null)
+    if (!trip.config?.destinationGeo && destinationOf(trip)) {
+      void backfillDestinationGeo({ id: trip.id, destination: destinationOf(trip), config: trip.config })
+    }
   }, [open])
 
   async function runSearch() {

@@ -4,6 +4,7 @@ import type { PlannerOutletContext } from './PlannerLayout'
 import { useAuth } from '../auth/useAuth'
 import { useProfile, isFounder } from '../data/useProfile'
 import { useDeleteTrip } from '../data/useTrips'
+import { useBackfillDestinationGeo } from '../data/useBackfillDestinationGeo'
 import { allReservations, setReservation, type ReservationEntry } from './reservation'
 import { dayDate, dayLabel, formatDayDate } from './helpers'
 import { formatStayDate } from './stay'
@@ -638,6 +639,7 @@ function TripBasicsEditor({ trip, save, onClose }: {
   save: SaveFn
   onClose: () => void
 }) {
+  const backfillDestinationGeo = useBackfillDestinationGeo()
   const startDate = trip.config?.startDate || ''
   const numDays = trip.data?.days?.length || trip.config?.numDays || 1
   const initialEnd = startDate ? endDateFor(startDate, numDays) : ''
@@ -662,6 +664,7 @@ function TripBasicsEditor({ trip, save, onClose }: {
     if (dest) config.destination = dest
     else delete config.destination
     save({ title: config.title || trip.title, config, data })
+    if (dest) void backfillDestinationGeo({ id: trip.id, destination: dest, config: { ...trip.config, destination: dest } })
     onClose()
   }
 
