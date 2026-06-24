@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { geocodeUrl, parseGeocode, geocodePlace, canApplyGeocode } from './geocode'
+import { geocodeUrl, parseGeocode, geocodePlace, canApplyGeocode, findStopByPlaceId, canApplyPlaceDetails } from './geocode'
+import type { Trip } from '../types'
 
 /** A Photon point feature with geometry + properties. */
 const feat = (lng: number, lat: number, properties: Record<string, unknown> = {}) => ({
@@ -121,5 +122,26 @@ describe('canApplyGeocode (stale-write guard, last-write-wins)', () => {
 
   it('discards a zero/non-finite placeholder coord as "no coords" → still applies', () => {
     expect(canApplyGeocode({ name: 'Foo', lat: 0, lng: 0 }, { name: 'Foo' })).toBe(true)
+  })
+})
+
+const trip = (): Trip => ({ id: 't', owner_id: null, title: 'T', subtitle: null, config: {},
+  data: { days: [{ title: '', stops: [{ name: 'A' }, { name: 'Arch', placeId: 'p1' }] }], completed: [] } }) as Trip
+
+describe('findStopByPlaceId', () => {
+  it('locates a stop by placeId', () => {
+    expect(findStopByPlaceId(trip(), 'p1')).toMatchObject({ dayIndex: 0, stopIndex: 1 })
+  })
+  it('returns null when absent', () => {
+    expect(findStopByPlaceId(trip(), 'nope')).toBeNull()
+  })
+})
+
+describe('canApplyPlaceDetails', () => {
+  it('applies only when the stop exists and placeId matches', () => {
+    expect(canApplyPlaceDetails({ name: 'Arch', placeId: 'p1' }, 'p1')).toBe(true)
+    expect(canApplyPlaceDetails({ name: 'Arch', placeId: 'p2' }, 'p1')).toBe(false)
+    expect(canApplyPlaceDetails(null, 'p1')).toBe(false)
+    expect(canApplyPlaceDetails(undefined, 'p1')).toBe(false)
   })
 })

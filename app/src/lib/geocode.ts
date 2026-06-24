@@ -10,6 +10,8 @@
  * helper: Plan, Guide, destination search and the future location cache use it.
  */
 
+import type { Stop, Trip } from '../types'
+
 export interface GeoPoint {
   lat: number
   lng: number
@@ -130,4 +132,25 @@ export function canApplyGeocode(
   if (current.name !== origin.name) return false
   if ((current.address ?? undefined) !== (origin.address ?? undefined)) return false
   return true
+}
+
+/** Locate a stop by its canonical placeId. Returns its position + the stop, or null. */
+export function findStopByPlaceId(trip: Pick<Trip, 'data'>, placeId: string): { dayIndex: number; stopIndex: number; stop: Stop } | null {
+  const days = trip.data?.days ?? []
+  for (let d = 0; d < days.length; d++) {
+    const stops = days[d]?.stops ?? []
+    for (let s = 0; s < stops.length; s++) {
+      if (stops[s].placeId === placeId) return { dayIndex: d, stopIndex: s, stop: stops[s] }
+    }
+  }
+  return null
+}
+
+/**
+ * May an in-flight place-details response patch this stop? Only when the stop
+ * still exists AND its `placeId` still matches the response's. Guards against a
+ * deleted/relocated stop being mutated by a stale response. Pure.
+ */
+export function canApplyPlaceDetails(current: Pick<Stop, 'placeId' | 'name'> | null | undefined, detailsPlaceId: string): boolean {
+  return !!current && current.placeId === detailsPlaceId
 }
