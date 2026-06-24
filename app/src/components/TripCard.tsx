@@ -7,18 +7,18 @@ import type { Trip } from '../types'
 /**
  * Resolve a cover image for `trip`, cheapest source first:
  *   1. a stored `config.coverImage` (fetched at create time),
- *   2. the first stop that already has an `.image`,
- *   3. else an on-demand landmark image for the destination (cached, lazy) —
+ *   2. else an on-demand landmark image for the destination (cached, lazy) —
  *      this backfills older trips that predate cover storage.
+ * We deliberately do NOT fall back to an arbitrary stop's `.image`: the thumbnail
+ * represents the destination and must stay stable as stops (and the Wikipedia
+ * images `useLandmarkBackfill` writes onto them) come and go.
  * Returns the URL (or null) plus whether the on-demand lookup is still loading.
  */
 function useTripCover(trip: Trip): { url: string | null; loading: boolean } {
-  const stored = trip.config?.coverImage
-  const fromStop = trip.data?.days?.flatMap(d => d.stops)?.find(s => s.image)?.image
-  const known = stored ?? fromStop ?? null
-  // Only hit Wikipedia when we have nothing stored/derived.
-  const landmark = useLandmarkImage(known ? undefined : destinationOf(trip))
-  return { url: known ?? landmark.url, loading: !known && landmark.loading }
+  const stored = trip.config?.coverImage ?? null
+  // Only hit Wikipedia when we have no stored cover.
+  const landmark = useLandmarkImage(stored ? undefined : destinationOf(trip))
+  return { url: stored ?? landmark.url, loading: !stored && landmark.loading }
 }
 
 export function TripCard({ trip, onOpen, actions }: { trip: Trip; onOpen: (id: string) => void; actions?: React.ReactNode }) {

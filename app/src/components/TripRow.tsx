@@ -5,12 +5,13 @@ import { useLandmarkImage } from '../data/useLandmarkImage'
 import type { Trip } from '../types'
 
 export function TripRow({ trip, onOpen, actions }: { trip: Trip; onOpen: (id: string) => void; actions?: React.ReactNode }) {
-  // Cover priority: stored config.coverImage → first stop image → on-demand
-  // landmark (cached, lazy; backfills older trips). Same order as TripCard.
-  const known = trip.config?.coverImage ?? trip.data?.days?.flatMap(d => d.stops)?.find(s => s.image)?.image ?? null
-  const landmark = useLandmarkImage(known ? undefined : destinationOf(trip))
+  // Cover: stored config.coverImage → on-demand destination landmark (cached,
+  // lazy; backfills older trips). Same as TripCard. No arbitrary stop `.image` —
+  // the thumbnail represents the destination and must stay stable as stops change.
+  const stored = trip.config?.coverImage ?? null
+  const landmark = useLandmarkImage(stored ? undefined : destinationOf(trip))
   const [failed, setFailed] = useState(false)
-  const cover = !failed ? known ?? landmark.url : null
+  const cover = !failed ? stored ?? landmark.url : null
   return (
     <div className="flex w-full items-center gap-3.5 p-4 border border-hair rounded-card hover:bg-fill transition-colors">
       <button onClick={() => onOpen(trip.id)} className="flex flex-1 items-center gap-3.5 text-left min-w-0" aria-label={`Open ${trip.title}`}>
