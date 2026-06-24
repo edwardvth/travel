@@ -212,7 +212,7 @@ export default function StopDetail() {
                     {reservationTime ? `Reserved · ${reservationTime}` : 'Reserved'}
                   </span>
                 )}
-                {meta && <p className="text-muted text-[13.5px] truncate min-w-0 flex-1">{meta}</p>}
+                {meta && <p className="text-muted text-[13.5px] min-w-0 basis-full break-words">{meta}</p>}
               </div>
               {canEdit && (
                 <button

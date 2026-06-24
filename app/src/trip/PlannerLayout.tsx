@@ -225,7 +225,7 @@ export default function PlannerLayout() {
             (the split view) own its own scroll; tall views (StopDetail/Guide/Trip)
             fall back to scrolling the page via this container's overflow.
             Pad bottom on mobile so the fixed tab bar never covers content. */}
-        <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-y-auto overflow-x-clip pb-24 md:pb-0">
+        <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-y-auto pb-24 md:pb-0">
           <ChunkErrorBoundary>
             <Suspense fallback={<PlannerContentFallback />}>
               <Outlet
