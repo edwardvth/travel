@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion, useMotionValue, useTransform
 import { Check, Undo2 } from 'lucide-react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
-import type { Stop, TripData } from '../types'
+import type { Stop } from '../types'
 import { useAuth } from '../auth/useAuth'
 import { useAccountSettings } from '../data/useAccountSettings'
 import { useHeroImage } from '../data/useLandmarkImage'
@@ -27,7 +27,8 @@ import { SWIPE, clamp, swipeCommit, type EnterFrom } from './guide/swipe'
 import { walkMinutes, haversineKm, stopCoords } from './walk'
 import { coverPhoto } from './photo'
 import { destinationOf } from './landmark-context'
-import { generateStopDetail } from './enrich'
+import { useStopDescription } from '../data/useStopDescription'
+import { usePrewarmDescriptions } from '../data/usePrewarmDescriptions'
 import { toggleCompleted } from './itinerary-helpers'
 import { dayLabel as dayLabelOf, dayDate, formatDayDate } from './helpers'
 import { applyTripBasics } from './settings-helpers'
@@ -315,51 +316,6 @@ export default function Guide() {
   // Clean up the timer on unmount.
   useEffect(() => clearTimer, [clearTimer])
 
-  // ── Enrichment on demand for the focused stop ─────────────────────────────
-  const needsEnrich = !!stop && !stop.history
-  const enrichingRef = useRef<string | null>(null)
-  const [enriching, setEnriching] = useState(false)
-
-  useEffect(() => {
-    if (!stop || !needsEnrich || !canEdit) return
-    if (enrichingRef.current === stopKey) return
-    enrichingRef.current = stopKey
-    let cancelled = false
-    setEnriching(true)
-    void (async () => {
-      try {
-        const detail = await generateStopDetail(stop, trip.title, destination)
-        if (cancelled) return
-        // Re-clone from the freshest cache and patch this stop immutably.
-        const fresh = trip.data
-        const next: TripData = {
-          ...fresh,
-          days: fresh.days.map((d, i) =>
-            i === dayIndex
-              ? {
-                  ...d,
-                  stops: d.stops.map((s, j) =>
-                    j === stopIndex
-                      ? { ...s, history: detail.history, facts: detail.facts, tips: detail.tips, notice: detail.notice }
-                      : s,
-                  ),
-                }
-              : d,
-          ),
-        }
-        save({ data: next })
-      } catch {
-        /* leave the stop un-enriched; the tabs show their empty state */
-      } finally {
-        if (!cancelled) setEnriching(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stopKey, needsEnrich, canEdit])
-
   // ── Hero photo: stored cover → on-demand chain → striped placeholder ──────
   // The on-demand chain runs in priority order, advancing only on a miss:
   //   pageimages (Wikipedia) → Commons (free) → Google Places (paid, dormant).
@@ -391,11 +347,18 @@ export default function Guide() {
   const prevHeroUrl = prevStored ?? prevLandmarkUrl ?? undefined
   const prevCompleted = prevStop != null && (data?.completed ?? []).includes(`${dayIndex}-${stopIndex - 1}`)
 
-  // ── Content mapped to tabs ────────────────────────────────────────────────
-  const story = stop?.history ?? ''
-  const notice = stop?.notice ?? ''
-  const facts = stop?.facts ?? []
-  const experience = stop?.tips ?? ''
+  // ── Descriptions from the shared library (placeId stops) or legacy fields ─
+  const desc = useStopDescription(stop)
+  const story = desc.history
+  const notice = desc.notice
+  const experience = desc.tips
+  const facts = desc.facts
+
+  const peekDesc = useStopDescription(peekStop)
+  const prevDesc = useStopDescription(prevStop)
+
+  // Pre-warm the active day's description cache so opening any stop is instant.
+  usePrewarmDescriptions(stops.map(s => s.placeId))
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const onDirections = useCallback(() => {
@@ -752,10 +715,10 @@ export default function Guide() {
             distanceM={null}
             etaMin={null}
             headingLabel={null}
-            story={peekStop.history ?? ''}
-            notice={peekStop.notice ?? ''}
-            facts={peekStop.facts ?? []}
-            experience={peekStop.tips ?? ''}
+            story={peekDesc.history}
+            notice={peekDesc.notice}
+            facts={peekDesc.facts}
+            experience={peekDesc.tips}
             voiceId={voiceId}
             onDirections={() => {}}
             onComplete={() => {}}
@@ -779,10 +742,10 @@ export default function Guide() {
             distanceM={null}
             etaMin={null}
             headingLabel={null}
-            story={prevStop.history ?? ''}
-            notice={prevStop.notice ?? ''}
-            facts={prevStop.facts ?? []}
-            experience={prevStop.tips ?? ''}
+            story={prevDesc.history}
+            notice={prevDesc.notice}
+            facts={prevDesc.facts}
+            experience={prevDesc.tips}
             voiceId={voiceId}
             onDirections={() => {}}
             onComplete={() => {}}
@@ -808,7 +771,7 @@ export default function Guide() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={reduce ? { duration: SWIPE.reducedFadeSec } : { duration: SWIPE.enterSec, ease: SWIPE.enterEase, delay: SWIPE.enterDelaySec }}
         >
-          {enriching && !stop.history ? (
+          {desc.state === 'pending' && !desc.history ? (
             <CardSkeleton />
           ) : (
             <CurrentStopCard
