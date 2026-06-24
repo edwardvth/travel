@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import type { PlannerOutletContext } from './PlannerLayout'
-import { generateStopDetail } from './enrich'
 import { toInputTime, fromInputTime } from './time'
 import { destinationOf, heroQueries } from './landmark-context'
 import { useHeroImage, usePrefetchHeroImages } from '../data/useLandmarkImage'
@@ -19,6 +19,10 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Skeleton } from '../components/ui/Skeleton'
 import { ConfirmDialog } from '../components/ConfirmDialog'
+import { useAuth } from '../auth/useAuth'
+import { useProfile, isFounder } from '../data/useProfile'
+import { useStopDescription } from '../data/useStopDescription'
+import { regeneratePlace } from '../lib/enrichClient'
 import type { Stop, TripData } from '../types'
 
 const STOP_TYPES = [
@@ -31,6 +35,9 @@ export default function StopDetail() {
   const navigate = useNavigate()
   const { day: dayParam, n: nParam } = useParams<{ day: string; n: string }>()
   const { backfillCoords } = useGeocodeBackfill(trip.id, save)
+  const qc = useQueryClient()
+  const { user } = useAuth()
+  const { data: profile } = useProfile(user?.id)
 
   const day = Number(dayParam)
   const n = Number(nParam)
@@ -38,8 +45,8 @@ export default function StopDetail() {
   const stops = days[day]?.stops ?? []
   const stop = stops[n] as Stop | undefined
 
-  const [generating, setGenerating] = useState(false)
-  const [genError, setGenError] = useState<string | null>(null)
+  const desc = useStopDescription(stop)
+
   const [editingType, setEditingType] = useState(false)
   const [pendingDelete, setPendingDelete] = useState(false)
   const [relocating, setRelocating] = useState(false)
@@ -70,7 +77,8 @@ export default function StopDetail() {
   }
 
   const done = isCompleted(trip.data?.completed, day, n)
-  const hasContent = !!(stop.history || (stop.facts && stop.facts.length) || stop.tips)
+  const hasContent = !!(desc.history || (desc.facts && desc.facts.length) || desc.tips)
+  const founderUser = isFounder(profile)
   const meta = [stop.type, stop.time, stop.address].filter(Boolean).join(' · ')
   const kind = stopKind(stop)
   const KindIcon = kindIcon(kind)
@@ -141,24 +149,6 @@ export default function StopDetail() {
     patchPhotos([photos[i], ...photos.slice(0, i), ...photos.slice(i + 1)])
   const handleRemovePhoto = (i: number) =>
     patchPhotos(photos.filter((_, j) => j !== i))
-
-  async function handleGenerate() {
-    if (!canEdit || generating) return
-    setGenerating(true)
-    setGenError(null)
-    try {
-      const result = await generateStopDetail(stop as Stop, trip.title, destinationOf(trip))
-      patchStop({ history: result.history, facts: result.facts, tips: result.tips, notice: result.notice })
-    } catch (e) {
-      setGenError(
-        e instanceof Error
-          ? `I couldn’t gather details just now — ${e.message}`
-          : 'I couldn’t gather details just now. Give it another go in a moment.',
-      )
-    } finally {
-      setGenerating(false)
-    }
-  }
 
   function handleToggleDone() {
     if (!canEdit) return
@@ -253,45 +243,27 @@ export default function StopDetail() {
           onRemove={handleRemovePhoto}
         />
 
-        {/* Generate / Re-generate (edit-only) */}
-        {canEdit && (
-          <div className="flex items-center justify-between gap-3">
-            <p className="text-muted text-[13px]">
-              {hasContent
-                ? 'History, facts and tips for this place.'
-                : 'No details yet — let Voyager gather the story for you.'}
-            </p>
-            <Button
-              variant={hasContent ? 'soft' : 'claret'}
-              busy={generating}
-              onClick={handleGenerate}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <path d="M12 3l1.9 4.6L19 9l-4.1 1.4L12 15l-1.9-4.6L6 9l4.1-1.4L12 3z" />
-              </svg>
-              {hasContent ? 'Re-generate' : 'Generate details'}
-            </Button>
-          </div>
-        )}
-
-        {genError && (
-          <p className="text-[13px] text-sig bg-sig/5 border border-sig/20 rounded-card px-4 py-3">
-            {genError}
-          </p>
+        {/* Founder-only Regenerate */}
+        {founderUser && stop.placeId && (
+          <button type="button"
+            onClick={async () => { await regeneratePlace(stop.placeId!, false); qc.invalidateQueries({ queryKey: ['place-desc', stop.placeId] }) }}
+            className="text-[12px] text-muted hover:text-ink underline">
+            Regenerate (founder)
+          </button>
         )}
 
         {/* When there's nothing yet and we can't edit, keep it friendly (never blank). */}
-        {!hasContent && !generating && !canEdit && (
+        {!hasContent && desc.state !== 'pending' && !canEdit && (
           <p className="text-muted text-[14px]">
             No details have been added for this stop yet.
           </p>
         )}
 
         {/* History */}
-        {(generating || stop.history) && (
+        {(desc.state === 'pending' || desc.history) && (
           <section>
             <h2 className="font-serif text-xl mb-2">History &amp; context</h2>
-            {generating ? (
+            {desc.state === 'pending' ? (
               <div className="space-y-2">
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-[92%]" />
@@ -299,7 +271,7 @@ export default function StopDetail() {
               </div>
             ) : (
               <div className="space-y-3">
-                {(stop.history ?? '').split('\n\n').filter(Boolean).map((para, i) => (
+                {(desc.history ?? '').split('\n\n').filter(Boolean).map((para, i) => (
                   <p
                     key={i}
                     className="text-[14.5px] leading-relaxed text-ink/90 break-words"
@@ -312,17 +284,17 @@ export default function StopDetail() {
         )}
 
         {/* Facts */}
-        {(generating || (stop.facts && stop.facts.length > 0)) && (
+        {(desc.state === 'pending' || (desc.facts && desc.facts.length > 0)) && (
           <section>
             <h2 className="font-serif text-xl mb-2">Interesting facts</h2>
-            {generating ? (
+            {desc.state === 'pending' ? (
               <div className="space-y-2">
                 <Skeleton className="h-10 w-full rounded-card" />
                 <Skeleton className="h-10 w-full rounded-card" />
               </div>
             ) : (
               <ul className="space-y-2">
-                {(stop.facts ?? []).map((fact, i) => (
+                {(desc.facts ?? []).map((fact, i) => (
                   <li
                     key={i}
                     className="flex gap-3 items-start rounded-card bg-fill px-3.5 py-2.5 text-[14px] leading-relaxed"
@@ -339,15 +311,15 @@ export default function StopDetail() {
         )}
 
         {/* Tips */}
-        {(generating || stop.tips) && (
+        {(desc.state === 'pending' || desc.tips) && (
           <section>
             <h2 className="font-serif text-xl mb-2">Visitor tips</h2>
-            {generating ? (
+            {desc.state === 'pending' ? (
               <Skeleton className="h-12 w-full rounded-card" />
             ) : (
               <p
                 className="text-[14px] leading-relaxed bg-amber-50 dark:bg-amber-500/10 border-l-[3px] border-amber-400 rounded-r-card px-4 py-3 text-ink/90 break-words"
-                dangerouslySetInnerHTML={{ __html: formatInline(stop.tips ?? '') }}
+                dangerouslySetInnerHTML={{ __html: formatInline(desc.tips ?? '') }}
               />
             )}
           </section>
