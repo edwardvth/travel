@@ -139,8 +139,8 @@ describe('findStopByPlaceId', () => {
 
 describe('canApplyPlaceDetails', () => {
   it('applies only when the stop exists and placeId matches', () => {
-    expect(canApplyPlaceDetails({ name: 'Arch', placeId: 'p1' }, 'p1')).toBe(true)
-    expect(canApplyPlaceDetails({ name: 'Arch', placeId: 'p2' }, 'p1')).toBe(false)
+    expect(canApplyPlaceDetails({ placeId: 'p1' }, 'p1')).toBe(true)
+    expect(canApplyPlaceDetails({ placeId: 'p2' }, 'p1')).toBe(false)
     expect(canApplyPlaceDetails(null, 'p1')).toBe(false)
     expect(canApplyPlaceDetails(undefined, 'p1')).toBe(false)
   })

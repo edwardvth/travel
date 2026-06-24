@@ -151,6 +151,6 @@ export function findStopByPlaceId(trip: Pick<Trip, 'data'>, placeId: string): { 
  * still exists AND its `placeId` still matches the response's. Guards against a
  * deleted/relocated stop being mutated by a stale response. Pure.
  */
-export function canApplyPlaceDetails(current: Pick<Stop, 'placeId' | 'name'> | null | undefined, detailsPlaceId: string): boolean {
+export function canApplyPlaceDetails(current: Pick<Stop, 'placeId'> | null | undefined, detailsPlaceId: string): boolean {
   return !!current && current.placeId === detailsPlaceId
 }
