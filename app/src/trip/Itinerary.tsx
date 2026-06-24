@@ -13,7 +13,11 @@ import { WeatherGlance } from './WeatherGlance'
 import { StayCard } from './StayCard'
 import { Button } from '../components/ui/Button'
 import { EmptyState } from '../components/EmptyState'
-import { Plus, Sparkles } from 'lucide-react'
+import { ConfirmDialog } from '../components/ConfirmDialog'
+import { DaySettingsSheet } from './DaySettingsSheet'
+import { addDay, removeDay, reorderDays, setDayMeta } from './day-mutations'
+import { moveItem, followDayAfterReorder, followDayAfterDelete } from './itinerary-helpers'
+import { Plus, Pencil, Sparkles, Trash2, CalendarPlus } from 'lucide-react'
 import { cn } from '../lib/utils'
 import type { TripData } from '../types'
 
@@ -27,9 +31,14 @@ export default function Itinerary() {
   const [adding, setAdding] = useState(false)
   const [suggestingDay, setSuggestingDay] = useState(false)
   const [suggestError, setSuggestError] = useState<string | null>(null)
+  const [editingDay, setEditingDay] = useState(false)
+  const [removingDay, setRemovingDay] = useState(false)
 
   const day = Math.min(activeDay, Math.max(0, countDays(trip) - 1))
   const count = stopCount(trip, day)
+  const dayObj = trip.data.days?.[day]
+  const dayTitle = (dayObj?.title || '').trim() || dayLabel(trip, day)
+  const dayNote = (dayObj?.note || '').trim()
 
   // Clear any stale selection when switching days.
   useEffect(() => {
@@ -96,6 +105,31 @@ export default function Itinerary() {
     }
   }
 
+  // ── Day management (edit-gated; immutable via `save`; selected day follows) ──
+  function handleReorderDays(from: number, to: number) {
+    if (!canEdit) return
+    const order = moveItem(trip.data.days.map((_, i) => i), from, to)
+    save({ data: reorderDays(trip.data, from, to) })
+    setActiveDay(followDayAfterReorder(day, order))
+  }
+  function handleAddDay() {
+    if (!canEdit) return
+    const newIndex = trip.data.days.length // old length = the appended day's index
+    save({ data: addDay(trip.data) })
+    setActiveDay(newIndex)
+  }
+  function handleRemoveDay() {
+    if (!canEdit) return
+    const lastAfter = Math.max(0, countDays(trip) - 2)
+    save({ data: removeDay(trip.data, day) })
+    setActiveDay(Math.min(followDayAfterDelete(day, day), lastAfter))
+    setRemovingDay(false)
+  }
+  function handleSaveDayMeta(meta: { title: string; note: string }) {
+    if (!canEdit) return
+    save({ data: setDayMeta(trip.data, day, meta) })
+  }
+
   const addStopButton = (
     <Button variant="claret" onClick={() => setAdding(true)}>
       <Plus size={16} aria-hidden="true" />
@@ -135,7 +169,14 @@ export default function Itinerary() {
         <div>
           {/* Mobile-only day chips — desktop shows days in the sidebar. */}
           <div className="mb-4 md:hidden">
-            <DayRail trip={trip} activeDay={day} onSelect={handleSelectDay} />
+            <DayRail
+              trip={trip}
+              activeDay={day}
+              onSelect={handleSelectDay}
+              canEdit={canEdit}
+              onReorder={handleReorderDays}
+              onAddDay={handleAddDay}
+            />
           </div>
 
           <section aria-label={`Stops for ${dayLabel(trip, day)}`}>
@@ -143,9 +184,47 @@ export default function Itinerary() {
             <WeatherGlance trip={trip} day={day} />
             {/* Voyage base Stay — pinned atop every day (data.hotel), inline-editable. */}
             <StayCard trip={trip} canEdit={canEdit} save={save} />
-            <div className="flex items-center justify-between gap-3 mb-1">
-              <h2 className="font-serif text-2xl">{dayLabel(trip, day)}</h2>
-              {canEdit && count > 0 && addStopButton}
+            <div className="flex items-start justify-between gap-3 mb-1">
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <h2 className="font-serif text-2xl truncate">{dayTitle}</h2>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingDay(true)}
+                      aria-label="Edit day title and note"
+                      className="flex-none grid place-items-center w-8 h-8 rounded-md text-muted/60 hover:text-ink hover:bg-fill transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+                    >
+                      <Pencil size={15} aria-hidden="true" />
+                    </button>
+                  )}
+                </div>
+                {dayNote && <p className="text-muted text-[13.5px] mt-0.5 break-words">{dayNote}</p>}
+              </div>
+              <div className="flex-none flex items-center gap-1.5">
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={handleAddDay}
+                    aria-label="Add a day"
+                    title="Add a day"
+                    className="hidden md:grid place-items-center w-8 h-8 rounded-md text-muted/60 hover:text-ink hover:bg-fill transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+                  >
+                    <CalendarPlus size={16} aria-hidden="true" />
+                  </button>
+                )}
+                {canEdit && countDays(trip) > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setRemovingDay(true)}
+                    aria-label="Remove this day"
+                    className="grid place-items-center w-8 h-8 rounded-md text-muted/60 hover:text-sig hover:bg-fill transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+                  >
+                    <Trash2 size={16} aria-hidden="true" />
+                  </button>
+                )}
+                {canEdit && count > 0 && addStopButton}
+              </div>
             </div>
 
             {count > 0 ? (
@@ -192,6 +271,24 @@ export default function Itinerary() {
       {canEdit && (
         <AddStop open={adding} onClose={() => setAdding(false)} trip={trip} day={day} save={save} />
       )}
+      {canEdit && (
+        <DaySettingsSheet
+          open={editingDay}
+          title={dayObj?.title ?? ''}
+          note={dayObj?.note ?? ''}
+          dateLabel={dayLabel(trip, day)}
+          onClose={() => setEditingDay(false)}
+          onSave={handleSaveDayMeta}
+        />
+      )}
+      <ConfirmDialog
+        open={removingDay}
+        title="Remove this day?"
+        body={`"${dayTitle}" and its ${count} stop${count === 1 ? '' : 's'} will be removed. This can’t be undone.`}
+        confirmLabel="Remove day"
+        onCancel={() => setRemovingDay(false)}
+        onConfirm={handleRemoveDay}
+      />
     </div>
   )
 }
