@@ -100,13 +100,13 @@ export default function Dashboard() {
         </div>
 
         {isLoading ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">{[0, 1, 2].map(i => <Skeleton key={i} className="h-[200px] rounded-card" />)}</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{[0, 1, 2].map(i => <Skeleton key={i} className="h-[200px] rounded-card" />)}</div>
         ) : shown.length === 0 ? (
           <EmptyState title={tab === 'past' ? 'No past trips yet' : 'Your next adventure starts here'}
             body={tab === 'past' ? 'Trips you finish will land here as keepsakes.' : 'Create your first trip and plan it day by day.'}
             action={tab === 'upcoming' ? <Button variant="claret" onClick={() => setNewOpen(true)}>Plan a trip</Button> : undefined} />
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {shown.map(t => <TripRow key={t.id} trip={t} onOpen={openTrip} actions={tripActions(t)} />)}
           </div>
         )}

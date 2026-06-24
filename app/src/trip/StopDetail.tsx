@@ -345,7 +345,7 @@ export default function StopDetail() {
         {canEdit && (
           <section className="pt-2 border-t border-hair">
             <h2 className="font-serif text-xl mb-3 mt-4">Edit this stop</h2>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {/* Time */}
               <label className="block">
                 <span className="block text-[12.5px] font-bold text-muted mb-1.5">Time</span>
@@ -412,7 +412,7 @@ export default function StopDetail() {
                       ? 'Still need to reserve. It’s on your reservations checklist.'
                       : 'Reserved. Marked done on your reservations checklist.'}
                   </p>
-                  <div className="grid gap-3 sm:grid-cols-2 mt-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mt-3">
                     <label className="block">
                       <span className="block text-[12px] font-bold text-muted mb-1.5">Reservation time</span>
                       <Input
