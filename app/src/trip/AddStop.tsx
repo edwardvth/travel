@@ -66,7 +66,7 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
     setLastAdded(null)
     setDupNotice(null)
     if (!trip.config?.destinationGeo && destinationOf(trip)) {
-      void backfillDestinationGeo({ id: trip.id, destination: destinationOf(trip), config: trip.config })
+      void backfillDestinationGeo({ id: trip.id, destination: destinationOf(trip) })
     }
   }, [open])
 

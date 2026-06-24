@@ -47,7 +47,7 @@ export function NewTripSheet({ open, onClose, onCreated, isTeaser }:
         config: { title, ...(destination.trim() ? { destination: destination.trim() } : null) },
         data: { days: [], completed: [] },
       })
-      void backfillDestinationGeo({ id, destination, config: { title, ...(destination.trim() ? { destination: destination.trim() } : null) } })
+      void backfillDestinationGeo({ id, destination })
       onCreated(id)
     }
     catch (e) { setErr(REASONS[(e as Error).message] ?? "Couldn't create this trip. Try again.") }

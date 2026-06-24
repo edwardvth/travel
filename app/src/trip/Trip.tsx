@@ -664,7 +664,7 @@ function TripBasicsEditor({ trip, save, onClose }: {
     if (dest) config.destination = dest
     else delete config.destination
     save({ title: config.title || trip.title, config, data })
-    if (dest) void backfillDestinationGeo({ id: trip.id, destination: dest, config: { ...trip.config, destination: dest } })
+    if (dest) void backfillDestinationGeo({ id: trip.id, destination: dest })
     onClose()
   }
 
