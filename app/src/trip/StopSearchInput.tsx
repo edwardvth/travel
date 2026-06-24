@@ -57,7 +57,7 @@ export function StopSearchInput({ region, onSelect, placeholder = 'Search for a 
       <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"><Search size={16} aria-hidden="true" /></span>
       <input
         type="text" role="combobox" aria-expanded={showList} aria-controls={listId} aria-autocomplete="list"
-        aria-activedescendant={active >= 0 ? optionId(active) : undefined} aria-label="Search for a place" autoComplete="off"
+        aria-activedescendant={active >= 0 ? optionId(active) : undefined} aria-label={placeholder} autoComplete="off"
         value={value} placeholder={placeholder}
         onChange={e => { setValue(e.target.value); setOpen(true) }}
         onFocus={() => { if (value.trim().length >= MIN_QUERY) setOpen(true) }}
