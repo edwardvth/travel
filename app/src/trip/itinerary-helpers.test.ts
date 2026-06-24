@@ -4,6 +4,11 @@ import {
   remapCompletedAfterReorder,
   remapCompletedAfterDelete,
   toggleCompleted,
+  remapCompletedAfterDayReorder,
+  remapCompletedAfterDayDelete,
+  remapCompletedAfterDayInsert,
+  followDayAfterReorder,
+  followDayAfterDelete,
 } from './itinerary-helpers'
 
 describe('moveItem', () => {
@@ -73,5 +78,40 @@ describe('toggleCompleted', () => {
   })
   it('handles undefined input', () => {
     expect(toggleCompleted(undefined, 1, 1)).toEqual(['1-1'])
+  })
+})
+
+describe('remapCompletedAfterDayReorder', () => {
+  it('remaps the day component via the new day order, keeps stop index', () => {
+    // order[newDay] = oldDay ; moving day 0 -> 2 (3 days) => order [1,2,0]
+    expect(remapCompletedAfterDayReorder(['0-1', '2-0'], [1, 2, 0])).toEqual(['2-1', '1-0'])
+  })
+  it('returns [] for empty/undefined completed', () => {
+    expect(remapCompletedAfterDayReorder([], [0, 1])).toEqual([])
+    expect(remapCompletedAfterDayReorder(undefined, [0, 1])).toEqual([])
+  })
+})
+
+describe('remapCompletedAfterDayDelete', () => {
+  it('drops the removed day keys and shifts higher days down', () => {
+    expect(remapCompletedAfterDayDelete(['0-0', '1-2', '2-1'], 1)).toEqual(['0-0', '1-1'])
+  })
+})
+
+describe('remapCompletedAfterDayInsert', () => {
+  it('shifts days at/after the insert index up by one', () => {
+    expect(remapCompletedAfterDayInsert(['0-0', '1-1'], 1)).toEqual(['0-0', '2-1'])
+  })
+  it('insert at the end is a no-op for existing keys', () => {
+    expect(remapCompletedAfterDayInsert(['0-0', '1-1'], 2)).toEqual(['0-0', '1-1'])
+  })
+})
+
+describe('followDayAfterReorder / followDayAfterDelete', () => {
+  it('selected day follows across reorder and delete', () => {
+    expect(followDayAfterReorder(0, [1, 2, 0])).toBe(2)
+    expect(followDayAfterDelete(2, 1)).toBe(1)
+    expect(followDayAfterDelete(1, 1)).toBe(1)
+    expect(followDayAfterDelete(0, 1)).toBe(0)
   })
 })
