@@ -12,6 +12,20 @@ vi.mock('../auth/useAuth', () => ({ useAuth: () => ({ user: { id: 'u1' } }) }))
 vi.mock('../data/useAccountSettings', () => ({
   useAccountSettings: () => ({ settings: {}, setSettings: () => {} }),
 }))
+// Mock description hooks — Guide integration is tested here; description
+// fetching is exercised in useStopDescription.test.ts.
+vi.mock('../data/useStopDescription', () => ({
+  useStopDescription: (stop: { history?: string; facts?: string[]; tips?: string; notice?: string } | undefined) => ({
+    history: stop?.history ?? '',
+    facts: stop?.facts ?? [],
+    tips: stop?.tips ?? '',
+    notice: stop?.notice ?? '',
+    state: 'ready' as const,
+  }),
+}))
+vi.mock('../data/usePrewarmDescriptions', () => ({
+  usePrewarmDescriptions: () => undefined,
+}))
 
 /** Render Guide inside a real outlet carrying a controlled planner context. */
 function renderGuide(trip: Trip, ctx: Partial<PlannerOutletContext> = {}) {
