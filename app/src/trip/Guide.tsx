@@ -29,6 +29,7 @@ import { coverPhoto } from './photo'
 import { destinationOf } from './landmark-context'
 import { useStopDescription } from '../data/useStopDescription'
 import { usePrewarmDescriptions } from '../data/usePrewarmDescriptions'
+import { useByNameEnrichment } from '../data/useByNameEnrichment'
 import { toggleCompleted } from './itinerary-helpers'
 import { dayLabel as dayLabelOf, dayDate, formatDayDate } from './helpers'
 import { applyTripBasics } from './settings-helpers'
@@ -359,6 +360,10 @@ export default function Guide() {
 
   // Pre-warm the active day's description cache so opening any stop is instant.
   usePrewarmDescriptions(stops.map(s => s.placeId))
+
+  // Generate + persist description for by-name stops (no placeId) — the shared
+  // library only serves placeId stops, so placeId-less stops manage their own copy.
+  useByNameEnrichment(stop, trip, save, canEdit, dayIndex, stopIndex)
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const onDirections = useCallback(() => {

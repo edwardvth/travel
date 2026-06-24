@@ -22,6 +22,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog'
 import { useAuth } from '../auth/useAuth'
 import { useProfile, isFounder } from '../data/useProfile'
 import { useStopDescription } from '../data/useStopDescription'
+import { useByNameEnrichment } from '../data/useByNameEnrichment'
 import { regeneratePlace } from '../lib/enrichClient'
 import type { Stop, TripData } from '../types'
 
@@ -46,6 +47,10 @@ export default function StopDetail() {
   const stop = stops[n] as Stop | undefined
 
   const desc = useStopDescription(stop)
+
+  // Generate + persist description for by-name stops (no placeId). Must be called
+  // unconditionally before the out-of-range early return (hooks rules).
+  useByNameEnrichment(stop, trip, save, canEdit, day, n)
 
   const [editingType, setEditingType] = useState(false)
   const [pendingDelete, setPendingDelete] = useState(false)
