@@ -293,7 +293,7 @@ export function StopRow({
           aria-label={`Add ${stop.name} to reservations`}
           title="Add to reservations"
           onClick={() => onSetReservation?.(index, { status: 'to_reserve' })}
-          className="flex-none hidden md:grid place-items-center w-8 h-8 rounded-md text-muted/50 hover:text-ink hover:bg-fill opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-[opacity,color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+          className="flex-none grid place-items-center w-8 h-8 rounded-md text-muted/50 hover:text-ink hover:bg-fill opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-[opacity,color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
         >
           <Circle size={15} aria-hidden="true" />
         </button>
@@ -315,7 +315,7 @@ export function StopRow({
           type="button"
           aria-label={`Remove ${stop.name}`}
           onClick={() => onDelete(index)}
-          className="flex-none hidden md:grid place-items-center w-8 h-8 rounded-md text-muted/50 hover:text-sig opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
+          className="flex-none grid place-items-center w-8 h-8 rounded-md text-muted/50 hover:text-sig opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
         >
           <Trash2 size={16} aria-hidden="true" />
         </button>
