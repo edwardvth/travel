@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../auth/useAuth'
 import { useProfile } from '../data/useProfile'
-import { useTrips, splitTrips, useBackfillCoverImage } from '../data/useTrips'
+import { useTrips, splitTrips, useBackfillCoverImage, useBackfillDestination, useReresolveAutoCover } from '../data/useTrips'
+import { classifyCover } from '../trip/landmark-context'
 import { AppShell } from '../components/AppShell'
 import { Button } from '../components/ui/Button'
 import { Segmented } from '../components/ui/Segmented'
@@ -31,23 +32,38 @@ export default function Dashboard() {
   const { upcoming, past } = useMemo(() => splitTrips(trips ?? []), [trips])
   const del = useDeleteTrip()
   const backfillCover = useBackfillCoverImage()
+  const backfillDestination = useBackfillDestination()
+  const reresolveCover = useReresolveAutoCover()
 
-  // One-time, best-effort cover backfill for existing trips that predate cover
-  // storage (or whose abbreviated titles never resolved). For each trip the user
-  // can manage that has no usable cover (no stored `coverImage` and no stop with
-  // an `.image`), we try once — tracked in `attemptedCovers` so a re-render or a
-  // `['trips']` re-validation never re-fires the same trip this session. Runs
-  // sequentially (awaited one at a time) to stay gentle on Wikipedia/Supabase,
-  // and is fully silent: failures just leave the placeholder.
+  // One-time, best-effort backfill for trips the user can manage. Per trip we:
+  //  1. infer + save a real `config.destination` from its stops if it's missing
+  //     (legacy trips that predate the destination field), then
+  //  2. correct the cover — re-resolve a baked-in AUTO (possibly-wrong, e.g. a
+  //     suitcase) Wikipedia cover now the destination is right, or backfill one
+  //     when there's none at all.
+  // A trip is attempted once (tracked in `attemptedCovers`) so a re-render or a
+  // `['trips']` re-validation never re-fires it this session. Runs sequentially
+  // (awaited one at a time) to stay gentle on the AI proxy / Wikipedia / Supabase,
+  // and is fully silent: failures just leave the existing state.
   const attemptedCovers = useRef<Set<string>>(new Set())
   useEffect(() => {
     if (!user || !trips) return
     const canBackfill = (t: typeof trips[number]) =>
       isFounder(profile) || (!!t.owner_id && t.owner_id === user.id)
+    const hasDestination = (t: typeof trips[number]) =>
+      typeof t.config?.destination === 'string' && t.config.destination.trim().length > 0
+    const hasStops = (t: typeof trips[number]) =>
+      !!t.data?.days?.some(d => (d.stops?.length ?? 0) > 0)
     const hasUsableCover = (t: typeof trips[number]) =>
       !!t.config?.coverImage || !!t.data?.days?.flatMap(d => d.stops ?? [])?.find(s => s.image)
+    // Needs work when it can infer a missing destination from stops, OR has a
+    // baked-in auto (possibly-wrong) cover, OR has no usable cover at all.
+    const needsWork = (t: typeof trips[number]) =>
+      (!hasDestination(t) && hasStops(t)) ||
+      classifyCover(t.config?.coverImage) === 'auto' ||
+      !hasUsableCover(t)
     const pending = trips.filter(
-      t => canBackfill(t) && !hasUsableCover(t) && !attemptedCovers.current.has(t.id),
+      t => canBackfill(t) && needsWork(t) && !attemptedCovers.current.has(t.id),
     )
     if (pending.length === 0) return
     let cancelled = false
@@ -55,11 +71,15 @@ export default function Dashboard() {
       for (const t of pending) {
         if (cancelled) return
         attemptedCovers.current.add(t.id)
-        try { await backfillCover(t) } catch { /* best-effort, ignore */ }
+        try {
+          await backfillDestination(t)
+          if (classifyCover(t.config?.coverImage) === 'auto') await reresolveCover(t)
+          else if (!t.config?.coverImage) await backfillCover(t)
+        } catch { /* best-effort, ignore */ }
       }
     })()
     return () => { cancelled = true }
-  }, [trips, user, profile, backfillCover])
+  }, [trips, user, profile, backfillCover, backfillDestination, reresolveCover])
   const [shareId, setShareId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const canManage = (t: typeof upcoming[number]) => isFounder(profile) || (!!t.owner_id && t.owner_id === user?.id)

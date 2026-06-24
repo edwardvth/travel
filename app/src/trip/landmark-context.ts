@@ -69,14 +69,15 @@ export function heroQueries(stopName: string, destination: string): string[] {
 }
 
 /**
- * Ordered list of candidate Wikipedia queries to try for a trip's cover image,
- * best-resolving first:
- *   (a) the first up to 3 stop **names alone** — famous landmarks resolve best
- *       by name (e.g. "Gateway Arch") without a locality suffix, then
- *   (b) the trip's destination (`destinationOf`) — now the real place captured
- *       at creation (e.g. "St. Louis, Missouri, United States").
+ * Ordered list of candidate Wikipedia queries for a trip's cover image,
+ * **destination first**:
+ *   (a) the trip's destination (`destinationOf`) — the thumbnail represents the
+ *       place, so the destination leads (e.g. "St. Louis, Missouri, United States"),
+ *   (b) then the first up to 3 stop **names alone**, only as a fallback when the
+ *       destination resolves no image.
  * De-duplicated (case-insensitively) and stripped of empties. A brand-new trip
- * with no stops falls straight through to the destination.
+ * with no stops is just the destination. (Stop-names-first used to pin a generic
+ * stop's image — a hotel → a suitcase — as the cover; destination-first fixes that.)
  */
 export function coverImageQueries(trip: Pick<Trip, 'title' | 'config' | 'data'>): string[] {
   const out: string[] = []
@@ -90,9 +91,29 @@ export function coverImageQueries(trip: Pick<Trip, 'title' | 'config' | 'data'>)
     out.push(q)
   }
 
+  push(destinationOf(trip))
   const stops = trip.data?.days?.flatMap(d => d.stops ?? []) ?? []
   for (const stop of stops.slice(0, 3)) push(stop.name ?? '')
-  push(destinationOf(trip))
 
   return out
+}
+
+/**
+ * Classify a stored `config.coverImage` so a backfill knows what it may touch:
+ *   - `'user'`  → a `data:` URL (a user upload) — NEVER auto-touch.
+ *   - `'auto'`  → a Wikipedia/Wikimedia hotlink — machine-resolved, safe to re-resolve.
+ *   - `'other'` → anything else (e.g. a pasted external URL) or empty — leave alone.
+ * Pure.
+ */
+export function classifyCover(coverImage: string | undefined | null): 'user' | 'auto' | 'other' {
+  const v = (coverImage ?? '').trim()
+  if (!v) return 'other'
+  if (v.startsWith('data:')) return 'user'
+  try {
+    const host = new URL(v).host.toLowerCase()
+    if (host === 'upload.wikimedia.org' || host.includes('wikipedia')) return 'auto'
+  } catch {
+    /* not a parseable URL */
+  }
+  return 'other'
 }

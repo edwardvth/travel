@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { destinationOf, stopLandmarkQuery, coverImageQueries, cityOf, heroQueries } from './landmark-context'
+import { destinationOf, stopLandmarkQuery, coverImageQueries, cityOf, heroQueries, classifyCover } from './landmark-context'
 import type { Trip } from '../types'
 
 const mk = (config: Partial<Trip['config']>, title = 'Row Title'): Pick<Trip, 'title' | 'config'> => ({
@@ -83,16 +83,16 @@ describe('coverImageQueries', () => {
     data: { days, completed: [] },
   })
 
-  it('lists the first up to 3 stop names, then the destination', () => {
+  it('lists the destination first, then up to 3 stop names', () => {
     const trip = mkTrip({ destination: 'St. Louis, Missouri, United States' }, [
       { title: 'Day 1', stops: [{ name: 'Gateway Arch' }, { name: 'Forest Park' }] },
       { title: 'Day 2', stops: [{ name: 'City Museum' }, { name: 'Busch Stadium' }] },
     ])
     expect(coverImageQueries(trip)).toEqual([
+      'St. Louis, Missouri, United States',
       'Gateway Arch',
       'Forest Park',
       'City Museum',
-      'St. Louis, Missouri, United States',
     ])
   })
 
@@ -116,5 +116,22 @@ describe('coverImageQueries', () => {
   it('returns an empty list when there is no usable destination or stop', () => {
     const trip = mkTrip({}, [], '')
     expect(coverImageQueries(trip)).toEqual([])
+  })
+})
+
+describe('classifyCover', () => {
+  it('treats a data: URL as a user upload (never auto-touch)', () => {
+    expect(classifyCover('data:image/jpeg;base64,abc123')).toBe('user')
+  })
+  it('treats Wikimedia / Wikipedia hotlinks as auto', () => {
+    expect(classifyCover('https://upload.wikimedia.org/wikipedia/commons/thumb/x.jpg')).toBe('auto')
+    expect(classifyCover('https://en.wikipedia.org/wiki/Gateway_Arch')).toBe('auto')
+  })
+  it('treats other URLs, junk and empty as other', () => {
+    expect(classifyCover('https://example.com/photo.jpg')).toBe('other')
+    expect(classifyCover('not a url')).toBe('other')
+    expect(classifyCover('')).toBe('other')
+    expect(classifyCover(undefined)).toBe('other')
+    expect(classifyCover(null)).toBe('other')
   })
 })

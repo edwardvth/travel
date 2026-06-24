@@ -4,7 +4,8 @@ import { supabase } from '../lib/supabase'
 import type { Trip, TripConfig, Profile } from '../types'
 import { byTripDate, isPastTrip, buildNewTripPayload, slugify, type NewTripInput } from '../lib/trip-helpers'
 import { fetchLandmarkImage } from '../trip/landmark'
-import { coverImageQueries } from '../trip/landmark-context'
+import { coverImageQueries, classifyCover } from '../trip/landmark-context'
+import { inferDestination } from '../trip/destination'
 import { isFounder } from './useProfile'
 
 export function splitTrips(trips: Trip[]) {
@@ -122,6 +123,89 @@ export function useBackfillCoverImage() {
         return true
       } catch {
         /* cover is best-effort — the home card backfills on-demand if this misses */
+        return false
+      }
+    },
+    [qc],
+  )
+}
+
+/**
+ * Fire-and-forget: for a legacy trip with NO `config.destination` but with stops,
+ * infer the destination from the stops (AI, with a deterministic address-parse
+ * fallback — see `inferDestination`) and persist it to `config.destination`. One
+ * write cascades everywhere the app reads `destinationOf` (home cover, Plan, Guide).
+ * Re-reads the row first so it never clobbers a destination set meanwhile.
+ * Owner/RLS-gated; silent. Resolves true when a destination was written.
+ */
+export function useBackfillDestination() {
+  const qc = useQueryClient()
+  return useCallback(
+    async (trip: CoverableTrip): Promise<boolean> => {
+      if (!trip.id) return false
+      const hasDest = typeof trip.config?.destination === 'string' && trip.config.destination.trim().length > 0
+      const stops = trip.data?.days?.flatMap(d => d.stops ?? []) ?? []
+      if (hasDest || stops.length === 0) return false
+      try {
+        const dest = await inferDestination(stops, trip.title ?? '')
+        if (!dest) return false
+        const { data: row } = await supabase.from('trips').select('config').eq('id', trip.id).maybeSingle()
+        const config = (row?.config ?? {}) as TripConfig
+        if (typeof config.destination === 'string' && config.destination.trim()) return false
+        const { error } = await supabase
+          .from('trips')
+          .update({ config: { ...config, destination: dest } })
+          .eq('id', trip.id)
+        if (error) return false
+        qc.invalidateQueries({ queryKey: ['trips'] })
+        return true
+      } catch {
+        return false
+      }
+    },
+    [qc],
+  )
+}
+
+/**
+ * Fire-and-forget: re-resolve a trip's AUTO (Wikipedia-hotlink) cover from its
+ * current destination-first `coverImageQueries`, OVERWRITING the saved value —
+ * the deliberate counterpart to `useBackfillCoverImage`'s "never clobber" guard.
+ * Only runs when the saved cover is `'auto'` (a `data:` user upload, or any other
+ * URL, is left untouched). Re-reads the row so it uses the freshest destination
+ * (e.g. one `useBackfillDestination` just wrote). Clears the cover when nothing
+ * resolves so the live destination landmark shows. Owner/RLS-gated; silent.
+ */
+export function useReresolveAutoCover() {
+  const qc = useQueryClient()
+  return useCallback(
+    async (trip: CoverableTrip): Promise<boolean> => {
+      if (!trip.id) return false
+      try {
+        const { data: row } = await supabase
+          .from('trips').select('config, data, title').eq('id', trip.id).maybeSingle()
+        if (!row) return false
+        const config = (row.config ?? {}) as TripConfig
+        if (classifyCover(config.coverImage) !== 'auto') return false // never touch user/other
+        const queries = coverImageQueries({
+          title: (row.title as string | undefined) ?? trip.title,
+          config,
+          data: (row.data ?? trip.data) as Trip['data'],
+        })
+        let url: string | null = null
+        for (const q of queries) {
+          url = await fetchLandmarkImage(q)
+          if (url) break
+        }
+        const next: TripConfig = { ...config }
+        if (url) next.coverImage = url
+        else delete next.coverImage
+        if (next.coverImage === config.coverImage) return false // no change — skip the write
+        const { error } = await supabase.from('trips').update({ config: next }).eq('id', trip.id)
+        if (error) return false
+        qc.invalidateQueries({ queryKey: ['trips'] })
+        return true
+      } catch {
         return false
       }
     },
