@@ -35,6 +35,7 @@ export function ArrivalView({
   story,
   notice,
   experience,
+  facts = [],
   voiceId,
   onComplete,
   activeTab,
@@ -47,6 +48,8 @@ export function ArrivalView({
   story: string
   notice: string
   experience: string
+  /** Structured interesting facts — rendered as a list in the Facts tab. */
+  facts?: string[]
   voiceId: string
   onComplete: () => void
   activeTab: StoryTab
@@ -120,6 +123,7 @@ export function ArrivalView({
           story={story}
           notice={notice}
           experience={experience}
+          facts={facts}
           active={activeTab}
           onChange={onTabChange}
         />

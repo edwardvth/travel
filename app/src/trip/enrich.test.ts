@@ -102,7 +102,7 @@ describe('buildEnrichPrompt', () => {
       'St. Louis, Missouri, United States',
     )
     expect(p).toContain('St. Louis, Missouri, United States')
-    expect(p).toContain('notice')
+    expect(p).toContain('facts')
   })
 
   it('asks for the three tab sections by their semantics', () => {
