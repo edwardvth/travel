@@ -26,10 +26,42 @@ export function stopCount(trip: Trip | null | undefined, day: number): number {
   return dayStops(trip, day).length
 }
 
-/** Display label for a day index — config.dayLabels, then dayTitles, then "Day N". */
+/**
+ * Display label for a day index. When the trip has a start date this is the
+ * weekday + date ("Fri, Jul 4") so people can see which day of the week it is;
+ * otherwise it falls back to the stored config label / "Day N".
+ */
 export function dayLabel(trip: Trip | null | undefined, day: number): string {
+  const dated = weekdayDateLabel(dayDate(trip, day))
+  if (dated) return dated
   const cfg = trip?.config
   return cfg?.dayLabels?.[day] || cfg?.dayTitles?.[day] || `Day ${day + 1}`
+}
+
+/** "Fri, Jul 4" from a `YYYY-MM-DD` date (weekday + month/day), or null. Pure. */
+export function weekdayDateLabel(date: string | null): string | null {
+  if (!date) return null
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(date)
+  if (!m) return null
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  if (Number.isNaN(d.getTime())) return null
+  const weekday = d.toLocaleDateString(undefined, { weekday: 'short' })
+  const monthDay = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+  return `${weekday}, ${monthDay}`
+}
+
+/**
+ * True when a day's `title` is an auto-generated label (empty, "Day N", or the
+ * legacy "Jun 22 · Day 1" date-title) rather than a user-chosen custom name — so
+ * the UI can show just the date for it, and a custom title gets the date appended.
+ * Pure.
+ */
+export function isAutoDayTitle(title: string | undefined | null): boolean {
+  const t = (title ?? '').trim()
+  if (!t) return true
+  if (/^Day \d+$/i.test(t)) return true
+  if (/ · Day \d+$/.test(t)) return true
+  return false
 }
 
 /**

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { completedKey, isCompleted, dayCount, dayStops, stopCount, dayDate, formatDayDate } from './helpers'
+import { completedKey, isCompleted, dayCount, dayStops, stopCount, dayDate, formatDayDate, weekdayDateLabel, isAutoDayTitle } from './helpers'
 import type { Trip } from '../types'
 
 const trip = (days: { stops: unknown[] }[], completed: string[] = [], numDays?: number): Trip => ({
@@ -81,5 +81,28 @@ describe('formatDayDate', () => {
   it('returns null for null/invalid input', () => {
     expect(formatDayDate(null)).toBeNull()
     expect(formatDayDate('nope')).toBeNull()
+  })
+})
+
+describe('weekdayDateLabel', () => {
+  it('renders "Weekday, Mon D" for a valid date (2026-07-03 is a Friday)', () => {
+    expect(weekdayDateLabel('2026-07-03')).toBe('Fri, Jul 3')
+  })
+  it('returns null for null/invalid input', () => {
+    expect(weekdayDateLabel(null)).toBeNull()
+    expect(weekdayDateLabel('nope')).toBeNull()
+  })
+})
+
+describe('isAutoDayTitle', () => {
+  it('treats empty, "Day N" and legacy "Mon D · Day N" as auto', () => {
+    expect(isAutoDayTitle('')).toBe(true)
+    expect(isAutoDayTitle(undefined)).toBe(true)
+    expect(isAutoDayTitle('Day 3')).toBe(true)
+    expect(isAutoDayTitle('Jun 22 · Day 1')).toBe(true)
+  })
+  it('treats a user-chosen name as custom', () => {
+    expect(isAutoDayTitle('Beach day')).toBe(false)
+    expect(isAutoDayTitle('Arrival & check-in')).toBe(false)
   })
 })

@@ -8,7 +8,7 @@ import TripMapView, { type MapSelection } from './TripMapView'
 import { suggestDay } from './suggest'
 import { useLandmarkBackfill } from '../data/useLandmarkBackfill'
 import { destinationOf, stopLandmarkQuery } from './landmark-context'
-import { dayCount as countDays, dayLabel, stopCount } from './helpers'
+import { dayCount as countDays, dayLabel, stopCount, isAutoDayTitle } from './helpers'
 import { WeatherGlance } from './WeatherGlance'
 import { StayCard } from './StayCard'
 import { Button } from '../components/ui/Button'
@@ -33,11 +33,14 @@ export default function Itinerary() {
   const [suggestError, setSuggestError] = useState<string | null>(null)
   const [editingDay, setEditingDay] = useState(false)
   const [removingDay, setRemovingDay] = useState(false)
+  const [exitingDay, setExitingDay] = useState<number | null>(null)
 
   const day = Math.min(activeDay, Math.max(0, countDays(trip) - 1))
   const count = stopCount(trip, day)
   const dayObj = trip.data.days?.[day]
-  const dayTitle = (dayObj?.title || '').trim() || dayLabel(trip, day)
+  const dateLabel = dayLabel(trip, day) // "Fri, Jul 4"
+  const customTitle = isAutoDayTitle(dayObj?.title) ? '' : (dayObj?.title ?? '').trim()
+  const dayTitle = customTitle ? `${customTitle} (${dateLabel})` : dateLabel
   const dayNote = (dayObj?.note || '').trim()
 
   // Clear any stale selection when switching days.
@@ -120,10 +123,17 @@ export default function Itinerary() {
   }
   function handleRemoveDay() {
     if (!canEdit) return
-    const lastAfter = Math.max(0, countDays(trip) - 2)
-    save({ data: removeDay(trip.data, day) })
-    setActiveDay(Math.min(followDayAfterDelete(day, day), lastAfter))
     setRemovingDay(false)
+    // Collapse the chip first so the deletion is visible, then commit the removal.
+    const target = day
+    const data = trip.data
+    const lastAfter = Math.max(0, countDays(trip) - 2)
+    setExitingDay(target)
+    window.setTimeout(() => {
+      save({ data: removeDay(data, target) })
+      setActiveDay(Math.min(followDayAfterDelete(target, target), lastAfter))
+      setExitingDay(null)
+    }, 230)
   }
   function handleSaveDayMeta(meta: { title: string; note: string }) {
     if (!canEdit) return
@@ -176,6 +186,7 @@ export default function Itinerary() {
               canEdit={canEdit}
               onReorder={handleReorderDays}
               onAddDay={handleAddDay}
+              exitingDay={exitingDay}
             />
           </div>
 
@@ -274,9 +285,9 @@ export default function Itinerary() {
       {canEdit && (
         <DaySettingsSheet
           open={editingDay}
-          title={dayObj?.title ?? ''}
+          title={customTitle}
           note={dayObj?.note ?? ''}
-          dateLabel={dayLabel(trip, day)}
+          dateLabel={dateLabel}
           onClose={() => setEditingDay(false)}
           onSave={handleSaveDayMeta}
         />

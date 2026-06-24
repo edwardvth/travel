@@ -17,7 +17,7 @@ import { GripVertical, Plus } from 'lucide-react'
  * consistent with stop reorder) and an "Add day" chip appends a day. Selection,
  * reorder and add are all driven by the parent (immutable saves upstream).
  */
-export function DayRail({ trip, activeDay, onSelect, canEdit = false, onReorder, onAddDay }: {
+export function DayRail({ trip, activeDay, onSelect, canEdit = false, onReorder, onAddDay, exitingDay }: {
   trip: Trip
   activeDay: number
   onSelect: (day: number) => void
@@ -26,6 +26,8 @@ export function DayRail({ trip, activeDay, onSelect, canEdit = false, onReorder,
   onReorder?: (from: number, to: number) => void
   /** Append a new day (edit only). */
   onAddDay?: () => void
+  /** Day index currently animating out (collapse) just before its removal. */
+  exitingDay?: number | null
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -72,7 +74,7 @@ export function DayRail({ trip, activeDay, onSelect, canEdit = false, onReorder,
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
       <nav aria-label="Trip days" className={railClass}>
         <SortableContext items={days} strategy={horizontalListSortingStrategy}>
-          {days.map(day => <SortableDayChip key={day} trip={trip} day={day} active={day === activeDay} onSelect={onSelect} />)}
+          {days.map(day => <SortableDayChip key={day} trip={trip} day={day} active={day === activeDay} onSelect={onSelect} exiting={day === exitingDay} />)}
         </SortableContext>
         {addChip}
       </nav>
@@ -100,6 +102,7 @@ function ChipBody({ trip, day, active }: { trip: Trip; day: number; active: bool
 const chipClass = (active: boolean) =>
   cn(
     'flex-none md:w-full inline-flex items-center justify-between gap-3 min-h-[44px] px-3.5 rounded-btn text-left transition-colors',
+    'motion-safe:animate-[dayChipIn_220ms_ease-out]',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link',
     active ? 'bg-sig-btn text-white' : 'bg-fill text-ink hover:bg-fill-hover',
   )
@@ -112,17 +115,23 @@ function DayChip({ trip, day, active, onSelect }: { trip: Trip; day: number; act
   )
 }
 
-function SortableDayChip({ trip, day, active, onSelect }: { trip: Trip; day: number; active: boolean; onSelect: (d: number) => void }) {
+function SortableDayChip({ trip, day, active, onSelect, exiting }: { trip: Trip; day: number; active: boolean; onSelect: (d: number) => void; exiting?: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: day })
-  const style = { transform: CSS.Transform.toString(transform), transition }
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    // Collapsing out needs its own transition — dnd's `transition` only covers transform.
+    transition: exiting ? 'max-width 230ms ease, opacity 230ms ease, padding 230ms ease' : transition,
+  }
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={cn(
-        'flex-none md:w-full inline-flex items-center gap-1 rounded-btn min-h-[44px] pr-2 transition-colors',
+        'flex-none md:w-full inline-flex items-center gap-1 rounded-btn min-h-[44px] pr-2',
+        'motion-safe:animate-[dayChipIn_220ms_ease-out]',
         active ? 'bg-sig-btn text-white' : 'bg-fill text-ink',
         isDragging && 'opacity-60 z-10',
+        exiting ? 'max-w-0 opacity-0 overflow-hidden pointer-events-none !pr-0' : 'max-w-[220px]',
       )}
     >
       <button

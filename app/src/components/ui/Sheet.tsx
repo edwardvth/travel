@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { motion, MotionConfig } from 'framer-motion'
 import { cn } from '../../lib/utils'
 
 /** Selector for the tabbable elements we cycle focus through inside the panel. */
@@ -64,14 +65,29 @@ export function Sheet({ open, onClose, children, labelledBy }:
 
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
-      role="dialog" aria-modal="true" aria-labelledby={labelledBy}>
-      <div className="absolute inset-0 bg-black/60" onClick={onClose} />
-      <div ref={panelRef} tabIndex={-1} className={cn('relative w-full md:max-w-lg bg-overlay border border-hair',
-        'rounded-t-card md:rounded-card p-6 shadow-lift', 'max-h-[90vh] overflow-y-auto',
-        'focus-visible:outline-none')}>
-        {children}
+    <MotionConfig reducedMotion="user">
+      <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
+        role="dialog" aria-modal="true" aria-labelledby={labelledBy}>
+        <motion.div
+          className="absolute inset-0 bg-black/60"
+          onClick={onClose}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.15 }}
+        />
+        <motion.div
+          ref={panelRef}
+          tabIndex={-1}
+          className={cn('relative w-full md:max-w-lg bg-overlay border border-hair',
+            'rounded-t-card md:rounded-card p-6 shadow-lift', 'max-h-[90vh] overflow-y-auto',
+            'focus-visible:outline-none')}
+          initial={{ opacity: 0, y: 24, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          transition={{ type: 'spring', stiffness: 340, damping: 30 }}
+        >
+          {children}
+        </motion.div>
       </div>
-    </div>
+    </MotionConfig>
   )
 }
