@@ -3,6 +3,7 @@ import { suggestPlaces } from './suggest'
 import { placeFromSuggestion } from './location'
 import { useLandmarkBackfill } from '../data/useLandmarkBackfill'
 import { useGeocodeBackfill } from '../data/useGeocodeBackfill'
+import { useBackfillPlaceDetails } from '../data/useBackfillPlaceDetails'
 import { destinationOf, stopLandmarkQuery } from './landmark-context'
 import { Check, kindIcon, kindLabel, stopTypeIcon } from './icons'
 import { cn } from '../lib/utils'
@@ -10,6 +11,10 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { Sheet } from '../components/ui/Sheet'
 import { Skeleton } from '../components/ui/Skeleton'
+import { StopSearchInput } from './StopSearchInput'
+import { type Prediction } from '../lib/placeSearch'
+import { findStopByPlaceId } from '../lib/geocode'
+import { biasCenter } from './region'
 import type { Stop, StopKind, Trip, TripData } from '../types'
 
 const KINDS: StopKind[] = ['do', 'eat', 'stay']
@@ -37,6 +42,7 @@ const TITLE_ID = 'add-stop-title'
 export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
   const { backfillStop } = useLandmarkBackfill(trip.id, save)
   const { backfillCoords } = useGeocodeBackfill(trip.id, save)
+  const { backfillPlaceDetails } = useBackfillPlaceDetails(trip.id, save)
   const [kind, setKind] = useState<StopKind>('do')
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<Status>('idle')
@@ -44,6 +50,7 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
   const [error, setError] = useState<string | null>(null)
   const [addedCount, setAddedCount] = useState(0)
   const [lastAdded, setLastAdded] = useState<string | null>(null)
+  const [dupNotice, setDupNotice] = useState<string | null>(null)
 
   // Reset state whenever the sheet opens.
   useEffect(() => {
@@ -55,6 +62,7 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
     setError(null)
     setAddedCount(0)
     setLastAdded(null)
+    setDupNotice(null)
   }, [open])
 
   async function runSearch() {
@@ -81,10 +89,16 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
    *  currently-selected category. The chosen suggestion is resolved through the
    *  shared `placeFromSuggestion` (same mapping the Change-location re-pick uses)
    *  so location fields are normalized in exactly one place; the suggestion's
-   *  `note` is carried through for context. */
+   *  `note` is carried through for context. Place identity fields (placeId,
+   *  placeName, placeTypes, placeSource) are re-applied after placeFromSuggestion
+   *  because that function only maps the location subset and drops unknown fields. */
   function addStop(stop: Stop) {
     const tagged: Stop = { ...placeFromSuggestion(stop), kind }
     if (stop.note) tagged.note = stop.note
+    if (stop.placeId) tagged.placeId = stop.placeId
+    if (stop.placeName) tagged.placeName = stop.placeName
+    if (stop.placeTypes) tagged.placeTypes = stop.placeTypes
+    if (stop.placeSource) tagged.placeSource = stop.placeSource
     const data = trip.data
     const next: TripData = {
       ...data,
@@ -115,6 +129,35 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
     const q = query.trim()
     if (!q) return
     addStop({ name: q })
+  }
+
+  // The trip's country (stable) + the planning-aware bias center for this day.
+  const region = {
+    countryCode: trip.config?.destinationGeo?.countryCode ?? '',
+    ...biasCenter(trip, day),
+  }
+
+  /** Pick a real place from autocomplete: dedup -> create immediately -> resolve
+   *  coords/types in the background (guarded by placeId in the hook). */
+  function onPickPlace(p: Prediction, sessionToken: string) {
+    // 1. Duplicate guard — same normalized place already in the trip (placeId only).
+    if (p.placeId && findStopByPlaceId(trip, p.placeId)) {
+      setError(null)
+      setLastAdded(null)
+      setDupNotice(p.primaryText)
+      return
+    }
+    setDupNotice(null)
+    // 2. Immediate create from the prediction (no wait on details).
+    addStop({
+      name: p.primaryText,
+      placeName: p.primaryText,
+      placeId: p.placeId,
+      placeSource: 'google',
+      ...(p.types.length ? { placeTypes: p.types } : {}),
+    })
+    // 3. Background, guarded details patch (re-reads fresh trip from cache).
+    if (p.placeId) backfillPlaceDetails(p.placeId, sessionToken)
   }
 
   return (
@@ -164,6 +207,17 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
           )
         })}
       </div>
+
+      {/* Primary: real-place autocomplete. */}
+      <div className="mb-2">
+        <StopSearchInput region={region} onSelect={onPickPlace} placeholder="Search for a place…" />
+      </div>
+      {dupNotice && (
+        <p role="status" className="mb-3 text-[13px] text-muted bg-fill border border-hair rounded-card px-3.5 py-2">
+          "{dupNotice}" is already in your trip.
+        </p>
+      )}
+      <p className="text-[12px] text-muted mb-2">Or describe what you want and let AI suggest:</p>
 
       <form
         onSubmit={e => {
