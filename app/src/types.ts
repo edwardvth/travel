@@ -45,6 +45,17 @@ export interface Stop {
    */
   locationEditedAt?: string
   wikiTitle?: string
+  /**
+   * Canonical normalized-place identity from a place-search provider (Google
+   * Places). `placeId` is the authoritative dedupe/enrichment/caching key;
+   * `placeName` is the provider's canonical display name (SEPARATE from the
+   * editable `name`); `placeTypes` are the provider's categories. Optional/
+   * additive — absent on by-name and legacy stops.
+   */
+  placeId?: string
+  placeSource?: 'google'
+  placeName?: string
+  placeTypes?: string[]
   note?: string
   /** Reservation tracking for this stop. Absent until the user marks it. */
   reservation?: { status: 'to_reserve' | 'reserved'; time?: string; confirmation?: string; note?: string }
@@ -78,6 +89,13 @@ export interface TripConfig {
   dayLabels?: string[]; dayTitles?: string[]; startDate?: string
   /** Destination (clean place label, e.g. "St. Louis, Missouri, United States"). Drives cover-image queries. */
   destination?: string
+  /**
+   * Resolved geo for `destination` — center + ISO-3166-1 alpha-2 `countryCode`
+   * (lowercased, ready for Places `includedRegionCodes`; '' when unknown) +
+   * `state`. Canonical derived metadata, written eagerly on create + destination
+   * change; used to country-restrict + seed the autocomplete bias center.
+   */
+  destinationGeo?: { lat: number; lng: number; countryCode: string; state?: string }
   /** Free-form trip-level travel notes (edited in Trip → Trip details). */
   notes?: string
   units?: 'metric' | 'imperial'
