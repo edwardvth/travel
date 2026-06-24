@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { parseRegion, resolveRegion } from './region'
+import { parseRegion, resolveRegion, biasCenter } from './region'
+import type { Trip } from '../types'
 
 const feat = (coordinates: number[], properties: Record<string, unknown>) =>
   ({ geometry: { coordinates }, properties })
@@ -42,5 +43,28 @@ describe('resolveRegion', () => {
     expect(await resolveRegion('X')).toBeNull()
     vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('net'))
     expect(await resolveRegion('X')).toBeNull()
+  })
+})
+
+const mkTrip = (days: Array<Array<{ lat?: number; lng?: number }>>, destinationGeo?: Trip['config']['destinationGeo']): Trip =>
+  ({ id: 't', owner_id: null, title: 'T', subtitle: null,
+     config: { destinationGeo },
+     data: { days: days.map(stops => ({ title: '', stops: stops.map((s, i) => ({ name: 'S' + i, ...s })) })), completed: [] } }) as Trip
+
+describe('biasCenter', () => {
+  it('1) uses the most recent coord stop in the current day', () => {
+    const t = mkTrip([[{ lat: 1, lng: 1 }, { lat: 2, lng: 2 }]])
+    expect(biasCenter(t, 0)).toEqual({ lat: 2, lng: 2 })
+  })
+  it('2) falls back to the most recent coord stop anywhere when the day has none', () => {
+    const t = mkTrip([[{ lat: 5, lng: 5 }], [{}]]) // day 1 has a no-coord stop
+    expect(biasCenter(t, 1)).toEqual({ lat: 5, lng: 5 })
+  })
+  it('3) falls back to destinationGeo when no stop has coords', () => {
+    const t = mkTrip([[{}]], { lat: 9, lng: 9, countryCode: 'us' })
+    expect(biasCenter(t, 0)).toEqual({ lat: 9, lng: 9 })
+  })
+  it('returns undefined when nothing is available', () => {
+    expect(biasCenter(mkTrip([[]]), 0)).toBeUndefined()
   })
 })

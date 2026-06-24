@@ -1,4 +1,6 @@
 import { geocodeUrl } from '../lib/geocode'
+import { stopCoords, type LatLng } from './walk'
+import type { Stop, Trip } from '../types'
 
 /** Resolved geo for a trip destination — center + ISO-3166-1 alpha-2 country + state. */
 export interface RegionGeo {
@@ -48,4 +50,31 @@ export async function resolveRegion(destination: string, signal?: AbortSignal): 
   } catch {
     return null
   }
+}
+
+/** The last (most recently added) coord-bearing stop in a list, or null. */
+function lastCoordStop(stops: Stop[]): LatLng | null {
+  for (let i = stops.length - 1; i >= 0; i--) {
+    const c = stopCoords(stops[i])
+    if (c) return c
+  }
+  return null
+}
+
+/**
+ * Autocomplete bias center for the day being planned, by priority:
+ *   1. most recent coord-bearing stop in the current day,
+ *   2. most recent coord-bearing stop anywhere in the trip,
+ *   3. the trip's destinationGeo center,
+ * else undefined (caller omits locationBias). Pure.
+ */
+export function biasCenter(trip: Pick<Trip, 'config' | 'data'>, dayIndex: number): LatLng | undefined {
+  const days = trip.data?.days ?? []
+  const inDay = lastCoordStop(days[dayIndex]?.stops ?? [])
+  if (inDay) return inDay
+  const inTrip = lastCoordStop(days.flatMap(d => d?.stops ?? []))
+  if (inTrip) return inTrip
+  const geo = trip.config?.destinationGeo
+  if (geo && Number.isFinite(geo.lat) && Number.isFinite(geo.lng)) return { lat: geo.lat, lng: geo.lng }
+  return undefined
 }
