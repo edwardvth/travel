@@ -370,7 +370,7 @@ Deno.serve(async (req) => {
       if (prof?.[0]?.role !== 'founder') return json({ status: 'failed' }, 403)
       if (!ok(ip)) return json({ status: 'failed' }, 429)
       const { row, isManualLock } = await readRow(placeId)
-      if (isManualLock && !p.force) return json({ status: 'ready', content: content(row as Record<string, unknown>) })
+      if (isManualLock && !p.force && row && (row as { generation_status?: string }).generation_status === 'ready') return json({ status: 'ready', content: content(row as Record<string, unknown>) })
       const det = await placeDetails(placeId)
       if (det === null) { await upsertUnsupported(placeId); return json({ status: 'unsupported' }) }
       if (det === 'error') return json({ status: 'failed' })
@@ -382,7 +382,7 @@ Deno.serve(async (req) => {
 
     const { row, isManualLock } = await readRow(placeId)
     const action = decideAction(row as Row, Date.now())
-    if (action.kind === 'serve' || (isManualLock && row)) return json({ status: 'ready', content: content(row as Record<string, unknown>) })
+    if (action.kind === 'serve') return json({ status: 'ready', content: content(row as Record<string, unknown>) })
     if (action.kind === 'unsupported') return json({ status: 'unsupported' })
     if (action.kind === 'pending') return json({ status: 'pending' })
     if (action.kind === 'failed') return json({ status: 'failed' })
@@ -398,8 +398,12 @@ Deno.serve(async (req) => {
       if (!got.length) return json({ status: 'pending' })
     } else {
       const ins = await fetch(REST, { method: 'POST', headers: sh({ Prefer: 'return=minimal' }), body: JSON.stringify({ place_id: placeId, prompt_version: CURRENT_ENRICH_VERSION, generation_status: 'generating', generation_started_at: new Date().toISOString(), generation_attempts: 1 }) })
-      if (ins.status === 409) return json({ status: 'pending' })
-      if (!ins.ok) return json({ status: 'failed' })
+      if (ins.status === 409) {
+        // Row already exists — only a retry-eligible FAILED row may be re-claimed here.
+        const re = await fetch(`${REST}?place_id=eq.${encodeURIComponent(placeId)}&prompt_version=eq.${CURRENT_ENRICH_VERSION}&generation_status=eq.failed`, { method: 'PATCH', headers: sh({ Prefer: 'return=representation' }), body: JSON.stringify({ generation_status: 'generating', generation_started_at: new Date().toISOString(), generation_attempts: ((row as { generation_attempts?: number })?.generation_attempts ?? 0) + 1, generation_error: null }) })
+        const got = re.ok ? await re.json() : []
+        if (!got.length) return json({ status: 'pending' })
+      } else if (!ins.ok) return json({ status: 'failed' })
     }
     const who = await fetch(`${SUPABASE_URL}/auth/v1/user`, { headers: { Authorization: userAuth, apikey: SERVICE_KEY } }).then(r => r.ok ? r.json() : null).catch(() => null)
     return json(await generate(placeId, det as Record<string, unknown>, userAuth, who?.id ?? 'system'))
