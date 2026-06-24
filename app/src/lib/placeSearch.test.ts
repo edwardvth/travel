@@ -1,5 +1,11 @@
-import { describe, it, expect } from 'vitest'
-import { buildAutocompleteBody, parsePredictions, parseDetails } from './placeSearch'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { buildAutocompleteBody, parsePredictions, parseDetails, fetchPredictions, fetchPlaceDetails } from './placeSearch'
+
+vi.mock('./supabase', () => ({
+  SUPABASE_URL: 'https://x.supabase.co',
+  SUPABASE_ANON_KEY: 'anon',
+  supabase: { auth: { getSession: async () => ({ data: { session: null } }) } },
+}))
 
 describe('buildAutocompleteBody', () => {
   it('includes input/sessionToken/lang + country + 50km circle bias', () => {
@@ -52,5 +58,42 @@ describe('parseDetails', () => {
   it('omits the address key when formattedAddress is absent or empty', () => {
     const r = parseDetails({ location: { latitude: 1, longitude: 2 }, displayName: { text: 'X' }, types: [] })
     expect(r).not.toHaveProperty('address')
+  })
+})
+
+describe('fetchPredictions', () => {
+  afterEach(() => vi.restoreAllMocks())
+  it('returns [] (no fetch) under 1 char', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+    expect(await fetchPredictions('', 'tok', { countryCode: 'us' })).toEqual([])
+    expect(spy).not.toHaveBeenCalled()
+  })
+  it('POSTs action:autocomplete and parses suggestions', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true, json: async () => ({ suggestions: [{ placePrediction: { placeId: 'p1', structuredFormat: { mainText: { text: 'Gateway Arch' } }, types: [] } }] }),
+    } as Response)
+    const out = await fetchPredictions('gate', 'tok', { countryCode: 'us', lat: 1, lng: 2 })
+    expect(out).toEqual([{ placeId: 'p1', primaryText: 'Gateway Arch', secondaryText: '', types: [] }])
+    const body = JSON.parse((spy.mock.calls[0][1] as RequestInit).body as string)
+    expect(body.action).toBe('autocomplete')
+    expect(body.body.input).toBe('gate')
+  })
+  it('returns [] on non-OK / throw', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: false } as Response)
+    expect(await fetchPredictions('gate', 'tok', { countryCode: 'us' })).toEqual([])
+  })
+})
+
+describe('fetchPlaceDetails', () => {
+  afterEach(() => vi.restoreAllMocks())
+  it('POSTs action:details and parses the place', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true, json: async () => ({ location: { latitude: 1, longitude: 2 }, displayName: { text: 'X' }, types: [] }),
+    } as Response)
+    expect(await fetchPlaceDetails('p1', 'tok')).toEqual({ name: 'X', lat: 1, lng: 2, types: [] })
+  })
+  it('returns null on miss', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue({ ok: true, json: async () => ({}) } as Response)
+    expect(await fetchPlaceDetails('p1', 'tok')).toBeNull()
   })
 })

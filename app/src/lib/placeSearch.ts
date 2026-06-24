@@ -1,3 +1,5 @@
+import { SUPABASE_URL, SUPABASE_ANON_KEY, supabase } from './supabase'
+
 /** A place-search prediction surfaced in the typeahead. */
 export interface Prediction {
   placeId: string
@@ -75,4 +77,42 @@ export function parseDetails(json: unknown): ResolvedPlace | null {
     ...(address ? { address } : {}),
     types: strArr(j.types),
   }
+}
+
+const PLACE_SEARCH_FN_SLUG = 'place-search'
+const fnUrl = () => `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1/${PLACE_SEARCH_FN_SLUG}`
+
+async function authToken(): Promise<string> {
+  try { const { data } = await supabase.auth.getSession(); if (data?.session?.access_token) return data.session.access_token } catch { /* anon */ }
+  return SUPABASE_ANON_KEY
+}
+
+async function callFn(payload: Record<string, unknown>, signal?: AbortSignal): Promise<unknown | null> {
+  try {
+    const res = await fetch(fnUrl(), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + (await authToken()), apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify(payload),
+      signal,
+    })
+    if (!res.ok) return null
+    return await res.json()
+  } catch {
+    return null
+  }
+}
+
+/** Autocomplete predictions for `input`, or [] on any miss. Never throws. */
+export async function fetchPredictions(input: string, sessionToken: string, region: SearchRegion, signal?: AbortSignal): Promise<Prediction[]> {
+  const q = input.trim()
+  if (!q) return []
+  const json = await callFn({ action: 'autocomplete', body: buildAutocompleteBody(q, sessionToken, region) }, signal)
+  return parsePredictions(json)
+}
+
+/** Resolve a place's details, or null on any miss. Never throws. */
+export async function fetchPlaceDetails(placeId: string, sessionToken: string): Promise<ResolvedPlace | null> {
+  if (!placeId) return null
+  const json = await callFn({ action: 'details', placeId, sessionToken })
+  return parseDetails(json)
 }
