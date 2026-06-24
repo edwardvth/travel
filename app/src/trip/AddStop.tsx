@@ -15,6 +15,7 @@ import { Skeleton } from '../components/ui/Skeleton'
 import { StopSearchInput } from './StopSearchInput'
 import { type Prediction } from '../lib/placeSearch'
 import { findStopByPlaceId } from '../lib/geocode'
+import { fetchPlaceDescription } from '../lib/enrichClient'
 import { biasCenter } from './region'
 import type { Stop, StopKind, Trip, TripData } from '../types'
 
@@ -159,6 +160,7 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
     })
     // Background, guarded details patch (re-reads fresh trip from cache).
     if (p.placeId) backfillPlaceDetails(p.placeId, sessionToken)
+    if (p.placeId) void fetchPlaceDescription(p.placeId, { name: p.primaryText, ...(p.types.length ? { placeTypes: p.types } : {}) })
   }
 
   return (
