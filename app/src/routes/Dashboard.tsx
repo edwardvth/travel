@@ -93,7 +93,7 @@ export default function Dashboard() {
           <div className="mt-4"><TripCard trip={featured} onOpen={openTrip} actions={tripActions(featured)} /></div>
         ) : null}
 
-        <div className="flex items-center justify-between mt-7 mb-4">
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mt-7 mb-4">
           <h2 className="font-serif text-xl">Your trips</h2>
           <Segmented value={tab} onChange={setTab}
             options={[{ value: 'upcoming', label: `Upcoming (${upcoming.length})` }, { value: 'past', label: `Past (${past.length})` }]} />

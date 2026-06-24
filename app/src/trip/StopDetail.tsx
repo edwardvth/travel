@@ -194,8 +194,8 @@ export default function StopDetail() {
         <div className="bg-base rounded-card border border-hair shadow-card px-5 md:px-7 py-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <h1 className="font-serif text-[26px] md:text-3xl leading-tight">{stop.name}</h1>
-              <div className="flex items-center gap-2 mt-1.5">
+              <h1 className="font-serif text-[26px] md:text-3xl leading-tight break-words">{stop.name}</h1>
+              <div className="flex flex-wrap items-center gap-2 mt-1.5">
                 <span className="inline-flex items-center gap-1 rounded-full bg-fill px-2 py-0.5 text-[11.5px] font-semibold text-muted">
                   <KindIcon size={12} aria-hidden="true" />
                   {kindLabel(kind)}
@@ -212,7 +212,7 @@ export default function StopDetail() {
                     {reservationTime ? `Reserved · ${reservationTime}` : 'Reserved'}
                   </span>
                 )}
-                {meta && <p className="text-muted text-[13.5px] truncate">{meta}</p>}
+                {meta && <p className="text-muted text-[13.5px] truncate min-w-0 flex-1">{meta}</p>}
               </div>
               {canEdit && (
                 <button
@@ -290,7 +290,7 @@ export default function StopDetail() {
                 {(stop.history ?? '').split('\n\n').filter(Boolean).map((para, i) => (
                   <p
                     key={i}
-                    className="text-[14.5px] leading-relaxed text-ink/90"
+                    className="text-[14.5px] leading-relaxed text-ink/90 break-words"
                     dangerouslySetInnerHTML={{ __html: formatInline(para.replace(/\n/g, ' ')) }}
                   />
                 ))}
@@ -318,7 +318,7 @@ export default function StopDetail() {
                     <span aria-hidden="true" className="flex-none text-sig mt-0.5">
                       <Lightbulb size={15} />
                     </span>
-                    <span className="text-ink/90" dangerouslySetInnerHTML={{ __html: formatInline(fact) }} />
+                    <span className="min-w-0 break-words text-ink/90" dangerouslySetInnerHTML={{ __html: formatInline(fact) }} />
                   </li>
                 ))}
               </ul>
@@ -334,7 +334,7 @@ export default function StopDetail() {
               <Skeleton className="h-12 w-full rounded-card" />
             ) : (
               <p
-                className="text-[14px] leading-relaxed bg-amber-50 dark:bg-amber-500/10 border-l-[3px] border-amber-400 rounded-r-card px-4 py-3 text-ink/90"
+                className="text-[14px] leading-relaxed bg-amber-50 dark:bg-amber-500/10 border-l-[3px] border-amber-400 rounded-r-card px-4 py-3 text-ink/90 break-words"
                 dangerouslySetInnerHTML={{ __html: formatInline(stop.tips ?? '') }}
               />
             )}
