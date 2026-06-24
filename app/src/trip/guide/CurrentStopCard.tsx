@@ -49,6 +49,7 @@ export function CurrentStopCard({
   story,
   notice,
   experience,
+  facts = [],
   voiceId,
   onDirections,
   onComplete,
@@ -71,6 +72,8 @@ export function CurrentStopCard({
   story: string
   notice: string
   experience: string
+  /** Structured interesting facts — rendered as a list in the Facts tab. */
+  facts?: string[]
   voiceId: string
   onDirections: () => void
   onComplete: () => void
@@ -261,6 +264,7 @@ export function CurrentStopCard({
           story={story}
           notice={notice}
           experience={experience}
+          facts={facts}
           active={activeTab}
           onChange={onTabChange}
         />

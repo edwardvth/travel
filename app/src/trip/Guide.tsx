@@ -55,6 +55,7 @@ interface GhostSnap {
   heroUrl?: string | null
   story: string
   notice: string
+  facts: string[]
   experience: string
   voiceId: string
   stopNumber: number
@@ -105,6 +106,7 @@ function SwipeGhost({ ghost, reduce, onDone }: { ghost: GhostState; reduce: bool
         story={snap.story}
         notice={snap.notice}
         experience={snap.experience}
+        facts={snap.facts}
         voiceId={snap.voiceId}
         onDirections={() => {}}
         onComplete={() => {}}
@@ -392,6 +394,7 @@ export default function Guide() {
   // ── Content mapped to tabs ────────────────────────────────────────────────
   const story = stop?.history ?? ''
   const notice = stop?.notice ?? ''
+  const facts = stop?.facts ?? []
   const experience = stop?.tips ?? ''
 
   // ── Actions ───────────────────────────────────────────────────────────────
@@ -433,6 +436,7 @@ export default function Guide() {
           story,
           notice,
           experience,
+          facts,
           voiceId,
           stopNumber: stopIndex + 1,
           completed: focusedCompleted,
@@ -673,6 +677,7 @@ export default function Guide() {
           story={story}
           notice={notice}
           experience={experience}
+          facts={facts}
           voiceId={voiceId}
           onComplete={onComplete}
           activeTab={activeTab}
@@ -749,6 +754,7 @@ export default function Guide() {
             headingLabel={null}
             story={peekStop.history ?? ''}
             notice={peekStop.notice ?? ''}
+            facts={peekStop.facts ?? []}
             experience={peekStop.tips ?? ''}
             voiceId={voiceId}
             onDirections={() => {}}
@@ -775,6 +781,7 @@ export default function Guide() {
             headingLabel={null}
             story={prevStop.history ?? ''}
             notice={prevStop.notice ?? ''}
+            facts={prevStop.facts ?? []}
             experience={prevStop.tips ?? ''}
             voiceId={voiceId}
             onDirections={() => {}}
@@ -813,6 +820,7 @@ export default function Guide() {
               story={story}
               notice={notice}
               experience={experience}
+              facts={facts}
               voiceId={voiceId}
               onDirections={onDirections}
               onComplete={onComplete}
