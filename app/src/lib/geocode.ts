@@ -134,12 +134,17 @@ export function canApplyGeocode(
   return true
 }
 
-/** Locate a stop by its canonical placeId. Returns its position + the stop, or null. */
+/**
+ * Locate a stop by its canonical placeId — the MOST RECENTLY ADDED match (scans
+ * from the end). Duplicates of the same place are allowed (e.g. a second visit on
+ * another day), so the background details patch must target the stop just
+ * appended, not an earlier instance. Returns its position + the stop, or null.
+ */
 export function findStopByPlaceId(trip: Pick<Trip, 'data'>, placeId: string): { dayIndex: number; stopIndex: number; stop: Stop } | null {
   const days = trip.data?.days ?? []
-  for (let d = 0; d < days.length; d++) {
+  for (let d = days.length - 1; d >= 0; d--) {
     const stops = days[d]?.stops ?? []
-    for (let s = 0; s < stops.length; s++) {
+    for (let s = stops.length - 1; s >= 0; s--) {
       if (stops[s].placeId === placeId) return { dayIndex: d, stopIndex: s, stop: stops[s] }
     }
   }

@@ -135,6 +135,14 @@ describe('findStopByPlaceId', () => {
   it('returns null when absent', () => {
     expect(findStopByPlaceId(trip(), 'nope')).toBeNull()
   })
+  it('returns the most recently added match when the place appears twice', () => {
+    const dup: Trip = { id: 't', owner_id: null, title: 'T', subtitle: null, config: {},
+      data: { days: [
+        { title: '', stops: [{ name: 'Cascade (Mon)', placeId: 'p1' }] },
+        { title: '', stops: [{ name: 'Other' }, { name: 'Cascade (Tue)', placeId: 'p1' }] },
+      ], completed: [] } } as Trip
+    expect(findStopByPlaceId(dup, 'p1')).toMatchObject({ dayIndex: 1, stopIndex: 1 })
+  })
 })
 
 describe('canApplyPlaceDetails', () => {

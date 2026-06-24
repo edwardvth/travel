@@ -142,18 +142,14 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
     ...biasCenter(trip, day),
   }
 
-  /** Pick a real place from autocomplete: dedup -> create immediately -> resolve
-   *  coords/types in the background (guarded by placeId in the hook). */
+  /** Pick a real place from autocomplete: create immediately -> resolve coords/
+   *  types in the background (guarded by placeId in the hook). Adding the same
+   *  place again is allowed (e.g. a second visit on another day/time); we just
+   *  flag that it's already in the trip — informational, never a block. */
   function onPickPlace(p: Prediction, sessionToken: string) {
-    // 1. Duplicate guard — same normalized place already in the trip (placeId only).
-    if (p.placeId && findStopByPlaceId(trip, p.placeId)) {
-      setError(null)
-      setLastAdded(null)
-      setDupNotice(p.primaryText)
-      return
-    }
-    setDupNotice(null)
-    // 2. Immediate create from the prediction (no wait on details).
+    // Informational heads-up only — same normalized place already in the trip.
+    setDupNotice(p.placeId && findStopByPlaceId(trip, p.placeId) ? p.primaryText : null)
+    // Create immediately from the prediction (no wait on details).
     addStop({
       name: p.primaryText,
       placeName: p.primaryText,
@@ -161,7 +157,7 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
       placeSource: 'google',
       ...(p.types.length ? { placeTypes: p.types } : {}),
     })
-    // 3. Background, guarded details patch (re-reads fresh trip from cache).
+    // Background, guarded details patch (re-reads fresh trip from cache).
     if (p.placeId) backfillPlaceDetails(p.placeId, sessionToken)
   }
 

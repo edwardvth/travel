@@ -26,9 +26,10 @@ shared enrichment cache (story/facts/experience).
 
 - Not replacing the AI "ideas" flow — it stays as a secondary mode and is designed
   to fold into the same search surface later (see **Future UX**).
-- Not building the cross-trip **shared enrichment cache** here. v1 *does* implement
-  in-trip duplicate prevention by `placeId`; the broader cache is a separate effort
-  that consumes the same `placeId`/`placeName`.
+- Not building the cross-trip **shared enrichment cache** here. v1 uses `placeId`
+  for an informational in-trip duplicate **note** (duplicates are allowed — see
+  Duplicate handling); the broader cache is a separate effort that consumes the
+  same `placeId`/`placeName`.
 - **No** separate canonical-address field, address validation, or duplicate-review
   dialog (see Duplicate handling). No client-side Google key, ever. No map UI
   changes. No new auth.
@@ -55,11 +56,11 @@ details request:
 ```txt
 Autocomplete (predictions: placeId, primaryText, secondaryText, types)
   → user selects a prediction
-  → DUPLICATE CHECK by placeId against existing trip stops
-       ├─ match  → do not create; show "This place is already in your trip"
-       └─ none   → CREATE STOP IMMEDIATELY from the prediction:
-                     { name: primaryText, placeName: primaryText,
-                       placeId, placeSource:'google', placeTypes: types, kind }
+  → DUPLICATE NOTE by placeId (informational only — duplicates are allowed)
+       └─ if a match exists, show "{name} is already in your trip" (still create)
+  → CREATE STOP IMMEDIATELY from the prediction:
+       { name: primaryText, placeName: primaryText,
+         placeId, placeSource:'google', placeTypes: types, kind }
   → BACKGROUND: fetch details(placeId, sessionToken)
        → patch the stop { lat, lng, address, placeName, placeTypes }
          via the explicit canApplyPlaceDetails guard (below)
@@ -91,15 +92,23 @@ if (stopExists && stop.placeId === details.placeId) {
 
 This kills the stale-response-mutates-the-wrong-stop race.
 
-## Duplicate handling (v1 — deliberately minimal)
+## Duplicate handling (v1 — informational, NOT a block)
 
-- Before creating a stop from a selected prediction, scan the **whole trip's**
-  stops (all days) for an existing stop whose `placeId` equals the selection's.
-- Comparison is **`placeId` only** — never name matching.
-- **Same `placeId` → block** the create and show a lightweight, non-blocking
-  message: **"This place is already in your trip."**
-- **Different `placeId` → allow** creation.
-- A stop added "by name" (no `placeId`) is never deduped.
+Adding the **same place more than once is allowed** — a real itinerary often
+revisits a place (Cascade on Monday *and* Tuesday; Hraparak by day *and* for the
+night fountains). So duplicates are never prevented; we only surface a heads-up.
+
+- On selecting a prediction, scan the **whole trip's** stops (all days) for an
+  existing stop whose `placeId` equals the selection's. Comparison is **`placeId`
+  only** — never name matching.
+- **Always create** the stop. If a match exists, additionally show a lightweight,
+  non-blocking note: **"{name} is already in your trip."** (informational only).
+- A stop added "by name" (no `placeId`) never triggers the note.
+
+`findStopByPlaceId` returns the **most recently added** match (scans from the end),
+so the background details patch targets the stop just appended, not an earlier
+visit. (Duplicates share a `placeId` → identical Google details, so even a
+mis-targeted patch between two instances is data-identical.)
 
 **No confirmation flow.** We do **not** add "Did you mean this existing stop?"
 prompts, address-style validation, or duplicate-review dialogs. Google autocomplete
@@ -343,8 +352,9 @@ Pure functions are unit-tested (vitest / Deno test), I/O is mocked:
 
 ## Acceptance criteria
 
-- Same `placeId` already in the trip → **no duplicate** stop + "This place is
-  already in your trip"; a different `placeId` adds normally. No confirmation dialog.
+- Adding a place already in the trip (same `placeId`) **still creates** the stop
+  (duplicates allowed for revisits) and shows an informational "{name} is already
+  in your trip" note. No block, no confirmation dialog.
 - `placeId` is the authoritative normalized-place identifier; `placeName` is the
   canonical provider name — both retained and independent of `Stop.name`.
 - `placeTypes` are persisted when Google returns them.
