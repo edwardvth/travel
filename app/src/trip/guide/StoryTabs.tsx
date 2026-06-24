@@ -1,13 +1,14 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
-import { renderProse } from '../richtext'
+import { ChevronDown, Lightbulb } from 'lucide-react'
+import { renderProse, formatInline } from '../richtext'
 
 export type StoryTab = 'story' | 'notice' | 'experience'
 
 /** Collapsed height (px) for a long tab body before "Read more". */
 const CLAMP_PX = 190
 
-// The data key stays `notice`; only the visible label is "Interesting Facts".
+// The `notice` key is the middle tab's body slot; the parent (Guide) now feeds
+// it the unified Interesting Facts content (the stop's `facts` array).
 const TABS: { key: StoryTab; label: string }[] = [
   { key: 'story', label: 'Story' },
   { key: 'notice', label: 'Interesting Facts' },
@@ -23,24 +24,34 @@ const TABS: { key: StoryTab; label: string }[] = [
  * extracts ever leak tags to the DOM (safe inline emphasis is preserved).
  *
  * Pure presentation — the parent owns `active` and is notified via `onChange`.
- * The bodies (`story`/`notice`/`experience`) are the stop's `history`/`notice`/
- * `tips` enrichment, mapped by the orchestrator.
+ * `story`/`experience` map to the stop's `history`/`tips`; the Interesting Facts
+ * tab leads with the structured `facts` array (a Plan-style list) and renders any
+ * legacy `notice` prose beneath it.
  */
 export function StoryTabs({
   story,
   notice,
   experience,
+  facts = [],
   active,
   onChange,
 }: {
   story: string
   notice: string
   experience: string
+  /** Structured interesting facts — rendered as a Plan-style list under the
+   *  Interesting Facts tab (legacy `notice` prose renders beneath, if any). */
+  facts?: string[]
   active: StoryTab
   onChange: (tab: StoryTab) => void
 }) {
   const bodies: Record<StoryTab, string> = { story, notice, experience }
   const paragraphs = renderProse(bodies[active])
+  // The Interesting Facts tab leads with the structured `facts` list (Plan
+  // parity); `paragraphs` here is any legacy `notice` prose, shown beneath it.
+  const showFacts = active === 'notice' && facts.length > 0
+  const isEmpty = paragraphs.length === 0 && !showFacts
+  const factsKey = facts.join('')
   const panelId = `story-panel-${active}`
 
   // Clamp long bodies to CLAMP_PX with a "Read more" toggle (for every tab).
@@ -58,7 +69,7 @@ export function StoryTabs({
     measure()
     window.addEventListener('resize', measure)
     return () => window.removeEventListener('resize', measure)
-  }, [active, story, notice, experience])
+  }, [active, story, notice, experience, factsKey])
 
   const clamp = !expanded && overflows
   const fadeMask = 'linear-gradient(to bottom, black 62%, transparent)'
@@ -103,12 +114,29 @@ export function StoryTabs({
           className="text-[13.5px] leading-[1.55] text-ink/80 space-y-2.5"
           style={clamp ? { maxHeight: CLAMP_PX, overflow: 'hidden', maskImage: fadeMask, WebkitMaskImage: fadeMask } : undefined}
         >
-          {paragraphs.length > 0 ? (
-            paragraphs.map((html, i) => (
-              <p key={i} dangerouslySetInnerHTML={{ __html: html }} />
-            ))
-          ) : (
+          {isEmpty ? (
             <p className="text-muted italic">Nothing here yet.</p>
+          ) : (
+            <>
+              {showFacts && (
+                <ul className="space-y-2">
+                  {facts.map((fact, i) => (
+                    <li
+                      key={i}
+                      className="flex gap-2.5 items-start rounded-card bg-fill px-3 py-2.5 text-[13.5px] leading-[1.5]"
+                    >
+                      <span aria-hidden="true" className="flex-none text-sig mt-[3px]">
+                        <Lightbulb size={14} />
+                      </span>
+                      <span className="text-ink/90" dangerouslySetInnerHTML={{ __html: formatInline(fact) }} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {paragraphs.map((html, i) => (
+                <p key={i} dangerouslySetInnerHTML={{ __html: html }} />
+              ))}
+            </>
           )}
         </div>
         {overflows && (

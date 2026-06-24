@@ -56,9 +56,11 @@ export function buildStopContext(stop: Stop): string {
 
 /**
  * Build the enrich prompt for a stop. An expert tour-guide persona writing the
- * three Guide tabs — **Story** (why it matters), **Interesting Facts**
- * (trivia/dates/architecture, the `notice`/facts), and **Experience** (how to
- * experience it, the `tips`) — returned as strict JSON, plain text (no HTML).
+ * three Guide tabs — **Story** (why it matters, the `history`), **Interesting
+ * Facts** (trivia/dates/architecture, the `facts` array), and **Experience**
+ * (how to experience it, the `tips`) — returned as strict JSON, plain text (no
+ * HTML). (`notice` is a legacy field, still read for back-compat but no longer
+ * requested — its content now lives in `facts`.)
  *
  * Group E grounding: when a Wikipedia `source` extract and/or stop metadata are
  * available they're folded in as **source material**, and the model is
@@ -96,17 +98,18 @@ export function buildEnrichPrompt(
 
 Write three sections for this place:
 - "history" = Story: why this place matters — its significance, character, and the story behind it (2-3 short plain-text paragraphs).
-- "notice" = Interesting Facts: trivia, dates, architecture, or little-known details a curious traveller would enjoy.
-- "tips" = Experience: how to actually experience it here — what to do, see, or look for in front of you.
+- "facts" = Interesting Facts: an array of 2-4 short, standalone FACTUAL details — dates, architecture, history, or little-known trivia that are simply true about the place. These are facts, not advice; visiting/experience tips do NOT belong here.
+- "tips" = Experience: how to actually experience it on the ground — the best time of day or season to come, what to look for, the atmosphere, where to stand, what to do nearby. Write 1-3 sentences of genuinely useful, evocative guidance. Almost every place warrants this — write it.
 
-GROUNDING RULES (critical — accuracy over completeness):
-- Use ONLY the source material above plus well-established, widely-known public knowledge about this exact place.
-- Do NOT invent specifics — no made-up dates, names, numbers, or events. If you are not sure, leave it out.
-- If a section cannot be supported by the source or solid public knowledge, return it as an EMPTY string (or empty array for "facts"). An empty section is correct; a fabricated one is not.
+SECTION DISCIPLINE: keep "facts" purely factual and "tips" purely experiential. If a detail is about visiting or experiencing the place (e.g. "visit on a warm summer evening"), it belongs in Experience, NOT in Interesting Facts. Never drop a useful detail — move it to the right section rather than omitting it.
+
+GROUNDING RULES (accuracy over completeness):
+- For "history" and "facts": use ONLY the source material above plus well-established, widely-known public knowledge about this exact place. Do NOT invent specifics — no made-up dates, names, numbers, or events. If you are not sure, leave it out; return an EMPTY string (or [] for "facts") rather than fabricate.
+- For "tips"/Experience: you may draw on the place's type and character for practical, evocative advice, but still do NOT invent specific facts (named events, exact figures).
 
 CRITICAL: Respond with ONLY valid JSON starting with { and ending with }. No markdown, no code fences, no preamble.
 
-{"history":"Story — why it matters, plain-text paragraphs separated by \\n\\n (or empty).","facts":["fact with numbers/dates","little-known detail"],"notice":"Interesting Facts — 1-2 sentences of trivia/dates/architecture (or empty).","tips":"Experience — 1-2 sentences on how to experience it (or empty)."}`
+{"history":"Story — why it matters, plain-text paragraphs separated by \\n\\n (or empty).","facts":["interesting factual detail with a date or number","little-known true detail"],"tips":"Experience — how to experience it on the ground: best time, what to look for, the atmosphere."}`
 }
 
 /** Coerce an unknown `facts` value into a clean string array (legacy guards against a bare string). */
