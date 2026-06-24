@@ -6,6 +6,8 @@ import { cn } from '../lib/utils'
 import { Calendar, Check, CheckCircle2, ChevronRight, Circle, Clock, GripVertical, Trash2, kindIcon, kindLabel, stopKind } from './icons'
 import { reservationStatus, type Reservation } from './reservation'
 import { coverPhoto } from './photo'
+import { useHeroImage } from '../data/useLandmarkImage'
+import { heroQueries } from './landmark-context'
 import { AnimatePresence } from 'framer-motion'
 import { TimeEditor } from './TimeEditor'
 import { TimeModal } from './TimeModal'
@@ -29,6 +31,8 @@ export interface StopRowProps {
   onSetReservation?: (index: number, patch: Partial<Reservation> | null) => void
   /** Set or clear this stop's display time (immutable, edit-gated upstream). */
   onSetTime?: (index: number, time: string | undefined) => void
+  /** Trip destination context — lets a coverless stop resolve a Wikipedia thumb. */
+  destination?: string
 }
 
 /**
@@ -37,7 +41,7 @@ export interface StopRowProps {
  * affordances (drag handle, done toggle, delete) are hidden when `!canEdit`.
  */
 export function StopRow({
-  tripId, day, index, stop, done, canEdit, selected = false, onSelect, onToggleDone, onDelete, onSetReservation, onSetTime,
+  tripId, day, index, stop, done, canEdit, selected = false, onSelect, onToggleDone, onDelete, onSetReservation, onSetTime, destination,
 }: StopRowProps) {
   const navigate = useNavigate()
   const rowRef = useRef<HTMLDivElement | null>(null)
@@ -92,7 +96,11 @@ export function StopRow({
   const KindIcon = kindIcon(kind)
   const reservation = reservationStatus(stop)
   const reservationTime = stop.reservation?.time ?? stop.booking?.time
-  const thumb = coverPhoto(stop)
+  // Cover photo first; otherwise resolve the same on-demand Wikipedia image
+  // Guide uses (shared TanStack cache → no refetch across Plan/Guide/detail).
+  const storedThumb = coverPhoto(stop)
+  const { url: landmarkThumb } = useHeroImage(storedThumb ? [] : heroQueries(stop.name, destination ?? ''))
+  const thumb = storedThumb ?? landmarkThumb
 
   return (
     <div

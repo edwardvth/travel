@@ -3,7 +3,8 @@ import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom
 import type { PlannerOutletContext } from './PlannerLayout'
 import { generateStopDetail } from './enrich'
 import { toInputTime, fromInputTime } from './time'
-import { destinationOf } from './landmark-context'
+import { destinationOf, heroQueries } from './landmark-context'
+import { useHeroImage, usePrefetchHeroImages } from '../data/useLandmarkImage'
 import { isCompleted } from './helpers'
 import { Calendar, CheckCircle2, Lightbulb, MapPin, kindIcon, kindLabel, stopKind } from './icons'
 import { remapCompletedAfterDelete, toggleCompleted } from './itinerary-helpers'
@@ -43,6 +44,14 @@ export default function StopDetail() {
   const [pendingDelete, setPendingDelete] = useState(false)
   const [relocating, setRelocating] = useState(false)
 
+  // Images: stored cover first, else the same on-demand Wikipedia image Guide
+  // uses (shared cache). Prefetch every stop on this day so paging the prev/next
+  // links is instant — no per-stop API lag. (Hooks run before the guard below.)
+  const destination = destinationOf(trip)
+  usePrefetchHeroImages(stops.filter(s => !coverPhoto(s)).map(s => heroQueries(s.name, destination)))
+  const storedCover = stop ? coverPhoto(stop) : undefined
+  const { url: landmarkCover } = useHeroImage(stop && !storedCover ? heroQueries(stop.name, destination) : [])
+
   // ── Out-of-range guard ─────────────────────────────────────────────
   if (!stop) {
     return (
@@ -67,7 +76,7 @@ export default function StopDetail() {
   const KindIcon = kindIcon(kind)
   const reservation = reservationStatus(stop)
   const reservationTime = stop.reservation?.time ?? stop.booking?.time
-  const cover = coverPhoto(stop)
+  const cover = storedCover ?? landmarkCover
 
   /** Clone trip.data with this day's stops array cloned, so we never mutate cache. */
   function cloneData(): TripData {
@@ -172,25 +181,28 @@ export default function StopDetail() {
   const next = n < stops.length - 1 ? n + 1 : null
 
   return (
-    <div className="max-w-3xl mx-auto pb-12">
-      {/* ── Hero image / placeholder ─────────────────────────────── */}
-      {cover ? (
-        <img
-          src={cover}
-          alt=""
-          className="w-full h-52 md:h-72 object-cover bg-raised"
-        />
-      ) : (
-        <div
-          className="w-full h-44 md:h-56 grid place-items-center bg-sig-btn/10 text-sig"
-          aria-hidden="true"
-        >
-          <KindIcon size={44} strokeWidth={1.5} />
-          <span className="sr-only">{kindLabel(kind)}</span>
-        </div>
-      )}
+    <div className="max-w-3xl mx-auto w-full min-w-0 pb-12">
+      {/* ── Hero image / placeholder — cropped + inset so its edges align
+          with the margins of the description below (not full-bleed). ── */}
+      <div className="px-5 md:px-8 pt-4">
+        {cover ? (
+          <img
+            src={cover}
+            alt=""
+            className="w-full h-52 md:h-72 object-cover rounded-card border border-hair bg-raised"
+          />
+        ) : (
+          <div
+            className="w-full h-44 md:h-56 grid place-items-center rounded-card border border-hair bg-sig-btn/10 text-sig"
+            aria-hidden="true"
+          >
+            <KindIcon size={44} strokeWidth={1.5} />
+            <span className="sr-only">{kindLabel(kind)}</span>
+          </div>
+        )}
+      </div>
 
-      <div className="px-5 md:px-8 -mt-6">
+      <div className="px-5 md:px-8 mt-4">
         <div className="bg-base rounded-card border border-hair shadow-card px-5 md:px-7 py-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -482,7 +494,7 @@ export default function StopDetail() {
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M15 18l-6-6 6-6" />
               </svg>
-              <span className="truncate">{stops[prev]?.name ?? 'Previous'}</span>
+              <span className="truncate min-w-0">{stops[prev]?.name ?? 'Previous'}</span>
             </Link>
           ) : <span />}
           {next !== null ? (
@@ -490,7 +502,7 @@ export default function StopDetail() {
               to={`/trip/${trip.id}/stop/${day}/${next}`}
               className="inline-flex items-center gap-2 text-[13.5px] font-bold text-ink hover:text-sig-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link rounded-md px-2 py-1 min-w-0 text-right"
             >
-              <span className="truncate">{stops[next]?.name ?? 'Next'}</span>
+              <span className="truncate min-w-0">{stops[next]?.name ?? 'Next'}</span>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M9 18l6-6-6-6" />
               </svg>

@@ -25,6 +25,7 @@ import {
   toggleCompleted,
 } from './itinerary-helpers'
 import { setReservation, type Reservation } from './reservation'
+import { destinationOf } from './landmark-context'
 import type { Trip, TripData } from '../types'
 
 /**
@@ -42,6 +43,9 @@ export function StopList({ trip, day, canEdit, save, selectedIndex, onSelect }: 
   onSelect?: (index: number) => void
 }) {
   const stops = trip.data?.days?.[day]?.stops ?? []
+  // Every row resolves its own thumb via useHeroImage, and the whole day's list
+  // renders at once — so opening Plan warms every stop's image (shared cache).
+  const destination = destinationOf(trip)
   const [pendingDelete, setPendingDelete] = useState<number | null>(null)
 
   const sensors = useSensors(
@@ -159,6 +163,7 @@ export function StopList({ trip, day, canEdit, save, selectedIndex, onSelect }: 
                     onDelete={setPendingDelete}
                     onSetReservation={handleSetReservation}
                     onSetTime={handleSetTime}
+                    destination={destination}
                   />
                 </li>,
               ]

@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchLandmarkImage, fetchFirstLandmarkImage } from '../trip/landmark'
 import { resolveHeroImage } from '../trip/guide/hero-resolver'
 
@@ -100,4 +101,32 @@ export function useLandmarkImageQueries(queries?: string[]): UseLandmarkImageRes
     url: result.data ?? null,
     loading: enabled && result.isLoading,
   }
+}
+
+/**
+ * Eagerly warm the hero-image cache for a set of stops (each passed as its
+ * ordered `heroQueries` list), so a later `useHeroImage` for any of them is an
+ * instant cache hit — no per-stop API lag when opening or paging stops. Uses the
+ * SAME key + queryFn as `useHeroImage`, so Plan, Guide and the stop detail share
+ * one cache entry per stop. Fire-and-forget; fails soft.
+ */
+export function usePrefetchHeroImages(queriesList: string[][]) {
+  const qc = useQueryClient()
+  const lists = queriesList
+    .map(q => q.map(s => s.trim()).filter(Boolean))
+    .filter(l => l.length > 0)
+  // Re-run only when the actual (trimmed, non-empty) query set changes.
+  const signature = JSON.stringify(lists)
+  useEffect(() => {
+    for (const list of lists) {
+      void qc.prefetchQuery({
+        queryKey: ['hero-image', list],
+        queryFn: () => resolveHeroImage(list, list[0] ?? ''),
+        staleTime: ONE_DAY,
+        gcTime: ONE_DAY,
+        retry: 1,
+      })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qc, signature])
 }
