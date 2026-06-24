@@ -149,8 +149,17 @@ per-IP rate limit. Two actions on one POST endpoint:
   (`name` = Google `displayName.text` → `placeName`; `address` = Google
   `formattedAddress`, seeds the editable `address`.)
 
-The client never sees the Google key or raw Google payloads — only these
-simplified shapes.
+The client never sees the Google key. **As-built note (testability deviation —
+see the plan):** because Deno isn't available for server-side tests in this
+environment, the `place-search` function is a *thin proxy* that forwards Google's
+**raw JSON verbatim** (and `{predictions:[]}` / `{place:null}` on any error), and
+the request-body building + response parsing live client-side in
+`app/src/lib/placeSearch.ts` (`buildAutocompleteBody` / `parsePredictions` /
+`parseDetails`, all unit-tested). So the client *does* parse raw Google shapes —
+the simplified `Prediction`/`ResolvedPlace` types below describe the client-side
+parsed result, not the wire format. Do **not** "restore" server-side simplification
+without moving the parsers too, or the client parsers will break. Payloads aren't
+sensitive — only the key is — so the security goal is preserved either way.
 
 ### Client ↔ edge-function contract
 
