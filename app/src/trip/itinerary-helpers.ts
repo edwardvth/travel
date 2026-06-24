@@ -88,6 +88,61 @@ export function toggleCompleted(
   return base.includes(key) ? base.filter(k => k !== key) : [...base, key]
 }
 
+/**
+ * Day-level analogs of the stop-level remappers above. `completed` keys are
+ * `"<day>-<stop>"`; adding/removing/reordering a DAY shifts the `<day>`
+ * component while the stop index rides along. Other days pass through.
+ */
+
+/** After reordering days, remap the day component of each key. `order[newDay] = oldDay`. */
+export function remapCompletedAfterDayReorder(completed: readonly string[] | undefined, order: readonly number[]): string[] {
+  if (!completed?.length) return []
+  const oldToNew = new Map<number, number>()
+  order.forEach((oldDay, newDay) => oldToNew.set(oldDay, newDay))
+  const out: string[] = []
+  for (const key of completed) {
+    const p = parseKey(key); if (!p) { out.push(key); continue }
+    const nd = oldToNew.get(p.day)
+    if (nd !== undefined) out.push(completedKey(nd, p.stop))
+    // a day not in `order` is stale — drop it
+  }
+  return out
+}
+
+/** After deleting `removedDay`, drop its keys and shift higher days down by one. */
+export function remapCompletedAfterDayDelete(completed: readonly string[] | undefined, removedDay: number): string[] {
+  if (!completed?.length) return []
+  const out: string[] = []
+  for (const key of completed) {
+    const p = parseKey(key); if (!p) { out.push(key); continue }
+    if (p.day === removedDay) continue
+    out.push(completedKey(p.day > removedDay ? p.day - 1 : p.day, p.stop))
+  }
+  return out
+}
+
+/** After inserting a day at `insertDay`, shift days at/after it up by one. */
+export function remapCompletedAfterDayInsert(completed: readonly string[] | undefined, insertDay: number): string[] {
+  if (!completed?.length) return []
+  const out: string[] = []
+  for (const key of completed) {
+    const p = parseKey(key); if (!p) { out.push(key); continue }
+    out.push(completedKey(p.day >= insertDay ? p.day + 1 : p.day, p.stop))
+  }
+  return out
+}
+
+/** Map a selected day index through a day reorder (`order[newDay] = oldDay`). */
+export function followDayAfterReorder(selected: number, order: readonly number[]): number {
+  const i = order.indexOf(selected)
+  return i >= 0 ? i : selected
+}
+
+/** Map a selected day index through a day delete. Caller clamps to `days.length - 1`. */
+export function followDayAfterDelete(selected: number, removedDay: number): number {
+  return selected > removedDay ? selected - 1 : selected
+}
+
 function parseKey(key: string): { day: number; stop: number } | null {
   const dash = key.indexOf('-')
   if (dash <= 0) return null
