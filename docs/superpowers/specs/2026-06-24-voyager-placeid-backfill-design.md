@@ -63,9 +63,12 @@ FOUNDER admin screen  →  place-id-admin edge function (service role; verifies 
      → { processed, tagged, queued, remaining, cursor }
   action 'list'   → pending placeid_review rows (for the screen)
   action 'attach' {reviewId, placeId} → MUST be one of the row's frozen candidates;
-                     tag the stop (re-locate) {placeId, placeName, placeTypes, placeSource:'google',
-                     placeMatchedAt, placeMatchMethod:'founder'}; resolve the row
-  action 'skip'   {reviewId} → mark the stop placeSource:'none' (re-locate); set the row 'skipped'
+                     tag the stop (re-locate, optimistic write) {placeId, placeName, placeTypes,
+                     placeSource:'google', placeMatchedAt, placeMatchMethod:'founder'};
+                     row → {status:'resolved', resolved_place_id, resolved_at}
+  action 'skip'   {reviewId} → mark the stop placeSource:'none' (re-locate, optimistic write);
+                     row → status:'skipped'
+   [all trip writes are conditional on trips.updated_at — see Optimistic concurrency]
 
 [after a stop is tagged] → on next view, useStopDescription → enrich-place:get
    → first tagged stop of a place generates once; all others reuse (cache hit)
@@ -79,12 +82,13 @@ must be `'founder'`; 403 otherwise), using the **service role** for `trips` +
 returns benign JSON, never a 5xx. Mirrors existing edge-function patterns (CORS,
 key handling, founder check as in `enrich-place:regenerate`).
 
-**`metrics`** — a count-only pass (no Google calls): scans all trips counting
-stop-level fields and queries the review table, returning `total_untagged`
-(`!placeId && placeSource!=='none'`), `marked_none` (`placeSource==='none'`),
-`already_tagged` (`placeId` set), and `pending_review` (review rows where
-`status='pending'`). Shown on the screen **before** a run so scope + likely Google
-cost are visible.
+**`metrics`** — returns `total_untagged` (`!placeId && placeSource!=='none'`),
+`marked_none` (`placeSource==='none'`), `already_tagged` (`placeId` set), and
+`pending_review` (`status='pending'`), shown on the screen **before** a run so
+scope + likely Google cost are visible. **No Google calls.** These counts are
+**informational only and do not require transactional accuracy** — the
+implementation may use an exact scan, **cached counts, precomputed aggregates, or
+batched counting** as needed for scale; an approximate `total_untagged` is fine.
 
 **`scan` — chunked, idempotent.** Paginates **by trip** via keyset on the stable
 `id` PK (the `cursor` is the last `id` seen; `?id=gt.<cursor>&order=id&limit=25`).
@@ -95,16 +99,45 @@ collected and the trip is written back **once** (one immutable `data` update per
 trip). Non-confident stops become `placeid_review` rows with the frozen candidates.
 Returns progress + the next `cursor`. Page size (trips per call, e.g. **25**) keeps
 each invocation within the function time budget — **no long-running/background
-job**; the screen drives pagination.
+job**; the screen drives pagination. The scan **may batch and/or throttle** its
+outbound Google Text Search calls to stay within API quotas + the edge-function
+execution limit; throttling **must not** change correctness or idempotency
+(unprocessed stops simply remain for the next page/run).
 
 **`list`** returns pending review rows. **`attach`/`skip`** apply one founder
 decision; `attach`'s `placeId` **must be one of the row's stored candidates** (no
 fresh Google lookup) — the founder picks exactly what the scan saw.
 
+### Optimistic concurrency — never clobber a user's concurrent edits
+
+Every operation that writes a trip (`scan`, `attach`, `skip`) is **conditional on
+the trip not having changed since it was read**. The token is `trips.updated_at`:
+
+```
+read trip (incl. updated_at)  →  prepare the immutable data patch  →
+UPDATE … SET data=…, updated_at=now()  WHERE id=<id> AND updated_at=<readValue>
+   (Prefer: return=representation)
+→ 0 rows affected  ⇒  the trip changed under us  ⇒  do NOT write; return a benign
+   status; the stop is picked up naturally on a future scan / review action.
+```
+
+The project has no existing optimistic-concurrency pattern (today's trip writes
+are last-write-wins), so this is introduced here. For the token to reflect *any*
+writer — including the app's own autosave — the `trips` table must **bump
+`updated_at` on every update** (a `moddatetime`-style trigger). The plan verifies
+this and adds the trigger if absent; without it the guard is a no-op. The backfill
+**never** force-overwrites a trip.
+
 ### Resolver + scoring (pure, unit-tested, tunable)
 
 - `parseTextSearch(googleJson)` → `Candidate[]` `{ placeId, name, address, lat,
   lng, types }` from a `places:searchText` response. Pure.
+- **Candidate ordering is Google's** — candidates are kept in the order Google
+  returns them and are **never reordered** (not by distance, similarity, or any
+  custom ranking). `candidates[0]` is the **primary** candidate `scoreMatch`
+  evaluates; the rest inform the ambiguity penalty. A per-candidate `distanceM` is
+  annotated for display/debug but does **not** change order. (Deterministic +
+  debuggable.)
 - `scoreMatch(stop, candidates)` → `{ score: number; confident: boolean;
   distanceM?: number }` — scores the **top** candidate against the stop, with the
   **candidate set passed in** so a competing runner-up can be penalised. All
@@ -162,13 +195,20 @@ stop.
 | `score` | `double precision` | the top candidate's score (debug/tuning) |
 | `candidates` | `jsonb` | **frozen top ≤3** `{placeId,name,address,lat,lng,distanceM}` |
 | `status` | `text` | `pending` \| `resolved` \| `skipped` \| `stale` |
+| `resolved_place_id` | `text` | nullable — the candidate placeId the founder attached (audit / override analysis) |
 | `created_at` | `timestamptz` | default now() |
 | `resolved_at` | `timestamptz` | nullable |
 
 - Index `(status, created_at)`. **RLS: deny all to client roles** (service-role
   only); the screen reaches it solely through `place-id-admin`.
-- Partial unique index `(trip_id, day_index, stop_index) WHERE status = 'pending'`
-  prevents duplicate pending rows across re-runs.
+- Partial unique index `(trip_id, day_index, stop_index) WHERE status = 'pending'`.
+  **It prevents duplicate *pending* review rows only** — historical rows with
+  status `resolved` / `skipped` / `stale` are intentionally preserved and are
+  **not** treated as duplicates (a stop could legitimately be re-reviewed after a
+  prior skip). The permanent audit trail is unaffected.
+- **`attach` records the resolution:** `resolved_place_id = <chosen candidate>`,
+  `status = 'resolved'`, `resolved_at = now()` — informational (audit, future
+  scoring analysis, measuring founder overrides), no runtime effect.
 - **Rows are never deleted** — `resolved`/`skipped`/`stale` are kept as a
   permanent audit trail; re-scan dedup keys off the **stop's** `placeId`/
   `placeSource` (+ the pending guard), not on deleting history.
@@ -207,6 +247,7 @@ non-founders redirected). Two parts:
 | Ambiguous candidate set | below threshold → review (favor false negatives) |
 | Trip edited between scan + review | re-locate by `name`; if gone → row `stale`, skipped |
 | `attach` placeId not in the frozen candidates | rejected (review uses only what the scan saw) |
+| Trip changed since read (`updated_at` mismatch) | conditional write affects 0 rows → **benign skip**, no write; retried on a future scan/review — never clobbers the user's edit |
 | Re-run | idempotent — skips tagged, `'none'`, and already-pending stops |
 
 ## Testing
@@ -227,7 +268,9 @@ copying the tested pure helpers verbatim.
 ## Operator steps
 
 1. **SQL** — create `placeid_review` (+ indexes, RLS deny-all) in the Supabase
-   editor (ref `wnpanbjzmcsvhfyjdczv`).
+   editor (ref `wnpanbjzmcsvhfyjdczv`); and **ensure `trips.updated_at` auto-bumps
+   on every update** (add a `moddatetime`-style `BEFORE UPDATE` trigger if one
+   isn't already present) so the optimistic-concurrency token is reliable.
 2. **Deploy** `supabase functions deploy place-id-admin` (reuses
    `GOOGLE_PLACES_API_KEY` + service role).
 3. As founder, open the admin screen → review the **metrics** → **Run backfill**
@@ -252,7 +295,18 @@ copying the tested pure helpers verbatim.
 - The screen shows **`total_untagged / pending_review / marked_none /
   already_tagged`** (via a Google-free `metrics` pass) before a run.
 - Review rows are **never deleted**; statuses `pending/resolved/skipped/stale`
-  form a permanent audit trail.
+  form a permanent audit trail; the pending-only partial unique index does not
+  treat historical rows as duplicates.
+- **All trip writes (`scan`/`attach`/`skip`) are optimistically guarded on
+  `trips.updated_at`** — if the trip changed since it was read, the write is a
+  0-row no-op (benign skip) and is retried later; the backfill **never** clobbers
+  a user's concurrent edit.
+- `attach` persists **`resolved_place_id` + `resolved_at`** (audit/override
+  analysis); candidates are stored and scored in **Google's returned order**
+  (`candidates[0]` primary), never reordered.
+- `metrics` makes **no Google calls** and may be **exact or approximate/cached**
+  (informational only); the scan **may throttle** Google calls without affecting
+  correctness or idempotency.
 - Confident → auto-attach (`placeSource:'google'`); "Not a place" → `'none'`
   (skipped forever); re-run skips tagged / `'none'` / pending; re-location by name
   prevents mis-tagging; a vanished stop → `stale`.
