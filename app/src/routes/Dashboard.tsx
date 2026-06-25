@@ -1,19 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
+import { Plus } from 'lucide-react'
 import { useAuth } from '../auth/useAuth'
-import { useProfile } from '../data/useProfile'
-import { useTrips, splitTrips, useBackfillCoverImage, useBackfillDestination, useReresolveAutoCover } from '../data/useTrips'
+import { useProfile, isFounder } from '../data/useProfile'
+import { useTrips, splitTrips, useDeleteTrip, useBackfillCoverImage, useBackfillDestination, useReresolveAutoCover } from '../data/useTrips'
 import { classifyCover } from '../trip/landmark-context'
+import { selectFocusTrip } from '../lib/focus-trip'
 import { AppShell } from '../components/AppShell'
 import { Button } from '../components/ui/Button'
 import { Segmented } from '../components/ui/Segmented'
 import { Skeleton } from '../components/ui/Skeleton'
-import { TripCard } from '../components/TripCard'
-import { TripRow } from '../components/TripRow'
-import { EmptyState } from '../components/EmptyState'
+import { Cockpit } from '../components/Cockpit'
+import { Launchpad } from '../components/Launchpad'
+import { TripGrid } from '../components/TripGrid'
+import { AddTripTile } from '../components/AddTripTile'
 import { NewTripSheet } from './NewTripSheet'
-import { useDeleteTrip } from '../data/useTrips'
-import { isFounder } from '../data/useProfile'
 import { ShareSheet } from './ShareSheet'
 import { AccountMenu } from '../components/AccountMenu'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -22,6 +24,7 @@ import { IconButton } from '../components/ui/IconButton'
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth()
   const nav = useNavigate()
+  const reduce = useReducedMotion()
   const { data: profile } = useProfile(user?.id)
   const { data: trips, isLoading } = useTrips(user?.id, profile)
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
@@ -80,6 +83,7 @@ export default function Dashboard() {
     })()
     return () => { cancelled = true }
   }, [trips, user, profile, backfillCover, backfillDestination, reresolveCover])
+
   const [shareId, setShareId] = useState<string | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
   const canManage = (t: typeof upcoming[number]) => isFounder(profile) || (!!t.owner_id && t.owner_id === user?.id)
@@ -93,42 +97,81 @@ export default function Dashboard() {
       </IconButton>
     </>
   ) : undefined
+
   const shown = tab === 'past' ? past : upcoming
-  const featured = upcoming[0]
+  const focus = useMemo(() => selectFocusTrip(trips ?? []), [trips])
   const firstName = (profile?.name || user?.email?.split('@')[0] || 'traveler').split(/\s+/)[0]
-  const openTrip = (id: string) => { nav(`/trip/${encodeURIComponent(id)}`) } // new React planner (Phase 2); legacy /Trip.html stays as fallback
+  const openTrip = (id: string) => { nav(`/trip/${encodeURIComponent(id)}`) }            // → Plan
+  const openArrange = (id: string) => { nav(`/trip/${encodeURIComponent(id)}/trip`) }    // → Trip view
   const isTeaser = !!profile && profile.role !== 'founder' && (profile.credits ?? 0) < 1
+  const hasTrips = (trips?.length ?? 0) > 0
+
+  // Single creation entry point. Phase 1 → NewTripSheet; Phase 3 swaps this for the pill.
+  const openCreateTrip = () => setNewOpen(true)
+
+  // Greeting varies by state: cockpit / returning / brand-new.
+  const greeting = focus
+    ? <>Good to see you, <span className="font-semibold text-ink">{firstName}</span> — here's what's next.</>
+    : past.length > 0
+      ? <>Welcome back, <span className="font-semibold text-ink">{firstName}</span>.</>
+      : <>Welcome, <span className="font-semibold text-ink">{firstName}</span>.</>
+
+  const tabSwap = (r: boolean) => ({
+    initial: r ? false : { opacity: 0, y: 8 },
+    animate: { opacity: 1, y: 0 },
+    exit: r ? { opacity: 0 } : { opacity: 0, y: -8 },
+    transition: { duration: 0.22, ease: 'easeOut' as const },
+  })
 
   return (
-    <AppShell right={<><AccountMenu email={user?.email ?? ''} profile={profile} /><Button variant="claret" onClick={() => setNewOpen(true)}>New trip</Button></>}>
+    <AppShell right={<>
+      <Button variant="claret" onClick={openCreateTrip}><Plus size={16} strokeWidth={2.5} />New trip</Button>
+      <AccountMenu email={user?.email ?? ''} profile={profile} />
+    </>}>
       <div className="px-5 md:px-8 py-6 max-w-6xl mx-auto">
-        <p className="text-muted text-[13px]">
-          Good to see you, <span className="text-ink font-semibold">{firstName}</span>
-          {featured ? ' — here’s what’s next.' : '.'}
-        </p>
-
         {isLoading ? (
-          <Skeleton className="h-[260px] w-full rounded-card mt-4" />
-        ) : featured && tab === 'upcoming' ? (
-          <div className="mt-4"><TripCard trip={featured} onOpen={openTrip} actions={tripActions(featured)} /></div>
-        ) : null}
+          <>
+            <Skeleton className="h-4 w-56 rounded" />
+            <Skeleton className="mt-4 h-[300px] w-full rounded-card md:h-[360px]" />
+            <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {[0, 1, 2].map(i => <Skeleton key={i} className="h-[200px] rounded-card" />)}
+            </div>
+          </>
+        ) : !hasTrips ? (
+          <>
+            <p className="text-[13px] text-muted">{greeting}</p>
+            <Launchpad pastTrips={[]} onCreate={openCreateTrip} onOpenTrip={openTrip} tripActions={tripActions} />
+          </>
+        ) : focus ? (
+          <>
+            <p className="text-[13px] text-muted">{greeting}</p>
+            <div className="mt-4">
+              <Cockpit trip={focus} onOpen={openTrip} onOpenArrange={openArrange} actions={tripActions(focus)} />
+            </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 mt-7 mb-4">
-          <h2 className="font-serif text-xl">Your trips</h2>
-          <Segmented value={tab} onChange={setTab}
-            options={[{ value: 'upcoming', label: `Upcoming (${upcoming.length})` }, { value: 'past', label: `Past (${past.length})` }]} />
-        </div>
+            <div className="mt-7 mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <h2 className="font-serif text-xl">Your trips</h2>
+              <Segmented value={tab} onChange={setTab}
+                options={[{ value: 'upcoming', label: `Upcoming (${upcoming.length})` }, { value: 'past', label: `Past (${past.length})` }]} />
+            </div>
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">{[0, 1, 2].map(i => <Skeleton key={i} className="h-[200px] rounded-card" />)}</div>
-        ) : shown.length === 0 ? (
-          <EmptyState title={tab === 'past' ? 'No past trips yet' : 'Your next adventure starts here'}
-            body={tab === 'past' ? 'Trips you finish will land here as keepsakes.' : 'Create your first trip and plan it day by day.'}
-            action={tab === 'upcoming' ? <Button variant="claret" onClick={() => setNewOpen(true)}>Plan a trip</Button> : undefined} />
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div key={tab} {...tabSwap(!!reduce)}>
+                {shown.length === 0 ? (
+                  tab === 'upcoming'
+                    ? <AddTripTile onClick={openCreateTrip} label="Plan your next escape" sub="Add a trip" className="min-h-[200px]" />
+                    : <p className="py-12 text-center text-[14px] text-muted">Trips you finish will land here as keepsakes.</p>
+                ) : (
+                  <TripGrid trips={shown} onOpen={openTrip} tripActions={tripActions} onAdd={tab === 'upcoming' ? openCreateTrip : undefined} />
+                )}
+              </motion.div>
+            </AnimatePresence>
+          </>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {shown.map(t => <TripRow key={t.id} trip={t} onOpen={openTrip} actions={tripActions(t)} />)}
-          </div>
+          <>
+            <p className="text-[13px] text-muted">{greeting}</p>
+            <Launchpad pastTrips={past} onCreate={openCreateTrip} onOpenTrip={openTrip} tripActions={tripActions} />
+          </>
         )}
       </div>
 
