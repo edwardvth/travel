@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import type { Trip, TripConfig, Profile } from '../types'
 import { byTripDate, isPastTrip, buildNewTripPayload, slugify, type NewTripInput } from '../lib/trip-helpers'
-import { fetchLandmarkImage } from '../trip/landmark'
+import { resolveCoverImage } from '../trip/cover-image'
 import { coverImageQueries, classifyCover } from '../trip/landmark-context'
 import { inferDestination } from '../trip/destination'
 import { isFounder } from './useProfile'
@@ -105,11 +105,7 @@ export function useBackfillCoverImage() {
       const queries = coverImageQueries(trip)
       if (queries.length === 0) return false
       try {
-        let url: string | null = null
-        for (const q of queries) {
-          url = await fetchLandmarkImage(q)
-          if (url) break
-        }
+        const url = await resolveCoverImage(queries)
         if (!url) return false
         const { data: row } = await supabase.from('trips').select('config').eq('id', trip.id).maybeSingle()
         const config = (row?.config ?? {}) as TripConfig
@@ -192,11 +188,7 @@ export function useReresolveAutoCover() {
           config,
           data: (row.data ?? trip.data) as Trip['data'],
         })
-        let url: string | null = null
-        for (const q of queries) {
-          url = await fetchLandmarkImage(q)
-          if (url) break
-        }
+        const url = await resolveCoverImage(queries)
         const next: TripConfig = { ...config }
         if (url) next.coverImage = url
         else delete next.coverImage
