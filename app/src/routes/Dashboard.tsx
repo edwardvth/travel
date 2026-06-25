@@ -106,6 +106,7 @@ export default function Dashboard() {
   const firstName = (profile?.name || user?.email?.split('@')[0] || 'traveler').split(/\s+/)[0]
   const openTrip = (id: string) => { nav(`/trip/${encodeURIComponent(id)}`) }            // → Plan
   const openArrange = (id: string) => { nav(`/trip/${encodeURIComponent(id)}/trip`) }    // → Trip view
+  const openGuide = (id: string) => { nav(`/trip/${encodeURIComponent(id)}/guide`) }     // → Guide
   const isTeaser = !!profile && profile.role !== 'founder' && (profile.credits ?? 0) < 1
   const hasTrips = (trips?.length ?? 0) > 0
 
@@ -149,7 +150,7 @@ export default function Dashboard() {
           <>
             <p className="text-[13px] text-muted">{greeting}</p>
             <div className="mt-4">
-              <Cockpit trip={focus} onOpen={openTrip} onOpenArrange={openArrange} units={units} />
+              <Cockpit trip={focus} onOpen={openTrip} onOpenArrange={openArrange} onOpenGuide={openGuide} units={units} />
             </div>
 
             <div className="mt-7 mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">

@@ -1,4 +1,3 @@
-import { cn } from '../lib/utils'
 import { formatDateRange } from '../lib/trip-helpers'
 import { cockpitModel } from '../lib/cockpit-model'
 import { tripGradient } from '../lib/trip-tile'
@@ -10,17 +9,20 @@ import type { Units } from '../data/useAccountSettings'
 import type { Trip } from '../types'
 
 /**
- * State B home surface (spec §5): the next trip as a single annotated card.
- * The whole card opens the trip (→ Plan); the lone secondary action is the
- * "N to arrange" deep-link (→ Trip view). Unplanned trips show a "Start
- * planning" nudge instead of the readiness line. `today` is a test/SSR seam.
+ * State B home surface: the focus trip as a single annotated card. The whole
+ * card opens the trip (→ Plan); the readiness line carries the day, a "N to
+ * arrange" deep-link (→ Trip view), and the weather. A live trip shows a "Start
+ * guide" button (→ Guide); an upcoming trip with an unfinished itinerary shows
+ * "Start planning" (→ Plan); a fully-planned upcoming trip shows neither.
+ * `today` is a test/SSR seam.
  */
 export function Cockpit({
-  trip, onOpen, onOpenArrange, today, units = 'metric',
+  trip, onOpen, onOpenArrange, onOpenGuide, today, units = 'metric',
 }: {
   trip: Trip
   onOpen: (id: string) => void
   onOpenArrange: (id: string) => void
+  onOpenGuide: (id: string) => void
   today?: string
   /** Account unit preference; drives the weather readout. Defaults to metric. */
   units?: Units
@@ -29,10 +31,15 @@ export function Cockpit({
   const { url, loading } = useTripCover(trip)
   const seed = trip.config?.destination || trip.config?.title || trip.title || trip.id
 
-  // Weather for the featured day (inline, optional). Hooks run unconditionally.
-  const weatherDay = m.featuredDay ?? 0
-  const coords = dayAnchorCoords(trip, weatherDay)
-  const date = dayDate(trip, weatherDay)
+  // Weather for the destination city (its resolved geo is always available, so
+  // the glance shows even before any stop has coordinates); falls back to the
+  // featured day's first located stop for legacy trips with no resolved geo.
+  const geo = trip.config?.destinationGeo
+  const coords =
+    geo && Number.isFinite(geo.lat) && Number.isFinite(geo.lng)
+      ? { lat: geo.lat, lng: geo.lng }
+      : dayAnchorCoords(trip, m.featuredDay)
+  const date = dayDate(trip, m.featuredDay)
   const { tempMax, tempMin, code } = useWeather(coords, date, units)
   const hasWeather = tempMax !== null && tempMin !== null && code !== null
   const weather = hasWeather ? weatherFromCode(code) : null
@@ -40,13 +47,13 @@ export function Cockpit({
   const meta =
     formatDateRange(trip) + (m.stopCount ? ` · ${m.stopCount} stop${m.stopCount === 1 ? '' : 's'}` : '')
 
-  const dayLabelText = m.phase === 'during' ? 'Today' : m.featuredDay !== null ? `Day ${m.featuredDay + 1}` : null
+  const btn =
+    'relative z-10 mt-3 inline-flex min-h-[44px] items-center gap-1.5 rounded-btn bg-white/10 px-3.5 py-2 text-[13px] font-bold text-white backdrop-blur transition-colors hover:bg-white/20'
+  const sep = <span aria-hidden="true" className="pointer-events-none text-white/40">·</span>
 
   return (
     <div
-      className={cn(
-        'group relative h-[300px] w-full overflow-hidden rounded-card border border-hair md:h-[360px]',
-      )}
+      className="group relative h-[300px] w-full overflow-hidden rounded-card border border-hair md:h-[360px]"
       style={{ background: tripGradient(seed) }}
     >
       {url && (
@@ -61,53 +68,53 @@ export function Cockpit({
       {/* Whole-surface open target (→ Plan), beneath the content + actions. */}
       <button onClick={() => onOpen(trip.id)} className="absolute inset-0 z-0" aria-label={`Open ${trip.title}`} />
 
-      {/* Countdown eyebrow — left-aligned with the title/meta below (no lead-line). */}
+      {/* Countdown eyebrow */}
       <div className="pointer-events-none absolute left-5 top-5 z-10 [text-shadow:0_2px_10px_rgba(0,0,0,0.95)]">
         <span className="font-mono text-[14px] uppercase tracking-[0.2em] text-white md:text-[18px]">
           {m.countdownLabel ?? 'Next trip'}
         </span>
       </div>
 
-      {/* Identity + readiness, anchored bottom. Sleek shadow on all text keeps it
-          legible over very bright covers (text-shadow inherits to children). */}
+      {/* Identity + readiness + action, anchored bottom. */}
       <div className="absolute inset-x-5 bottom-5 z-10 [text-shadow:0_2px_8px_rgba(0,0,0,0.85)]">
         <h2 className="pointer-events-none font-serif text-[clamp(34px,5vw,52px)] font-medium leading-[0.95] tracking-tight text-white">
           {trip.title}
         </h2>
         <p className="pointer-events-none mt-2 font-mono text-[11px] uppercase tracking-wider text-white">{meta}</p>
 
-        {m.phase === 'unplanned' ? (
-          <button
-            onClick={e => { e.stopPropagation(); onOpen(trip.id) }}
-            className="relative z-10 mt-3 inline-flex min-h-[44px] items-center gap-1.5 rounded-btn bg-white/10 px-3.5 py-2 text-[13px] font-bold text-white backdrop-blur transition-colors hover:bg-white/20"
-          >
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-white">
+          <span className="pointer-events-none font-medium">{m.dayLabel}</span>
+          {m.toArrangeCount > 0 && (
+            <>
+              {sep}
+              <button
+                onClick={e => { e.stopPropagation(); onOpenArrange(trip.id) }}
+                className="relative z-10 -my-1.5 py-1.5 font-medium text-white underline-offset-2 hover:underline"
+              >
+                {m.toArrangeCount} to arrange
+              </button>
+            </>
+          )}
+          {weather && (
+            <>
+              {sep}
+              <span className="pointer-events-none inline-flex items-center gap-1">
+                <weather.icon size={14} aria-hidden="true" className="opacity-85" />
+                {Math.round(tempMax!)}° / {Math.round(tempMin!)}°{units === 'imperial' ? 'F' : 'C'}
+              </span>
+            </>
+          )}
+        </div>
+
+        {m.phase === 'during' ? (
+          <button onClick={e => { e.stopPropagation(); onOpenGuide(trip.id) }} className={btn}>
+            Start guide <span aria-hidden="true">→</span>
+          </button>
+        ) : !m.itineraryComplete ? (
+          <button onClick={e => { e.stopPropagation(); onOpen(trip.id) }} className={btn}>
             Start planning <span aria-hidden="true">→</span>
           </button>
-        ) : (
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-white">
-            {dayLabelText && <span className="pointer-events-none font-medium">{dayLabelText}</span>}
-            {m.toArrangeCount > 0 && (
-              <>
-                <span aria-hidden="true" className="pointer-events-none text-white/40">·</span>
-                <button
-                  onClick={e => { e.stopPropagation(); onOpenArrange(trip.id) }}
-                  className="relative z-10 -my-1.5 py-1.5 font-medium text-white underline-offset-2 hover:underline"
-                >
-                  {m.toArrangeCount} to arrange
-                </button>
-              </>
-            )}
-            {weather && (
-              <>
-                <span aria-hidden="true" className="pointer-events-none text-white/40">·</span>
-                <span className="pointer-events-none inline-flex items-center gap-1">
-                  <weather.icon size={14} aria-hidden="true" className="opacity-85" />
-                  {Math.round(tempMax!)}° / {Math.round(tempMin!)}°{units === 'imperial' ? 'F' : 'C'}
-                </span>
-              </>
-            )}
-          </div>
-        )}
+        ) : null}
       </div>
     </div>
   )

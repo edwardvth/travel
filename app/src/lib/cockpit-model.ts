@@ -2,18 +2,23 @@ import type { Trip } from '../types'
 import { allReservations } from '../trip/reservation'
 import { todayISO } from './focus-trip'
 
-export type CockpitPhase = 'unplanned' | 'before' | 'during'
+export type CockpitPhase = 'before' | 'during'
 
 export interface CockpitModel {
+  /** Trip timing relative to today. */
   phase: CockpitPhase
   /** "In 7 days" / "Tomorrow" / "Day 3 of 5" — null when the trip has no dates. */
   countdownLabel: string | null
-  /** Day index to feature in the readiness line + weather; null when unplanned. */
-  featuredDay: number | null
+  /** Day index to feature for weather/labels (0 before the trip, today's index during). */
+  featuredDay: number
+  /** Label for the featured day — 'Today' during, 'Day N' before. */
+  dayLabel: string
   /** Count of stops still to reserve (status 'to_reserve'). */
   toArrangeCount: number
   /** Total stops across all days. */
   stopCount: number
+  /** True when every day has at least one stop (the itinerary is fully planned). */
+  itineraryComplete: boolean
 }
 
 /** Parse a local `YYYY-MM-DD` to a midnight Date, or null. */
@@ -34,24 +39,22 @@ function daysBetween(fromISO: string, toISO: string): number | null {
 }
 
 /**
- * Derive the cockpit's display state from a trip (spec §5.2–5.3). Pure +
- * unit-tested; the component layers weather/cover/labels on top. `today` is
- * injectable for tests.
+ * Derive the cockpit's display state from a trip. Pure + unit-tested; the
+ * component layers weather/cover on top. `today` is injectable for tests.
  */
 export function cockpitModel(trip: Trip, today: string = todayISO()): CockpitModel {
   const days = trip.data?.days ?? []
   const stopCount = days.reduce((n, d) => n + (d.stops?.length ?? 0), 0)
-  const hasStops = stopCount > 0
   const start = trip.config?.startDate
   const numDays = trip.config?.numDays || days.length || 1
 
   const toArrangeCount = allReservations(trip).filter(e => e.status === 'to_reserve').length
+  const itineraryComplete = days.length > 0 && days.every(d => (d.stops?.length ?? 0) > 0)
 
-  // Timing from dates (undated → treated as "before" with no countdown).
+  // Timing from dates (undated → "before" with no countdown).
   const fromStart = start ? daysBetween(start, today) : null // today - start
   const isDuring = fromStart !== null && fromStart >= 0 && fromStart <= numDays - 1
-
-  const phase: CockpitPhase = !hasStops ? 'unplanned' : isDuring ? 'during' : 'before'
+  const phase: CockpitPhase = isDuring ? 'during' : 'before'
 
   let countdownLabel: string | null = null
   if (start && fromStart !== null) {
@@ -63,9 +66,8 @@ export function cockpitModel(trip: Trip, today: string = todayISO()): CockpitMod
     }
   }
 
-  let featuredDay: number | null = null
-  if (phase === 'before') featuredDay = 0
-  else if (phase === 'during') featuredDay = Math.min(Math.max(fromStart ?? 0, 0), numDays - 1)
+  const featuredDay = isDuring ? Math.min(Math.max(fromStart ?? 0, 0), numDays - 1) : 0
+  const dayLabel = isDuring ? 'Today' : `Day ${featuredDay + 1}`
 
-  return { phase, countdownLabel, featuredDay, toArrangeCount, stopCount }
+  return { phase, countdownLabel, featuredDay, dayLabel, toArrangeCount, stopCount, itineraryComplete }
 }
