@@ -1,27 +1,41 @@
-import { Suspense, lazy, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, useReducedMotion } from 'framer-motion'
-import { Logo } from '../components/Logo'
-import { Button } from '../components/ui/Button'
-import { useHeroMode } from '../hero/useHeroMode'
+import { Mark } from '../components/Logo'
 import { HeroSearchPill } from '../hero/HeroSearchPill'
-import { HeroToggle } from '../hero/HeroToggle'
 import { HeroMicroDetails } from '../hero/HeroMicroDetails'
+import { AnimatedLink } from '../components/ui/animated-link'
+import { HeroVideoStage } from '../hero/HeroVideoStage'
+import { clipForWord, FIRST_CLIP, upcomingClips } from '../hero/wordClips'
+import type { HeroClip } from '../hero/types'
+import { cn } from '../lib/utils'
 
-// Code-split the heavy hero backgrounds (video controller / canvas map) so the
-// initial bundle stays lean (spec §11). Each becomes its own chunk; only the
-// active mode is fetched.
-const HeroModeCinematic = lazy(() => import('../hero/HeroModeCinematic'))
-const HeroModeExplorer = lazy(() => import('../hero/HeroModeExplorer'))
-
-/** Poster-colored placeholder shown while a hero background chunk loads. */
-function HeroBackgroundFallback() {
+/**
+ * Calm claret pill CTA — deeper oxblood `--sig`, neutral soft shadow, medium
+ * weight, no colored glow halo. Claret is an accent; keep it quiet.
+ */
+function ClaretPill({
+  onClick,
+  children,
+  className,
+}: {
+  onClick: () => void
+  children: React.ReactNode
+  className?: string
+}) {
   return (
-    <div
-      aria-hidden="true"
-      className="absolute inset-0"
-      style={{ background: 'linear-gradient(160deg, #11131c 0%, #070810 100%)' }}
-    />
+    <button
+      onClick={onClick}
+      className={cn(
+        'inline-flex items-center justify-center rounded-full bg-sig px-5 py-2.5',
+        'font-sans font-medium text-[14px] text-white shadow-[0_4px_14px_rgba(0,0,0,.25)]',
+        'transition-[transform,filter] duration-150 hover:brightness-110 active:translate-y-px',
+        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent',
+        className,
+      )}
+    >
+      {children}
+    </button>
   )
 }
 
@@ -29,64 +43,78 @@ export default function Landing() {
   const nav = useNavigate()
   const reduce = useReducedMotion()
   const go = () => nav('/auth')
+  const goSignup = () => nav('/auth?mode=signup')
 
-  const [mode, setMode] = useHeroMode()
-  const [activeTerm, setActiveTerm] = useState('')
+  // The background follows the typewriter: each word crossfades to its own clip,
+  // and we prefetch the next couple so those crossfades are instant.
+  const [clip, setClip] = useState(FIRST_CLIP)
+  const [upcoming, setUpcoming] = useState<HeroClip[]>([])
+  const onWord = (word: string) => {
+    setClip(clipForWord(word))
+    setUpcoming(upcomingClips(word, 3))
+  }
 
   return (
     <div className="bg-base text-ink">
-      <section className="relative h-[88vh] min-h-[560px] overflow-hidden">
-        {/* Background by mode (lazy, code-split). Each provides its own scrims. */}
-        <Suspense fallback={<HeroBackgroundFallback />}>
-          {mode === 'cinematic' ? (
-            <HeroModeCinematic className="absolute inset-0" />
-          ) : (
-            <HeroModeExplorer activeTerm={activeTerm} className="absolute inset-0" />
-          )}
-        </Suspense>
+      <section className="relative h-[100svh] min-h-[600px] overflow-hidden">
+        {/* Full-bleed cinematic background — a controlled video stage driven by
+            the typewriter word. Provides its own legibility scrims. */}
+        <HeroVideoStage clip={clip} upcoming={upcoming} className="absolute inset-0" />
 
-        {/* Shared content scrim — sits above the lazy background (z-0) but below the
-            foreground text (z-10). Guarantees headline/pill/micro-detail legibility in
-            BOTH hero modes (Cinematic already scrims; Explorer's map has none of its own).
-            Soft radial darkening centered behind the hero copy; leaves imagery/map visible. */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 z-0"
-          style={{ background: 'radial-gradient(120% 70% at 50% 34%, rgba(6,7,12,.55), rgba(6,7,12,.18) 45%, transparent 65%)' }}
-        />
-
-        <nav className="absolute top-0 inset-x-0 z-10 flex items-center justify-between px-6 md:px-9 py-5 text-white">
-          <Logo />
-          <div className="flex items-center gap-6 text-[14px]">
-            <button onClick={go} className="hidden sm:block">Sign in</button>
-            <Button variant="primary" onClick={go}>Get started</Button>
+        <nav className="absolute top-0 inset-x-0 z-10 flex items-center justify-between px-6 md:px-10 py-5 md:py-6 text-white">
+          <span className="inline-flex items-center gap-2 font-sans font-extrabold tracking-tight">
+            <span className="text-sig-link"><Mark size={30} /></span>
+            <span className="font-serif text-[20px] md:text-[23px]">Voyager</span>
+          </span>
+          <div className="flex items-center gap-5 md:gap-7 text-[14px] text-white">
+            <span className="hidden sm:inline-flex">
+              <AnimatedLink
+                href="/auth"
+                onClick={(e) => {
+                  e.preventDefault()
+                  go()
+                }}
+                className="text-[14px]"
+              >
+                Sign in
+              </AnimatedLink>
+            </span>
+            <ClaretPill onClick={goSignup}>Get started</ClaretPill>
           </div>
         </nav>
 
+        {/* Hero copy — centered horizontally, anchored in the upper-middle so it
+            sits above the vertical center (raised up), matching the mockups. */}
         <motion.div
           initial={reduce ? false : { opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-          className="absolute z-10 top-[24%] inset-x-0 text-center px-5 text-white"
+          transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 flex h-full flex-col items-center px-5 text-center text-white pt-[17vh] md:pt-[19vh]"
         >
-          <div className="font-mono text-[12px] tracking-[4px] uppercase text-white/85">Plan · Walk · Remember</div>
-          <h1 className="font-serif font-medium text-5xl md:text-6xl tracking-tight mt-4" style={{ textShadow: '0 2px 30px rgba(0,0,0,.65)' }}>
-            Every trip,<br /><span className="italic text-gold">beautifully guided.</span>
+          <div className="font-mono text-[11px] md:text-[12px] uppercase tracking-[0.32em] text-white/85">
+            Plan · Walk · Remember
+          </div>
+          <h1
+            className="mt-4 font-serif font-medium tracking-tight text-[40px] leading-[1.04] md:text-[66px] md:leading-[1.02]"
+            style={{ textShadow: '0 2px 30px rgba(0,0,0,.6)' }}
+          >
+            Every trip,
+            <br />
+            <span className="italic text-gold whitespace-nowrap">beautifully guided.</span>
           </h1>
-          <p className="mx-auto max-w-md text-[16px] text-white/90 mt-4">Plan day by day, then let it walk you through the streets — telling the story of every place as you arrive.</p>
+          <p className="mt-4 md:mt-5 font-sans italic text-[15px] md:text-[18px] text-white/85">
+            Made for travelers, by travelers
+          </p>
 
+          {/* Headline sits a bit up (pt-17vh); keep the pill at its original spot
+              on mobile by compensating its gap so it doesn't move with the text. */}
           <HeroSearchPill
-            onSubmit={() => go()}
-            onTermChange={setActiveTerm}
-            className="mt-7"
+            onSubmit={go}
+            onWordStart={onWord}
+            className="pointer-events-auto mt-[calc(10vh_+_2.25rem)] md:mt-12"
           />
-          <HeroMicroDetails activeTerm={activeTerm} />
+          <HeroMicroDetails className="mt-4" />
         </motion.div>
-
-        {/* Mode toggle — glassy, tucked bottom-right, unobtrusive. */}
-        <div className="absolute z-10 bottom-5 right-5 md:bottom-6 md:right-6">
-          <HeroToggle mode={mode} onChange={setMode} />
-        </div>
       </section>
 
       <section className="max-w-5xl mx-auto px-6 py-20 grid gap-10 md:grid-cols-3">
@@ -104,7 +132,7 @@ export default function Landing() {
       </section>
 
       <section className="text-center pb-24 px-6">
-        <Button variant="claret" onClick={go}>Start planning</Button>
+        <ClaretPill onClick={go} className="px-6 py-3 text-[14.5px]">Start planning</ClaretPill>
       </section>
     </div>
   )

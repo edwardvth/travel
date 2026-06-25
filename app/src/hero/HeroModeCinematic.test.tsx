@@ -96,14 +96,17 @@ describe('HeroModeCinematic — poster-only policy', () => {
     expect(container.querySelector('[data-testid="hero-video"]')).toBeNull()
   })
 
-  it('mounts no <video> on a coarse-pointer / small screen', () => {
+  it('still mounts <video> on a coarse-pointer / small screen (video enabled on mobile)', () => {
+    // HERO_CONFIG.enableVideoOnMobile is true: the cinematic background plays on
+    // phones too, so coarse-pointer / small-screen no longer forces poster-only.
+    // (save-data and reduced-motion still gate to poster-only — see other tests.)
     stubMatchMedia((q) => q.includes('coarse'))
     Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true })
 
     const { container } = render(<HeroModeCinematic />)
 
     expect(container.querySelector('[data-testid="hero-poster"]')).not.toBeNull()
-    expect(container.querySelector('[data-testid="hero-video"]')).toBeNull()
+    expect(container.querySelector('[data-testid="hero-video"]')).not.toBeNull()
   })
 })
 

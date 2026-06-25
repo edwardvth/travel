@@ -18,7 +18,7 @@ export const HERO_CONFIG: HeroVideoConfig = {
     evening: [17, 20],
     night: [20, 5],
   },
-  enableVideoOnMobile: false,
+  enableVideoOnMobile: true,
   saveDataPosterOnly: true,
   clips: [
     {

@@ -3,11 +3,13 @@ import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
 import { HeroSearchPill } from './HeroSearchPill'
 
-// Keep framer-motion's useReducedMotion deterministic (reduced path → no
-// per-character typing timers needed for these behavioural tests).
-vi.mock('framer-motion', () => ({
-  useReducedMotion: () => true,
-}))
+// Keep the real framer-motion (the pill renders motion.* elements) but force
+// reduced motion so the CTA is expanded up-front and no typing timers are needed
+// for these behavioural tests.
+vi.mock('framer-motion', async (importActual) => {
+  const actual = await importActual<typeof import('framer-motion')>()
+  return { ...actual, useReducedMotion: () => true }
+})
 
 describe('HeroSearchPill', () => {
   it('submits the typed value when Enter is pressed in the input', async () => {
