@@ -63,7 +63,7 @@ export function Cockpit({
 
       {/* Countdown eyebrow — left-aligned with the title/meta below (no lead-line). */}
       <div className="pointer-events-none absolute left-5 top-5 z-10 [text-shadow:0_2px_10px_rgba(0,0,0,0.95)]">
-        <span className="font-mono text-[14px] uppercase tracking-[0.2em] text-gold md:text-[18px]">
+        <span className="font-mono text-[14px] uppercase tracking-[0.2em] text-white md:text-[18px]">
           {m.countdownLabel ?? 'Next trip'}
         </span>
       </div>
@@ -74,7 +74,7 @@ export function Cockpit({
         <h2 className="pointer-events-none font-serif text-[clamp(34px,5vw,52px)] font-medium leading-[0.95] tracking-tight text-white">
           {trip.title}
         </h2>
-        <p className="pointer-events-none mt-2 font-mono text-[11px] uppercase tracking-wider text-white/75">{meta}</p>
+        <p className="pointer-events-none mt-2 font-mono text-[11px] uppercase tracking-wider text-white">{meta}</p>
 
         {m.phase === 'unplanned' ? (
           <button
@@ -84,7 +84,7 @@ export function Cockpit({
             Start planning <span aria-hidden="true">→</span>
           </button>
         ) : (
-          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-white/85">
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-white">
             {dayLabelText && <span className="pointer-events-none font-medium">{dayLabelText}</span>}
             {m.toArrangeCount > 0 && (
               <>
