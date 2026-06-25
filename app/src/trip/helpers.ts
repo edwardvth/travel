@@ -98,3 +98,19 @@ export function formatDayDate(date: string | null): string | null {
   const monthDay = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
   return `${weekday} · ${monthDay}`
 }
+
+/** A day's anchor coords: the first stop with finite lat/lng, else null. Pure. */
+export function dayAnchorCoords(
+  trip: Trip | null | undefined,
+  day: number,
+): { lat: number; lng: number } | null {
+  const stops = trip?.data?.days?.[day]?.stops ?? []
+  for (const stop of stops) {
+    const lat = stop.lat ?? stop.coords?.lat
+    const lng = stop.lng ?? stop.coords?.lng
+    if (typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng }
+    }
+  }
+  return null
+}
