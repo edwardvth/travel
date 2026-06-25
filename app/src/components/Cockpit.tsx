@@ -33,8 +33,8 @@ export function Cockpit({
   const weatherDay = m.featuredDay ?? 0
   const coords = dayAnchorCoords(trip, weatherDay)
   const date = dayDate(trip, weatherDay)
-  const { tempMax, code } = useWeather(coords, date, units)
-  const hasWeather = tempMax !== null && code !== null
+  const { tempMax, tempMin, code } = useWeather(coords, date, units)
+  const hasWeather = tempMax !== null && tempMin !== null && code !== null
   const weather = hasWeather ? weatherFromCode(code) : null
 
   const meta =
@@ -100,7 +100,7 @@ export function Cockpit({
                 <span aria-hidden="true" className="pointer-events-none text-white/40">·</span>
                 <span className="pointer-events-none inline-flex items-center gap-1">
                   <weather.icon size={14} aria-hidden="true" className="opacity-85" />
-                  {Math.round(tempMax!)}°{units === 'imperial' ? 'F' : 'C'}
+                  {Math.round(tempMax!)}° / {Math.round(tempMin!)}°{units === 'imperial' ? 'F' : 'C'}
                 </span>
               </>
             )}
