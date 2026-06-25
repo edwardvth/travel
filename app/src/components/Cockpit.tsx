@@ -55,13 +55,14 @@ export function Cockpit({
       )}
       {loading && <span className="absolute inset-0 animate-pulse bg-white/[0.04]" />}
       <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+      {/* Top scrim — keeps the countdown legible over a bright sky/cover. */}
+      <span className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-black/55 to-transparent" />
 
       {/* Whole-surface open target (→ Plan), beneath the content + actions. */}
       <button onClick={() => onOpen(trip.id)} className="absolute inset-0 z-0" aria-label={`Open ${trip.title}`} />
 
-      {/* Countdown eyebrow */}
-      <div className="pointer-events-none absolute left-5 top-5 z-10 flex items-center gap-2.5 [text-shadow:0_2px_8px_rgba(0,0,0,0.85)]">
-        <span className="h-px w-7 bg-gold/80 md:w-9" />
+      {/* Countdown eyebrow — left-aligned with the title/meta below (no lead-line). */}
+      <div className="pointer-events-none absolute left-5 top-5 z-10 [text-shadow:0_2px_10px_rgba(0,0,0,0.95)]">
         <span className="font-mono text-[14px] uppercase tracking-[0.2em] text-gold md:text-[18px]">
           {m.countdownLabel ?? 'Next trip'}
         </span>
