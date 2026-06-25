@@ -20,7 +20,11 @@ export default function Auth() {
   const nav = useNavigate()
   const reduce = useReducedMotion()
 
-  const [mode, setMode] = useState<'signin' | 'signup'>('signup')
+  // Initial mode honors `?mode=signup` (e.g. the landing "Get started" CTA);
+  // defaults to sign-in otherwise.
+  const [mode, setMode] = useState<'signin' | 'signup'>(() =>
+    new URLSearchParams(location.search).get('mode') === 'signup' ? 'signup' : 'signin',
+  )
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
