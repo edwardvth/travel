@@ -106,8 +106,10 @@ export function coverImageQueries(trip: Pick<Trip, 'title' | 'config' | 'data'>)
  *   - `'other'` → anything else (e.g. a pasted external URL) or empty — leave alone.
  * Pure.
  */
-export function classifyCover(coverImage: string | undefined | null): 'user' | 'auto' | 'other' {
-  const v = (coverImage ?? '').trim()
+export function classifyCover(coverImage: unknown): 'user' | 'auto' | 'other' {
+  // JSONB `config.coverImage` can legally hold anything (legacy/imported trips),
+  // so never assume a string — a non-string value classifies as 'other'.
+  const v = typeof coverImage === 'string' ? coverImage.trim() : ''
   if (!v) return 'other'
   if (v.startsWith('data:')) return 'user'
   try {

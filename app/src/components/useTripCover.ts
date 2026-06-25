@@ -10,7 +10,10 @@ import type { Trip } from '../types'
  * destination and must stay stable as stops come and go.
  */
 export function useTripCover(trip: Trip): { url: string | null; loading: boolean } {
-  const stored = trip.config?.coverImage ?? null
+  // Only a real string is a usable cover — guard against legacy/corrupt JSONB
+  // (a non-string coverImage) so it falls back to the landmark image rather than
+  // rendering a broken <img src>.
+  const stored = typeof trip.config?.coverImage === 'string' ? trip.config.coverImage : null
   const landmark = useLandmarkImage(stored ? undefined : destinationOf(trip))
   return { url: stored ?? landmark.url, loading: !stored && landmark.loading }
 }

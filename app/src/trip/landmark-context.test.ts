@@ -135,4 +135,10 @@ describe('classifyCover', () => {
     expect(classifyCover(undefined)).toBe('other')
     expect(classifyCover(null)).toBe('other')
   })
+  it('never throws on a non-string (legacy/corrupt JSONB) cover — treats it as other', () => {
+    expect(classifyCover({ url: 'x' })).toBe('other')
+    expect(classifyCover(123)).toBe('other')
+    expect(classifyCover(true)).toBe('other')
+    expect(classifyCover([])).toBe('other')
+  })
 })
