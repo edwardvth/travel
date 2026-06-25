@@ -183,7 +183,7 @@ export function useReresolveAutoCover() {
         if (!row) return false
         const config = (row.config ?? {}) as TripConfig
         if (classifyCover(config.coverImage) !== 'auto') return false // never touch user/other
-        if (config.coverSource) return false // already resolved by current logic — don't re-fetch every load
+        if (config.coverSource === 'unsplash') return false // Unsplash is final; wiki/legacy re-resolve once to try Unsplash
         const queries = coverImageQueries({
           title: (row.title as string | undefined) ?? trip.title,
           config,

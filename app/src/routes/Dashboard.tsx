@@ -65,7 +65,7 @@ export default function Dashboard() {
     // baked-in auto (possibly-wrong) cover, OR has no usable cover at all.
     const needsWork = (t: typeof trips[number]) =>
       (!hasDestination(t) && hasStops(t)) ||
-      (classifyCover(t.config?.coverImage) === 'auto' && !t.config?.coverSource) ||
+      (classifyCover(t.config?.coverImage) === 'auto' && t.config?.coverSource !== 'unsplash') ||
       !hasUsableCover(t)
     const pending = trips.filter(
       t => canBackfill(t) && needsWork(t) && !attemptedCovers.current.has(t.id),
