@@ -101,7 +101,8 @@ export function coverImageQueries(trip: Pick<Trip, 'title' | 'config' | 'data'>)
 /**
  * Classify a stored `config.coverImage` so a backfill knows what it may touch:
  *   - `'user'`  → a `data:` URL (a user upload) — NEVER auto-touch.
- *   - `'auto'`  → a Wikipedia/Wikimedia hotlink — machine-resolved, safe to re-resolve.
+ *   - `'auto'`  → a machine-resolved hotlink (Wikipedia/Wikimedia OR Unsplash) —
+ *                 safe to re-resolve.
  *   - `'other'` → anything else (e.g. a pasted external URL) or empty — leave alone.
  * Pure.
  */
@@ -112,6 +113,7 @@ export function classifyCover(coverImage: string | undefined | null): 'user' | '
   try {
     const host = new URL(v).host.toLowerCase()
     if (host === 'upload.wikimedia.org' || host.includes('wikipedia')) return 'auto'
+    if (host === 'images.unsplash.com' || host.endsWith('.unsplash.com')) return 'auto'
   } catch {
     /* not a parseable URL */
   }

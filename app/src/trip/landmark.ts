@@ -11,8 +11,9 @@
  * so callers render a tasteful placeholder rather than a broken image.
  */
 
-/** Longest-edge thumbnail size requested from Wikipedia, in px. */
-export const LANDMARK_THUMB_SIZE = 800
+/** Longest-edge thumbnail size requested from Wikipedia, in px. Large enough for
+ *  a crisp full-bleed cover (the source is usually multi-megapixel). */
+export const LANDMARK_THUMB_SIZE = 1600
 
 /**
  * Build the Wikipedia search+pageimages query URL for `query`. Uses
@@ -87,6 +88,50 @@ export async function fetchFirstLandmarkImage(queries: string[]): Promise<string
     if (!query || !query.trim()) continue
     const url = await fetchLandmarkImage(query)
     if (url) return url
+  }
+  return null
+}
+
+/** A landmark thumbnail with its rendered width (px) — lets a caller judge
+ *  quality and fall back to another source when the source image is tiny. */
+export interface LandmarkThumb {
+  url: string
+  width: number
+}
+
+/**
+ * Like `parseLandmarkImage`, but also returns the thumbnail's rendered `width`
+ * (0 when absent). Reuses `parseLandmarkImage` for the source + all the
+ * null-guards, then reads the sibling `thumbnail.width`. Pure.
+ */
+export function parseLandmarkThumb(json: unknown): LandmarkThumb | null {
+  const url = parseLandmarkImage(json)
+  if (!url) return null
+  const pages = (json as { query?: { pages?: Record<string, unknown> } })?.query?.pages
+  const first = pages ? Object.values(pages)[0] : null
+  const width = (first as { thumbnail?: { width?: unknown } } | null)?.thumbnail?.width
+  return { url, width: typeof width === 'number' ? width : 0 }
+}
+
+/** `fetchLandmarkImage` variant that returns the thumbnail + width, or null. */
+export async function fetchLandmarkThumb(query: string): Promise<LandmarkThumb | null> {
+  const q = query.trim()
+  if (!q) return null
+  try {
+    const res = await fetch(landmarkSearchUrl(q))
+    if (!res.ok) return null
+    return parseLandmarkThumb(await res.json())
+  } catch {
+    return null
+  }
+}
+
+/** `fetchFirstLandmarkImage` variant returning the first hit's thumbnail + width. */
+export async function fetchFirstLandmarkThumb(queries: string[]): Promise<LandmarkThumb | null> {
+  for (const query of queries) {
+    if (!query || !query.trim()) continue
+    const thumb = await fetchLandmarkThumb(query)
+    if (thumb) return thumb
   }
   return null
 }

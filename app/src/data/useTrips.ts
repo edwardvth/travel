@@ -105,14 +105,14 @@ export function useBackfillCoverImage() {
       const queries = coverImageQueries(trip)
       if (queries.length === 0) return false
       try {
-        const url = await resolveCoverImage(queries)
-        if (!url) return false
+        const resolved = await resolveCoverImage(queries)
+        if (!resolved) return false
         const { data: row } = await supabase.from('trips').select('config').eq('id', trip.id).maybeSingle()
         const config = (row?.config ?? {}) as TripConfig
         if (config.coverImage) return false // don't clobber an existing cover
         const { error } = await supabase
           .from('trips')
-          .update({ config: { ...config, coverImage: url } })
+          .update({ config: { ...config, coverImage: resolved.url, coverSource: resolved.source } })
           .eq('id', trip.id)
         if (error) return false
         qc.invalidateQueries({ queryKey: ['trips'] })
@@ -183,16 +183,17 @@ export function useReresolveAutoCover() {
         if (!row) return false
         const config = (row.config ?? {}) as TripConfig
         if (classifyCover(config.coverImage) !== 'auto') return false // never touch user/other
+        if (config.coverSource) return false // already resolved by current logic — don't re-fetch every load
         const queries = coverImageQueries({
           title: (row.title as string | undefined) ?? trip.title,
           config,
           data: (row.data ?? trip.data) as Trip['data'],
         })
-        const url = await resolveCoverImage(queries)
+        const resolved = await resolveCoverImage(queries)
         const next: TripConfig = { ...config }
-        if (url) next.coverImage = url
-        else delete next.coverImage
-        if (next.coverImage === config.coverImage) return false // no change — skip the write
+        if (resolved) { next.coverImage = resolved.url; next.coverSource = resolved.source }
+        else { delete next.coverImage; delete next.coverSource }
+        if (next.coverImage === config.coverImage && next.coverSource === config.coverSource) return false
         const { error } = await supabase.from('trips').update({ config: next }).eq('id', trip.id)
         if (error) return false
         qc.invalidateQueries({ queryKey: ['trips'] })

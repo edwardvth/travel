@@ -107,6 +107,13 @@ export interface TripConfig {
    * URL — see `landmark.ts`). Stored as a plain hotlink string, never a data URL.
    */
   coverImage?: string
+  /**
+   * Which source resolved `coverImage` ('wiki' | 'unsplash'). Set the first time
+   * a cover is machine-resolved; its presence marks the cover as settled so the
+   * Dashboard backfill never re-fetches it on subsequent loads. Absent on legacy
+   * covers (which get re-resolved once to migrate them).
+   */
+  coverSource?: 'wiki' | 'unsplash'
   // Legacy config keys that may exist on imported/older trips; preserved on save.
   [key: string]: unknown
 }
