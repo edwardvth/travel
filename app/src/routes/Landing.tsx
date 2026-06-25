@@ -44,6 +44,7 @@ export default function Landing() {
   const reduce = useReducedMotion()
   const go = () => nav('/auth')
   const goSignup = () => nav('/auth?mode=signup')
+  const goSignin = () => nav('/auth?mode=signin')
 
   // The background follows the typewriter: each word crossfades to its own clip,
   // and we prefetch the next couple so those crossfades are instant.
@@ -69,10 +70,10 @@ export default function Landing() {
           <div className="flex items-center gap-5 md:gap-7 text-[14px] text-white">
             <span className="hidden sm:inline-flex">
               <AnimatedLink
-                href="/auth"
+                href="/auth?mode=signin"
                 onClick={(e) => {
                   e.preventDefault()
-                  go()
+                  goSignin()
                 }}
                 className="text-[14px]"
               >
@@ -85,9 +86,13 @@ export default function Landing() {
 
         {/* Hero copy — centered horizontally, anchored in the upper-middle so it
             sits above the vertical center (raised up), matching the mockups. */}
+        {/* Slide-up entrance only — NO opacity fade. An ancestor with opacity < 1
+            isolates a group and suppresses the search pill's backdrop-blur until
+            the fade lands on opacity:1, which flashed the pill transparent→
+            translucent. Animating y alone keeps the pill glassy from frame 0. */}
         <motion.div
-          initial={reduce ? false : { opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={reduce ? false : { y: 12 }}
+          animate={{ y: 0 }}
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           className="pointer-events-none absolute inset-x-0 top-0 z-10 flex h-full flex-col items-center px-5 text-center text-white pt-[17vh] md:pt-[19vh]"
         >
