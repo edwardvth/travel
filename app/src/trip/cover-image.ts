@@ -1,6 +1,13 @@
 import { fetchUnsplashCover } from './unsplash'
 import { fetchFirstLandmarkThumb } from './landmark'
 
+/**
+ * Bump this when the cover-resolution logic changes (a new landmark override,
+ * a query tweak) to re-resolve every cover ONCE on the next load, then settle.
+ * v1: clean-city Unsplash query + Paris→Eiffel override.
+ */
+export const COVER_LOGIC_VERSION = 1
+
 export type CoverSource = 'wiki' | 'unsplash'
 export interface ResolvedCover {
   url: string

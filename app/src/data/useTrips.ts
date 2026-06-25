@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import type { Trip, TripConfig, Profile } from '../types'
 import { byTripDate, isPastTrip, buildNewTripPayload, slugify, type NewTripInput } from '../lib/trip-helpers'
-import { resolveCoverImage } from '../trip/cover-image'
+import { resolveCoverImage, COVER_LOGIC_VERSION } from '../trip/cover-image'
 import { coverImageQueries, classifyCover } from '../trip/landmark-context'
 import { inferDestination } from '../trip/destination'
 import { isFounder } from './useProfile'
@@ -112,7 +112,7 @@ export function useBackfillCoverImage() {
         if (config.coverImage) return false // don't clobber an existing cover
         const { error } = await supabase
           .from('trips')
-          .update({ config: { ...config, coverImage: resolved.url, coverSource: resolved.source } })
+          .update({ config: { ...config, coverImage: resolved.url, coverSource: resolved.source, coverVersion: COVER_LOGIC_VERSION } })
           .eq('id', trip.id)
         if (error) return false
         qc.invalidateQueries({ queryKey: ['trips'] })
@@ -183,7 +183,7 @@ export function useReresolveAutoCover() {
         if (!row) return false
         const config = (row.config ?? {}) as TripConfig
         if (classifyCover(config.coverImage) !== 'auto') return false // never touch user/other
-        if (config.coverSource === 'unsplash') return false // Unsplash is final; wiki/legacy re-resolve once to try Unsplash
+        if (config.coverVersion === COVER_LOGIC_VERSION) return false // already on current cover logic — don't re-fetch
         const queries = coverImageQueries({
           title: (row.title as string | undefined) ?? trip.title,
           config,
@@ -191,9 +191,9 @@ export function useReresolveAutoCover() {
         })
         const resolved = await resolveCoverImage(queries)
         const next: TripConfig = { ...config }
-        if (resolved) { next.coverImage = resolved.url; next.coverSource = resolved.source }
-        else { delete next.coverImage; delete next.coverSource }
-        if (next.coverImage === config.coverImage && next.coverSource === config.coverSource) return false
+        if (resolved) { next.coverImage = resolved.url; next.coverSource = resolved.source; next.coverVersion = COVER_LOGIC_VERSION }
+        else { delete next.coverImage; delete next.coverSource; delete next.coverVersion }
+        if (next.coverImage === config.coverImage && next.coverSource === config.coverSource && next.coverVersion === config.coverVersion) return false
         const { error } = await supabase.from('trips').update({ config: next }).eq('id', trip.id)
         if (error) return false
         qc.invalidateQueries({ queryKey: ['trips'] })

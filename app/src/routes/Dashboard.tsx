@@ -7,6 +7,7 @@ import { useProfile, isFounder } from '../data/useProfile'
 import { useTrips, splitTrips, useDeleteTrip, useBackfillCoverImage, useBackfillDestination, useReresolveAutoCover } from '../data/useTrips'
 import { classifyCover } from '../trip/landmark-context'
 import { selectFocusTrip } from '../lib/focus-trip'
+import { COVER_LOGIC_VERSION } from '../trip/cover-image'
 import { useUnits } from '../data/useUnits'
 import { AppShell } from '../components/AppShell'
 import { Button } from '../components/ui/Button'
@@ -65,7 +66,7 @@ export default function Dashboard() {
     // baked-in auto (possibly-wrong) cover, OR has no usable cover at all.
     const needsWork = (t: typeof trips[number]) =>
       (!hasDestination(t) && hasStops(t)) ||
-      (classifyCover(t.config?.coverImage) === 'auto' && t.config?.coverSource !== 'unsplash') ||
+      (classifyCover(t.config?.coverImage) === 'auto' && t.config?.coverVersion !== COVER_LOGIC_VERSION) ||
       !hasUsableCover(t)
     const pending = trips.filter(
       t => canBackfill(t) && needsWork(t) && !attemptedCovers.current.has(t.id),
