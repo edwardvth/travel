@@ -36,9 +36,9 @@ export function Cockpit({
   const weather = hasWeather ? weatherFromCode(code) : null
 
   const meta =
-    `${formatDateRange(trip)}` + (m.stopCount ? ` · ${m.stopCount} stop${m.stopCount === 1 ? '' : 's'}` : '')
+    formatDateRange(trip) + (m.stopCount ? ` · ${m.stopCount} stop${m.stopCount === 1 ? '' : 's'}` : '')
 
-  const dayLabel = m.phase === 'during' ? 'Today' : m.featuredDay !== null ? `Day ${m.featuredDay + 1}` : null
+  const dayLabelText = m.phase === 'during' ? 'Today' : m.featuredDay !== null ? `Day ${m.featuredDay + 1}` : null
 
   return (
     <div
@@ -76,20 +76,20 @@ export function Cockpit({
 
         {m.phase === 'unplanned' ? (
           <button
-            onClick={() => onOpen(trip.id)}
-            className="relative z-10 mt-3 inline-flex items-center gap-1.5 rounded-btn bg-white/10 px-3.5 py-2 text-[13px] font-bold text-white backdrop-blur transition-colors hover:bg-white/20"
+            onClick={e => { e.stopPropagation(); onOpen(trip.id) }}
+            className="relative z-10 mt-3 inline-flex min-h-[44px] items-center gap-1.5 rounded-btn bg-white/10 px-3.5 py-2 text-[13px] font-bold text-white backdrop-blur transition-colors hover:bg-white/20"
           >
             Start planning <span aria-hidden="true">→</span>
           </button>
         ) : (
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[12.5px] text-white/85">
-            {dayLabel && <span className="pointer-events-none font-medium">{dayLabel}</span>}
+            {dayLabelText && <span className="pointer-events-none font-medium">{dayLabelText}</span>}
             {m.toArrangeCount > 0 && (
               <>
                 <span aria-hidden="true" className="pointer-events-none text-white/40">·</span>
                 <button
                   onClick={e => { e.stopPropagation(); onOpenArrange(trip.id) }}
-                  className="relative z-10 font-medium text-white underline-offset-2 hover:underline"
+                  className="relative z-10 -my-1.5 py-1.5 font-medium text-white underline-offset-2 hover:underline"
                 >
                   {m.toArrangeCount} to arrange
                 </button>
