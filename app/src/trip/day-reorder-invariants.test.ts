@@ -59,9 +59,11 @@ describe('Day-Reorder Invariants', () => {
     // Per-day dates are derived BY POSITION (helpers.dayDate = startDate + index),
     // so a reorder changes which date a position maps to. The weather key must be
     // coord+date so it re-fetches the right forecast and never serves a stale day.
+    // `units` is also part of the key so a °C/°F switch refetches the right-unit
+    // forecast — but it is never a day index.
     const here = dirname(fileURLToPath(import.meta.url))
     const src = readFileSync(join(here, 'useWeather.ts'), 'utf8')
-    expect(src).toMatch(/queryKey:\s*\['weather',\s*lat,\s*lng,\s*date\]/)
+    expect(src).toMatch(/queryKey:\s*\['weather',\s*lat,\s*lng,\s*date,\s*units\]/)
     expect(src).not.toMatch(/queryKey:[^\n]*\bday\b/)
   })
 })

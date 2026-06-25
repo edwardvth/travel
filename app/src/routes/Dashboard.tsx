@@ -7,6 +7,7 @@ import { useProfile, isFounder } from '../data/useProfile'
 import { useTrips, splitTrips, useDeleteTrip, useBackfillCoverImage, useBackfillDestination, useReresolveAutoCover } from '../data/useTrips'
 import { classifyCover } from '../trip/landmark-context'
 import { selectFocusTrip } from '../lib/focus-trip'
+import { useUnits } from '../data/useUnits'
 import { AppShell } from '../components/AppShell'
 import { Button } from '../components/ui/Button'
 import { Segmented } from '../components/ui/Segmented'
@@ -25,6 +26,7 @@ export default function Dashboard() {
   const { user, loading: authLoading } = useAuth()
   const nav = useNavigate()
   const reduce = useReducedMotion()
+  const units = useUnits()
   const { data: profile } = useProfile(user?.id)
   const { data: trips, isLoading } = useTrips(user?.id, profile)
   const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
@@ -146,7 +148,7 @@ export default function Dashboard() {
           <>
             <p className="text-[13px] text-muted">{greeting}</p>
             <div className="mt-4">
-              <Cockpit trip={focus} onOpen={openTrip} onOpenArrange={openArrange} />
+              <Cockpit trip={focus} onOpen={openTrip} onOpenArrange={openArrange} units={units} />
             </div>
 
             <div className="mt-7 mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">

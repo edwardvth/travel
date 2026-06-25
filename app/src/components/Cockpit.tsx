@@ -6,6 +6,7 @@ import { useTripCover } from './useTripCover'
 import { dayDate, dayAnchorCoords } from '../trip/helpers'
 import { useWeather } from '../trip/useWeather'
 import { weatherFromCode } from '../trip/icons'
+import type { Units } from '../data/useAccountSettings'
 import type { Trip } from '../types'
 
 /**
@@ -15,12 +16,14 @@ import type { Trip } from '../types'
  * planning" nudge instead of the readiness line. `today` is a test/SSR seam.
  */
 export function Cockpit({
-  trip, onOpen, onOpenArrange, today,
+  trip, onOpen, onOpenArrange, today, units = 'metric',
 }: {
   trip: Trip
   onOpen: (id: string) => void
   onOpenArrange: (id: string) => void
   today?: string
+  /** Account unit preference; drives the weather readout. Defaults to metric. */
+  units?: Units
 }) {
   const m = cockpitModel(trip, today)
   const { url, loading } = useTripCover(trip)
@@ -30,7 +33,7 @@ export function Cockpit({
   const weatherDay = m.featuredDay ?? 0
   const coords = dayAnchorCoords(trip, weatherDay)
   const date = dayDate(trip, weatherDay)
-  const { tempMax, code } = useWeather(coords, date)
+  const { tempMax, code } = useWeather(coords, date, units)
   const hasWeather = tempMax !== null && code !== null
   const weather = hasWeather ? weatherFromCode(code) : null
 
@@ -97,7 +100,7 @@ export function Cockpit({
                 <span aria-hidden="true" className="pointer-events-none text-white/40">·</span>
                 <span className="pointer-events-none inline-flex items-center gap-1">
                   <weather.icon size={14} aria-hidden="true" className="opacity-85" />
-                  {Math.round(tempMax!)}°
+                  {Math.round(tempMax!)}°{units === 'imperial' ? 'F' : 'C'}
                 </span>
               </>
             )}

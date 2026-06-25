@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import type { Units } from '../data/useAccountSettings'
 
 export interface DayWeather {
   tempMax: number
@@ -23,26 +24,33 @@ export interface UseWeatherResult {
  * Fails silently: any error (network, no-key API hiccup, bad payload) leaves the
  * temps/code null, so callers render no-weather rather than an error.
  */
+/** Build the Open-Meteo daily-forecast URL for a point/date in the given units. */
+export function weatherUrl(lat: number, lng: number, date: string, units: Units): string {
+  const base =
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
+    `&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto` +
+    `&start_date=${date}&end_date=${date}`
+  // Open-Meteo defaults to celsius; only imperial needs an override.
+  return units === 'imperial' ? `${base}&temperature_unit=fahrenheit` : base
+}
+
 export function useWeather(
   coords: { lat: number; lng: number } | null,
   date: string | null,
+  units: Units = 'metric',
 ): UseWeatherResult {
   const enabled = !!coords && !!date
   const lat = coords?.lat
   const lng = coords?.lng
 
   const query = useQuery({
-    queryKey: ['weather', lat, lng, date] as const,
+    queryKey: ['weather', lat, lng, date, units] as const,
     enabled,
     staleTime: 60 * 60 * 1000, // 1h — daily forecast is stable
     gcTime: 24 * 60 * 60 * 1000,
     retry: 1,
     queryFn: async (): Promise<DayWeather | null> => {
-      const url =
-        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}` +
-        `&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto` +
-        `&start_date=${date}&end_date=${date}`
-      const res = await fetch(url)
+      const res = await fetch(weatherUrl(lat!, lng!, date!, units))
       if (!res.ok) throw new Error(`weather ${res.status}`)
       const json: unknown = await res.json()
       const daily = (json as { daily?: Record<string, unknown[]> }).daily

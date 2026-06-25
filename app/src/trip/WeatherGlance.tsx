@@ -1,5 +1,6 @@
 import type { Trip } from '../types'
 import { useWeather } from './useWeather'
+import { useUnits } from '../data/useUnits'
 import { dayDate, formatDayDate, dayAnchorCoords } from './helpers'
 import { weatherFromCode } from './icons'
 
@@ -10,9 +11,10 @@ import { weatherFromCode } from './icons'
  * Never an error or a blank gap; the row height is reserved to avoid layout shift.
  */
 export function WeatherGlance({ trip, day }: { trip: Trip; day: number }) {
+  const units = useUnits()
   const date = dayDate(trip, day)
   const coords = dayAnchorCoords(trip, day)
-  const { tempMax, tempMin, code, loading } = useWeather(coords, date)
+  const { tempMax, tempMin, code, loading } = useWeather(coords, date, units)
 
   const dateLabel = formatDayDate(date)
   const hasWeather = tempMax !== null && tempMin !== null && code !== null
@@ -32,7 +34,7 @@ export function WeatherGlance({ trip, day }: { trip: Trip; day: number }) {
         <>
           <span aria-hidden="true" className="opacity-50">·</span>
           <span>
-            {max}° / {min}°
+            {max}° / {min}°{units === 'imperial' ? 'F' : 'C'}
           </span>
           <span aria-hidden="true" className="opacity-50">·</span>
           <span className="capitalize">{label}</span>
