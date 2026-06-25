@@ -18,8 +18,12 @@ describe('unsplashQuery', () => {
     expect(unsplashQuery('Chicago, Illinois')).toBe('Chicago')
   })
   it('leaves an already-clean city name alone', () => {
-    expect(unsplashQuery('Paris')).toBe('Paris')
+    expect(unsplashQuery('Chicago')).toBe('Chicago')
     expect(unsplashQuery('  Kyoto  ')).toBe('Kyoto')
+  })
+  it('applies a hand-picked landmark override (Paris → Eiffel Tower)', () => {
+    expect(unsplashQuery('Paris, France')).toBe('Eiffel Tower')
+    expect(unsplashQuery('Paris')).toBe('Eiffel Tower')
   })
 })
 
