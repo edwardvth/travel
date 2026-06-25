@@ -15,12 +15,11 @@ import type { Trip } from '../types'
  * planning" nudge instead of the readiness line. `today` is a test/SSR seam.
  */
 export function Cockpit({
-  trip, onOpen, onOpenArrange, actions, today,
+  trip, onOpen, onOpenArrange, today,
 }: {
   trip: Trip
   onOpen: (id: string) => void
   onOpenArrange: (id: string) => void
-  actions?: React.ReactNode
   today?: string
 }) {
   const m = cockpitModel(trip, today)
@@ -64,8 +63,6 @@ export function Cockpit({
           {m.countdownLabel ?? 'Next trip'}
         </span>
       </div>
-
-      {actions && <div className="absolute right-3 top-3 z-20 flex gap-1.5">{actions}</div>}
 
       {/* Identity + readiness, anchored bottom */}
       <div className="absolute inset-x-5 bottom-5 z-10">

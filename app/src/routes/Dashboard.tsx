@@ -146,7 +146,7 @@ export default function Dashboard() {
           <>
             <p className="text-[13px] text-muted">{greeting}</p>
             <div className="mt-4">
-              <Cockpit trip={focus} onOpen={openTrip} onOpenArrange={openArrange} actions={tripActions(focus)} />
+              <Cockpit trip={focus} onOpen={openTrip} onOpenArrange={openArrange} />
             </div>
 
             <div className="mt-7 mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
