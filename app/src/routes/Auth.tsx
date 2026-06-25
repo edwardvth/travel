@@ -20,7 +20,7 @@ export default function Auth() {
   const nav = useNavigate()
   const reduce = useReducedMotion()
 
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin')
+  const [mode, setMode] = useState<'signin' | 'signup'>('signup')
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
