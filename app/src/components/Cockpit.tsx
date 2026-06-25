@@ -60,16 +60,17 @@ export function Cockpit({
       <button onClick={() => onOpen(trip.id)} className="absolute inset-0 z-0" aria-label={`Open ${trip.title}`} />
 
       {/* Countdown eyebrow */}
-      <div className="pointer-events-none absolute left-5 top-5 z-10 flex items-center gap-2">
-        <span className="h-px w-6 bg-gold/70" />
-        <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-gold/85">
+      <div className="pointer-events-none absolute left-5 top-5 z-10 flex items-center gap-2.5 [text-shadow:0_2px_8px_rgba(0,0,0,0.85)]">
+        <span className="h-px w-7 bg-gold/80" />
+        <span className="font-mono text-[14px] uppercase tracking-[0.2em] text-gold">
           {m.countdownLabel ?? 'Next trip'}
         </span>
       </div>
 
-      {/* Identity + readiness, anchored bottom */}
-      <div className="absolute inset-x-5 bottom-5 z-10">
-        <h2 className="pointer-events-none font-serif text-[clamp(34px,5vw,52px)] font-medium leading-[0.95] tracking-tight text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.5)]">
+      {/* Identity + readiness, anchored bottom. Sleek shadow on all text keeps it
+          legible over very bright covers (text-shadow inherits to children). */}
+      <div className="absolute inset-x-5 bottom-5 z-10 [text-shadow:0_2px_8px_rgba(0,0,0,0.85)]">
+        <h2 className="pointer-events-none font-serif text-[clamp(34px,5vw,52px)] font-medium leading-[0.95] tracking-tight text-white">
           {trip.title}
         </h2>
         <p className="pointer-events-none mt-2 font-mono text-[11px] uppercase tracking-wider text-white/75">{meta}</p>

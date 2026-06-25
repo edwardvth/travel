@@ -70,14 +70,16 @@ export function TripTile({
       <button onClick={() => onOpen(trip.id)} className="absolute inset-0 z-0" aria-label={`Open ${trip.title}`} />
 
       {eyebrow && (
-        <div className="pointer-events-none absolute left-5 top-5 z-10 flex items-center gap-2">
-          <span className="h-px w-6 bg-gold/70" />
-          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-gold/85">{eyebrow}</span>
+        <div className="pointer-events-none absolute left-5 top-5 z-10 flex items-center gap-2.5 [text-shadow:0_2px_8px_rgba(0,0,0,0.85)]">
+          <span className="h-px w-7 bg-gold/80" />
+          <span className="font-mono text-[14px] uppercase tracking-[0.2em] text-gold">{eyebrow}</span>
         </div>
       )}
 
-      <div className={cn('pointer-events-none absolute left-5 right-5 z-10', isHero ? 'bottom-6' : 'bottom-4')}>
-        <h3 className={cn('font-serif font-medium tracking-tight text-white drop-shadow-[0_2px_18px_rgba(0,0,0,0.5)]', titleClass)}>
+      {/* Sleek shadow on all text keeps the title + meta legible over very bright
+          covers (text-shadow inherits to children). */}
+      <div className={cn('pointer-events-none absolute left-5 right-5 z-10 [text-shadow:0_2px_8px_rgba(0,0,0,0.85)]', isHero ? 'bottom-6' : 'bottom-4')}>
+        <h3 className={cn('font-serif font-medium tracking-tight text-white', titleClass)}>
           {trip.title}
         </h3>
         <p className="mt-2 font-mono text-[11px] uppercase tracking-wider text-white/75">{meta}</p>
