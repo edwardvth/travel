@@ -213,11 +213,14 @@ Deno.serve(async (req) => {
 
   if (!PEXELS_API_KEY) return stale ? json(out(stale), 'STALE') : json({ url: null })
 
-  // Search "city country" first to disambiguate; escalate to country if weak.
-  const cityRes = await searchPexels(country ? `${city} ${country}` : city)
+  // Search "city country" to disambiguate (Paris/Springfield/…), BUT only when
+  // the country differs from the city — else "Luxembourg Luxembourg" / "Monaco
+  // Monaco" doubles the word and returns nothing.
+  const cityQuery = nCountry && nCountry !== nCity ? `${city} ${country}` : city
+  const cityRes = await searchPexels(cityQuery)
   let chosen = cityRes
   let level: 'city' | 'country' = 'city'
-  let resolvedQuery = country ? `${city} ${country}` : city
+  let resolvedQuery = cityQuery
 
   if ((!cityRes || cityRes.score < MIN_GOOD_SCORE) && nCountry && nCountry !== nCity) {
     const cHit = countryKey ? await cacheGet(countryKey) : null
