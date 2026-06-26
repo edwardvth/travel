@@ -53,9 +53,14 @@ export interface Stop {
    * additive — absent on by-name and legacy stops.
    */
   placeId?: string
-  placeSource?: 'google'
+  /** 'google' = tagged to a Google place; 'none' = confirmed not a Google place (scan-skipped, founder-resettable). */
+  placeSource?: 'google' | 'none'
   placeName?: string
   placeTypes?: string[]
+  /** Backfill match metadata — informational only, no runtime effect. */
+  placeMatchedAt?: string
+  placeMatchMethod?: 'auto' | 'founder'
+  placeMatchDistanceM?: number
   note?: string
   /** Reservation tracking for this stop. Absent until the user marks it. */
   reservation?: { status: 'to_reserve' | 'reserved'; time?: string; confirmation?: string; note?: string }
