@@ -398,7 +398,7 @@ Goal: one source of truth for "which region is active." Returns mutually-exclusi
 `app/src/home/useInViewActive.test.ts`:
 ```ts
 import { renderHook, act } from '@testing-library/react'
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { useInViewActive } from './useInViewActive'
 
 let cb: (entries: { isIntersecting: boolean }[]) => void
@@ -419,7 +419,8 @@ describe('useInViewActive', () => {
   })
   it('switches to globe when the globe region intersects', () => {
     const { result } = renderHook(() => useInViewActive())
-    act(() => { result.current.globeRef.current = document.createElement('div') })
+    // globeRef is a CALLBACK ref — attaching the node re-renders → effect observes.
+    act(() => { result.current.globeRef(document.createElement('div')) })
     act(() => { cb([{ isIntersecting: true }]) })
     expect(result.current.globeActive).toBe(true)
     expect(result.current.heroActive).toBe(false)
@@ -433,30 +434,32 @@ describe('useInViewActive', () => {
 
 `app/src/home/useInViewActive.ts`:
 ```ts
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 /**
  * Coordinates the "one animated background at a time" guarantee (spec §5.2).
- * Attach `globeRef` to the globe region. While the globe region is NOT in view
- * the hero is active (video plays, globe paused); once the globe region scrolls
- * in, the globe becomes active and the hero deactivates (video pauses).
+ * Attach `globeRef` (a CALLBACK ref) to the globe region. While the globe region
+ * is NOT in view the hero is active (video plays, globe paused); once the globe
+ * region scrolls in, the globe becomes active and the hero deactivates (video
+ * pauses). Using a callback ref + state means the observer attaches exactly when
+ * the node mounts (and re-attaches if it changes), with no per-render churn.
  */
 export function useInViewActive() {
-  const globeRef = useRef<HTMLElement | null>(null)
+  const [globeEl, setGlobeEl] = useState<HTMLElement | null>(null)
+  const globeRef = useCallback((el: HTMLElement | null) => { setGlobeEl(el) }, [])
   const [globeActive, setGlobeActive] = useState(false)
 
   useEffect(() => {
-    const el = globeRef.current
-    if (!el || typeof IntersectionObserver === 'undefined') return
+    if (!globeEl || typeof IntersectionObserver === 'undefined') return
     const io = new IntersectionObserver(
       (entries) => {
         for (const e of entries) setGlobeActive(e.isIntersecting)
       },
       { threshold: 0.01 },
     )
-    io.observe(el)
+    io.observe(globeEl)
     return () => io.disconnect()
-  })
+  }, [globeEl])
 
   return { globeRef, globeActive, heroActive: !globeActive }
 }
@@ -729,7 +732,7 @@ export function CinematicLaunchpad({
     <div className="relative bg-[#07070b] text-white">
       {/* FieldGlobe — tall background; dark sky behind the clip, arcs low behind tiles. */}
       <div
-        ref={globeRef as React.RefObject<HTMLDivElement>}
+        ref={globeRef}
         className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
       >
         <FieldGlobe
