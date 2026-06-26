@@ -1,222 +1,231 @@
 // supabase/functions/pexels-video/index.ts
 //
-// Destination hero VIDEO source: Pexels Video Search (proxied), with a shared
-// global link cache. The Pexels API key lives ONLY here, server-side.
+// Destination hero VIDEO source: Pexels Video Search (proxied), globally cached.
+// The Pexels API key lives ONLY here, server-side.
 //
-// The client POSTs `{ city, country? }`; this returns `{ url, poster }` — a
-// hotlinkable Pexels CDN .mp4 + a preview poster — or `{ url: null }` so the
-// client falls back to the built-in girl-walking clip.
+// Client POSTs `{ city, country? }` (with the user's Supabase JWT) → returns
+// `{ url, poster, credit }` (hotlinkable Pexels .mp4 + poster + attribution) or
+// `{ url: null }` so the client falls back to the built-in girl-walking clip.
 //
-// ADAPTIVE QUERY: searches the CITY first; if the city's BEST clip isn't good
-// enough (low score / no usable clip) it re-searches the COUNTRY and keeps the
-// country clip only if it scores meaningfully better. So "Los Angeles" stays LA,
-// but "Yerevan" (thin) escalates to "Armenia".
+// ADAPTIVE: searches `"city country"` first (disambiguates Paris/Springfield/…);
+// if the best clip is weak it re-searches the COUNTRY and keeps it only if it
+// scores meaningfully better. So "Los Angeles" stays LA, "Yerevan" → "Armenia".
 //
 // CACHE (`video_cache`, service-role only — docs/supabase/video-cache.sql):
-//   * keyed by a NORMALIZED "city|country" so ambiguous cities don't collide
-//     (paris|france vs paris|usa);
-//   * the COUNTRY result is also cached under a country key so every sparse city
-//     in that country reuses it (Armenia fetched once);
-//   * `resolved_query` records provenance; a soft TTL (~180d) lets new Pexels
-//     footage eventually win.
+//   * normalized "city|country" key (no ambiguous-city collisions);
+//   * the COUNTRY clip is also cached under a country key (sibling cities reuse it);
+//   * stores the chosen clip's SCORE (cached country competes fairly) + attribution;
+//   * soft TTL via `updated_at` (~180d) — and we bump updated_at on every upsert so
+//     refreshed rows aren't seen as stale forever.
 //
-// GRACEFUL: no key / no table / any error → 200 `{ url: cached|null }`, never 500.
+// RESILIENCE: a STALE cached clip is served if a live Pexels call fails (outage).
+// ABUSE: requires an authenticated Supabase user (role=authenticated) so the
+//   public endpoint can't be spammed to burn the Pexels quota. All network calls
+//   have timeouts. Any error → 200 `{ url: null }`, never 500.
 //
 // DEPLOY:  supabase functions deploy pexels-video
 // SECRET:  supabase secrets set PEXELS_API_KEY=<your Pexels API key>
-// (SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY are auto-injected — no setup.)
-// NOTE: no in-app rate limiter — it's ineffective across stateless Edge
-// instances; the cache makes Pexels calls rare and platform limits apply.
+// NOTE: video endpoint is `https://api.pexels.com/videos/search` — verify against
+//   current Pexels docs if it ever starts 404ing.
 
 const PEXELS_API_KEY = Deno.env.get('PEXELS_API_KEY')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SERVICE_KEY =
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ??
-  Deno.env.get('SERVICE_ROLE_KEY') ??
-  ''
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
 
 const MIN_DURATION = 6
-const MIN_GOOD_SCORE = 2.5      // city must reach this, else escalate to country
-const COUNTRY_MARGIN = 1.0      // country must beat the city by this to win
-const TTL_MS = 180 * 24 * 3600_000 // soft TTL: re-resolve cache rows older than ~180d
-// Pexels serves its video files from this CDN host. We refuse to cache/return
-// anything else (defence against malformed/unexpected payloads).
-const ALLOWED_HOST_SUFFIX = '.pexels.com'
+const MIN_GOOD_SCORE = 2.5
+const COUNTRY_MARGIN = 1.0
+const TTL_MS = 180 * 24 * 3600_000
+const DB_TIMEOUT = 1500
+const PEXELS_TIMEOUT = 4500
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, content-type, x-client-info, apikey',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
-const json = (body: unknown, cache?: 'HIT' | 'MISS') => {
+const json = (body: unknown, cache?: 'HIT' | 'MISS' | 'STALE') => {
   const headers: Record<string, string> = { ...CORS, 'Content-Type': 'application/json' }
   if (cache) headers['X-Cache'] = cache
   return new Response(JSON.stringify(body), { headers })
 }
 
-/** Aggressive normalization so 'New York', ' new york', 'São Paulo' don't dup. */
+async function fetchT(url: string, init: RequestInit = {}, ms = 4000): Promise<Response> {
+  const ctrl = new AbortController()
+  const t = setTimeout(() => ctrl.abort(), ms)
+  try { return await fetch(url, { ...init, signal: ctrl.signal }) } finally { clearTimeout(t) }
+}
+
+/** NFKD accent-fold + punctuation→space + collapse, so 'São Paulo' === 'sao paulo'. */
 function normalize(s: string): string {
-  return s
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '') // strip accents (combining diacritical marks)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')     // punctuation → space
-    .replace(/\s+/g, ' ')
-    .trim()
+  return s.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim()
 }
 
-/** Only ever cache/return URLs from the Pexels CDN. */
-function validHost(url: string): boolean {
+/** Pexels serves video files from player.vimeo.com (and sometimes *.pexels.com). */
+function validVideoUrl(url: string): boolean {
+  try { const u = new URL(url); return u.protocol === 'https:' && (u.hostname === 'player.vimeo.com' || u.hostname.endsWith('.pexels.com')) } catch { return false }
+}
+/** Posters live on images.pexels.com. Returns the url if valid, else null. */
+function validPoster(url: string | null): string | null {
+  if (!url) return null
+  try { const u = new URL(url); return u.protocol === 'https:' && u.hostname.endsWith('.pexels.com') ? url : null } catch { return null }
+}
+
+/** Require an authenticated Supabase user (lightweight claim check — abuse gate). */
+function isAuthed(req: Request): boolean {
+  const m = (req.headers.get('Authorization') ?? '').match(/^Bearer (.+)$/)
+  if (!m) return false
   try {
-    const h = new URL(url).hostname
-    return h === 'pexels.com' || h.endsWith(ALLOWED_HOST_SUFFIX)
-  } catch {
-    return false
-  }
+    const p = JSON.parse(atob(m[1].split('.')[1].replace(/-/g, '+').replace(/_/g, '/')))
+    return p?.role === 'authenticated' && !!p?.sub
+  } catch { return false }
 }
 
-// --- video_cache table access (service role; bypasses RLS) ----------------
+// --- video_cache (service role; bypasses RLS) ------------------------------
+interface Credit { pexelsUrl: string | null; name: string | null; url: string | null }
+interface Resolved { url: string; poster: string | null; score: number; credit: Credit }
+
 function dbHeaders(extra: Record<string, string> = {}) {
   return { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, 'Content-Type': 'application/json', ...extra }
 }
 
-interface CacheRow { url: string; poster: string | null }
-
-/** Fresh, valid cached row for `key`, or null (miss / stale / bad host / error). */
-async function cacheGet(key: string): Promise<CacheRow | null> {
+async function cacheGet(key: string): Promise<(Resolved & { stale: boolean }) | null> {
   if (!SERVICE_KEY || !SUPABASE_URL) return null
   try {
-    const r = await fetch(
-      `${SUPABASE_URL}/rest/v1/video_cache?query_key=eq.${encodeURIComponent(key)}&select=url,poster,created_at&limit=1`,
-      { headers: dbHeaders() },
+    const r = await fetchT(
+      `${SUPABASE_URL}/rest/v1/video_cache?query_key=eq.${encodeURIComponent(key)}&select=url,poster,score,pexels_url,photographer_name,photographer_url,updated_at&limit=1`,
+      { headers: dbHeaders() }, DB_TIMEOUT,
     )
     if (!r.ok) return null
-    const rows = (await r.json().catch(() => null)) as Array<{ url?: string; poster?: string; created_at?: string }> | null
-    const row = rows?.[0]
-    if (!row || typeof row.url !== 'string' || !row.url || !validHost(row.url)) return null
-    if (row.created_at && Date.now() - new Date(row.created_at).getTime() > TTL_MS) return null // stale → re-resolve
-    return { url: row.url, poster: typeof row.poster === 'string' ? row.poster : null }
-  } catch {
-    return null
-  }
+    const row = ((await r.json().catch(() => null)) as Array<Record<string, unknown>> | null)?.[0]
+    if (!row || typeof row.url !== 'string' || !validVideoUrl(row.url)) return null
+    const stale = typeof row.updated_at === 'string' && Date.now() - new Date(row.updated_at).getTime() > TTL_MS
+    return {
+      url: row.url,
+      poster: validPoster(typeof row.poster === 'string' ? row.poster : null),
+      score: typeof row.score === 'number' ? row.score : MIN_GOOD_SCORE,
+      credit: {
+        pexelsUrl: typeof row.pexels_url === 'string' ? row.pexels_url : null,
+        name: typeof row.photographer_name === 'string' ? row.photographer_name : null,
+        url: typeof row.photographer_url === 'string' ? row.photographer_url : null,
+      },
+      stale,
+    }
+  } catch { return null }
 }
 
-/** Upsert a resolved clip (logs unexpected DB responses so misses aren't silent). */
-async function cachePut(key: string, url: string, poster: string | null, resolvedQuery: string): Promise<void> {
+async function cachePut(key: string, res: Resolved, resolvedQuery: string, level: 'city' | 'country'): Promise<void> {
   if (!SERVICE_KEY || !SUPABASE_URL) return
   try {
-    const r = await fetch(`${SUPABASE_URL}/rest/v1/video_cache`, {
+    const r = await fetchT(`${SUPABASE_URL}/rest/v1/video_cache`, {
       method: 'POST',
       headers: dbHeaders({ Prefer: 'resolution=merge-duplicates,return=minimal' }),
-      body: JSON.stringify({ query_key: key, url, poster, resolved_query: resolvedQuery }),
-    })
-    if (!r.ok && r.status !== 409) {
-      console.error(`[pexels-video] cache write ${r.status}: ${await r.text().catch(() => '')}`)
-    }
-  } catch (e) {
-    console.error(`[pexels-video] cache write error: ${String(e)}`)
-  }
+      body: JSON.stringify({
+        query_key: key, url: res.url, poster: res.poster, score: res.score,
+        resolved_query: resolvedQuery, resolved_level: level,
+        pexels_url: res.credit.pexelsUrl, photographer_name: res.credit.name, photographer_url: res.credit.url,
+        updated_at: new Date().toISOString(),
+      }),
+    }, DB_TIMEOUT)
+    if (!r.ok && r.status !== 409) console.error(`[pexels-video] cache write ${r.status}: ${await r.text().catch(() => '')}`)
+  } catch (e) { console.error(`[pexels-video] cache write error: ${String(e)}`) }
 }
 
-interface PexelsFile { link?: string; quality?: string; width?: number; height?: number; file_type?: string }
-interface PexelsVideo { duration?: number; width?: number; height?: number; image?: string; video_files?: PexelsFile[] }
+// --- Pexels ----------------------------------------------------------------
+interface PexelsFile { link?: string; width?: number; height?: number; file_type?: string }
+interface PexelsVideo { id?: number; url?: string; duration?: number; image?: string; user?: { name?: string; url?: string }; video_files?: PexelsFile[] }
 
-/** Best landscape MP4 (≥16:9-ish, ~720–1080p; never 4K — too heavy to stream). */
-function bestFile(v: PexelsVideo): { link: string; height: number } | null {
+function bestFile(v: PexelsVideo): { link: string; width: number; height: number } | null {
   const files = (v.video_files ?? []).filter((f) => {
     const w = f.width ?? 0, h = f.height ?? 0
     return f.file_type === 'video/mp4' && h >= 540 && h <= 1300 && w / Math.max(h, 1) >= 1.6
   })
   if (!files.length) return null
-  // Prefer exactly 1080p, then closest to 1080.
   files.sort((a, b) => Math.abs((a.height ?? 0) - 1080) - Math.abs((b.height ?? 0) - 1080))
   const f = files[0]
-  return f.link && validHost(f.link) ? { link: f.link, height: f.height ?? 0 } : null
+  return f.link && validVideoUrl(f.link) ? { link: f.link, width: f.width ?? 0, height: f.height ?? 0 } : null
 }
 
-/** Heuristic quality score (Pexels has no likes/views). */
-function score(v: PexelsVideo, idx: number, fileHeight: number): number {
+function score(v: PexelsVideo, idx: number, file: { width: number; height: number }): number {
   let s = 0
-  if (fileHeight >= 1080) s += 3
-  else if (fileHeight >= 720) s += 1
+  if (file.height >= 1080) s += 3
+  else if (file.height >= 720) s += 1
   const d = v.duration ?? 0
-  if (d >= 10 && d <= 30) s += 2          // cinematic sweet spot
+  if (d >= 10 && d <= 30) s += 2
   else if (d >= MIN_DURATION) s += 1
-  const aspect = (v.width ?? 16) / (v.height ?? 9)
-  s -= Math.abs(aspect - 16 / 9) * 2.5     // favour true 16:9
-  s -= idx * 0.15                          // mild relevance tiebreak
+  s -= Math.abs(file.width / Math.max(file.height, 1) - 16 / 9) * 2.5
+  s -= idx * 0.15
   return s
 }
 
-/** Search Pexels videos for `query`; returns the highest-scoring usable clip. */
-async function searchPexels(query: string): Promise<{ url: string | null; poster: string | null; score: number }> {
+async function searchPexels(query: string): Promise<Resolved | null> {
   try {
-    const url =
-      `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&orientation=landscape&per_page=20`
-    const r = await fetch(url, { headers: { Authorization: PEXELS_API_KEY! } })
-    if (!r.ok) { console.error(`[pexels-video] search ${r.status}: ${await r.text().catch(() => '')}`); return { url: null, poster: null, score: -Infinity } }
-    const data = (await r.json().catch(() => null)) as { videos?: PexelsVideo[] } | null
-    let best: { s: number; url: string; poster: string | null } | null = null
-    ;(data?.videos ?? []).forEach((v, idx) => {
+    const r = await fetchT(
+      `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&orientation=landscape&per_page=20`,
+      { headers: { Authorization: PEXELS_API_KEY! } }, PEXELS_TIMEOUT,
+    )
+    if (!r.ok) { console.error(`[pexels-video] search ${r.status}: ${await r.text().catch(() => '')}`); return null }
+    const videos = ((await r.json().catch(() => null)) as { videos?: PexelsVideo[] } | null)?.videos ?? []
+    let best: { s: number; v: PexelsVideo; link: string } | null = null
+    videos.forEach((v, idx) => {
       if ((v.duration ?? 0) < MIN_DURATION) return
       const f = bestFile(v)
       if (!f) return
-      const s = score(v, idx, f.height)
-      if (!best || s > best.s) best = { s, url: f.link, poster: typeof v.image === 'string' ? v.image : null }
+      const s = score(v, idx, f)
+      if (!best || s > best.s) best = { s, v, link: f.link }
     })
-    return best ? { url: best.url, poster: best.poster, score: best.s } : { url: null, poster: null, score: -Infinity }
-  } catch (e) {
-    console.error(`[pexels-video] error: ${String(e)}`)
-    return { url: null, poster: null, score: -Infinity }
-  }
+    if (!best) return null
+    return {
+      url: best.link, score: best.s, poster: validPoster(typeof best.v.image === 'string' ? best.v.image : null),
+      credit: { pexelsUrl: typeof best.v.url === 'string' ? best.v.url : null, name: best.v.user?.name ?? null, url: best.v.user?.url ?? null },
+    }
+  } catch (e) { console.error(`[pexels-video] error: ${String(e)}`); return null }
 }
+
+const out = (r: Resolved) => ({ url: r.url, poster: r.poster, credit: r.credit })
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: CORS })
+  if (!isAuthed(req)) return json({ url: null }) // abuse gate: authenticated users only
 
   let body: { city?: string; country?: string }
   try { body = await req.json() } catch { return json({ url: null }) }
   const city = (body.city ?? '').slice(0, 120)
   const country = (body.country ?? '').slice(0, 120)
-  const nCity = normalize(city)
-  const nCountry = normalize(country)
+  const nCity = normalize(city), nCountry = normalize(country)
   if (!nCity) return json({ url: null })
 
   const key = `${nCity}|${nCountry}`
-  const countryKey = nCountry ? `~|${nCountry}` : '' // shared per-country entry
+  const countryKey = nCountry ? `~|${nCountry}` : ''
 
-  // Cache hit (fresh) → no Pexels call.
-  const hit = await cacheGet(key)
-  if (hit) return json(hit, 'HIT')
+  const cached = await cacheGet(key)
+  if (cached && !cached.stale) return json(out(cached), 'HIT')
+  const stale = cached?.stale ? cached : null // keep for outage fallback
 
-  if (!PEXELS_API_KEY) return json({ url: null })
+  if (!PEXELS_API_KEY) return stale ? json(out(stale), 'STALE') : json({ url: null })
 
-  // Try the city; escalate to the country only if the city is weak.
-  const cityRes = await searchPexels(city)
+  // Search "city country" first to disambiguate; escalate to country if weak.
+  const cityRes = await searchPexels(country ? `${city} ${country}` : city)
   let chosen = cityRes
-  let resolved = city
+  let level: 'city' | 'country' = 'city'
+  let resolvedQuery = country ? `${city} ${country}` : city
 
-  if (!cityRes.url || cityRes.score < MIN_GOOD_SCORE) {
-    if (nCountry && nCountry !== nCity) {
-      // Reuse a cached country clip if we already resolved this country before.
-      const countryHit = countryKey ? await cacheGet(countryKey) : null
-      const countryRes = countryHit
-        ? { url: countryHit.url, poster: countryHit.poster, score: MIN_GOOD_SCORE + COUNTRY_MARGIN + 1 }
-        : await searchPexels(country)
-      if (countryRes.url && (!cityRes.url || countryRes.score > cityRes.score + COUNTRY_MARGIN)) {
-        chosen = countryRes
-        resolved = country
-        if (countryKey && !countryHit && validHost(countryRes.url)) {
-          await cachePut(countryKey, countryRes.url, countryRes.poster, country)
-        }
-      }
+  if ((!cityRes || cityRes.score < MIN_GOOD_SCORE) && nCountry && nCountry !== nCity) {
+    const cHit = countryKey ? await cacheGet(countryKey) : null
+    const countryRes = cHit && !cHit.stale ? cHit : await searchPexels(country)
+    if (countryRes && (!cityRes || countryRes.score > cityRes.score + COUNTRY_MARGIN)) {
+      chosen = countryRes; level = 'country'; resolvedQuery = country
+      if (countryKey && (!cHit || cHit.stale)) await cachePut(countryKey, countryRes, country, 'country')
     }
   }
 
-  if (chosen.url && validHost(chosen.url)) {
-    await cachePut(key, chosen.url, chosen.poster, resolved)
-    return json({ url: chosen.url, poster: chosen.poster }, 'MISS')
+  if (chosen) {
+    await cachePut(key, chosen, resolvedQuery, level)
+    return json(out(chosen), 'MISS')
   }
+  // Pexels gave nothing this time — serve a stale clip if we have one.
+  if (stale) return json(out(stale), 'STALE')
   return json({ url: null }, 'MISS')
 })

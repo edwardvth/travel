@@ -4,9 +4,17 @@ import type { HeroClip } from './types'
 /** The deployed slug of the Pexels video proxy edge function. */
 const PEXELS_FN_SLUG = 'pexels-video'
 
+export interface DestinationVideoCredit {
+  pexelsUrl: string | null
+  name: string | null
+  url: string | null
+}
+
 export interface DestinationVideo {
   url: string
   poster: string | null
+  /** Pexels attribution (page + photographer), per Pexels API guidelines. */
+  credit: DestinationVideoCredit | null
 }
 
 /**
@@ -25,10 +33,21 @@ export async function fetchDestinationVideo(city: string, country?: string): Pro
       body: { city: c, country: (country ?? '').trim() || undefined },
     })
     if (error) return null
-    const url = (data as { url?: unknown } | null)?.url
+    const d = data as { url?: unknown; poster?: unknown; credit?: Partial<DestinationVideoCredit> } | null
+    const url = d?.url
     if (typeof url !== 'string' || !url) return null
-    const poster = (data as { poster?: unknown } | null)?.poster
-    return { url, poster: typeof poster === 'string' && poster ? poster : null }
+    const cr = d?.credit
+    return {
+      url,
+      poster: typeof d?.poster === 'string' && d.poster ? d.poster : null,
+      credit: cr
+        ? {
+            pexelsUrl: typeof cr.pexelsUrl === 'string' ? cr.pexelsUrl : null,
+            name: typeof cr.name === 'string' ? cr.name : null,
+            url: typeof cr.url === 'string' ? cr.url : null,
+          }
+        : null,
+    }
   } catch {
     return null
   }

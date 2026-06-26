@@ -4,7 +4,7 @@ import { Plus, Cloud, ArrowRight } from 'lucide-react'
 import { Mark } from '../components/Logo'
 import { HeroVideoStage } from '../hero/HeroVideoStage'
 import { clipForWord } from '../hero/wordClips'
-import { fetchDestinationVideo, clipFromDestinationVideo } from '../hero/destinationVideo'
+import { fetchDestinationVideo, clipFromDestinationVideo, type DestinationVideoCredit } from '../hero/destinationVideo'
 import { FieldGlobe } from '../home/FieldGlobe'
 import { useInViewActive } from '../home/useInViewActive'
 import { Button } from '../components/ui/Button'
@@ -42,10 +42,11 @@ export default function PreviewCockpit({ variant = 'a' }: { variant?: 'a' | 'b' 
   // once it resolves (HeroVideoStage crossfades). Falls back gracefully if the
   // pexels-video function isn't deployed / has no result.
   const [clip, setClip] = useState(() => clipForWord(TRIP.name))
+  const [credit, setCredit] = useState<DestinationVideoCredit | null>(null)
   useEffect(() => {
     let cancelled = false
     fetchDestinationVideo(TRIP.name, TRIP.country).then((v) => {
-      if (!cancelled && v) setClip(clipFromDestinationVideo(TRIP.name, v))
+      if (!cancelled && v) { setClip(clipFromDestinationVideo(TRIP.name, v)); setCredit(v.credit) }
     })
     return () => { cancelled = true }
   }, [])
@@ -71,6 +72,18 @@ export default function PreviewCockpit({ variant = 'a' }: { variant?: 'a' | 'b' 
         <div className="absolute inset-0" style={{ WebkitMaskImage: MASK, maskImage: MASK, filter: 'brightness(1.8)' }}>
           <HeroVideoStage clip={clip} playing={heroActive} className="absolute inset-0" />
         </div>
+
+        {/* Pexels attribution (per their API guidelines) — subtle, bottom-right. */}
+        {credit && (
+          <a
+            href={credit.pexelsUrl ?? 'https://www.pexels.com'}
+            target="_blank"
+            rel="noreferrer"
+            className="pointer-events-auto absolute bottom-3 right-4 z-20 text-[10px] tracking-wide text-white/55 transition-colors hover:text-white/85"
+          >
+            Video{credit.name ? ` by ${credit.name}` : ''} · Pexels
+          </a>
+        )}
 
         <nav className="absolute top-0 inset-x-0 z-20 flex items-center justify-between px-6 md:px-10 py-5 md:py-6 text-white">
           <span className="inline-flex items-center gap-2 font-sans font-extrabold tracking-tight">
