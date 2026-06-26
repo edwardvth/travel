@@ -200,15 +200,17 @@ const out = (r: Resolved) => ({ url: r.url, poster: r.poster, credit: r.credit }
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
   if (req.method !== 'POST') return new Response('Method not allowed', { status: 405, headers: CORS })
-  if (!isAuthed(req)) return json({ url: null }) // abuse gate: authenticated users only
 
-  let body: { city?: string; country?: string }
-  try { body = await req.json() } catch { return json({ url: null }) }
+  let body: { city?: string; country?: string } = {}
+  try { body = await req.json() } catch { /* keep empty */ }
   const city = (body.city ?? '').slice(0, 120)
   const country = (body.country ?? '').slice(0, 120)
+  const authed = isAuthed(req)
+  console.log(`[pexels-video] req authed=${authed} city="${city}" country="${country}"`)
+  if (!authed) return json({ url: null }) // abuse gate: authenticated users only
+
   const nCity = normalize(city), nCountry = normalize(country)
   if (!nCity) return json({ url: null })
-  console.log(`[pexels-video] req city="${city}" country="${country}" (key=${nCity}|${nCountry})`)
 
   const key = `${nCity}|${nCountry}`
   const countryKey = nCountry ? `~|${nCountry}` : ''
