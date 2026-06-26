@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { QUALITY_LEVELS, nextLevel, qualityFor } from './adaptive-quality'
+import { isStaticLevel } from './adaptive-quality'
 
 describe('adaptive quality ladder', () => {
   it('steps down a level when sustained frame time is high', () => {
@@ -22,5 +23,17 @@ describe('adaptive quality ladder', () => {
     expect(a.arcSamples).toBeGreaterThanOrEqual(b.arcSamples)
     expect(a.dprCap).toBeGreaterThanOrEqual(b.dprCap)
     expect(b.cadenceMs).toBeGreaterThanOrEqual(a.cadenceMs)
+  })
+})
+
+describe('static rung', () => {
+  it('the last level is static', () => {
+    expect(isStaticLevel(QUALITY_LEVELS.length - 1)).toBe(true)
+    expect(isStaticLevel(0)).toBe(false)
+  })
+  it('steps down into the static rung under sustained slowness', () => {
+    let level = QUALITY_LEVELS.length - 2
+    level = nextLevel(level, 40)
+    expect(isStaticLevel(level)).toBe(true)
   })
 })
