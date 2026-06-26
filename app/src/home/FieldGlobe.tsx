@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useReducedMotion } from 'framer-motion'
-import { VERTEX_SRC, fragmentSource, FIELD_GLOBE_PARAMS } from './field-globe.glsl'
+import { VERTEX_SRC, fragmentSource, FIELD_GLOBE_PARAMS, type FragOpts } from './field-globe.glsl'
 import { useEarthTexture } from './useEarthTexture'
-import { nextLevel, qualityFor } from './adaptive-quality'
+import { nextLevel, qualityFor, isStaticLevel } from './adaptive-quality'
 
 /**
  * FieldGlobe — the Phase 2 night-Earth WebGL2 background. Owns the entire WebGL
@@ -16,20 +16,36 @@ import { nextLevel, qualityFor } from './adaptive-quality'
  */
 export interface FieldGlobeProps {
   className?: string
+  /** External coordination gate (AND-ed with onscreen/visible). Default true. */
+  active?: boolean
+  /** Still image for reduced-motion / no-WebGL / the static quality rung. */
+  staticSrc?: string
+  /** Device-pixel-ratio cap (launchpad passes 1.0). Default 1.5. */
+  dprCap?: number
+  /** Cheaper-shader options. */
+  frag?: FragOpts
 }
 
 const FADE_MS = 260
 
-export function FieldGlobe({ className }: FieldGlobeProps) {
+export function FieldGlobe({ className, active = true, staticSrc, dprCap = 1.5, frag }: FieldGlobeProps) {
   const reduce = useReducedMotion() ?? false
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
   const earthImg = useEarthTexture()
+  // Shows the still image instead of the canvas (reduced-motion / no-WebGL / static rung).
+  const [showStatic, setShowStatic] = useState<boolean>(reduce)
+  const activeRef = useRef(active)
+  activeRef.current = active
 
   // Imperative handle the late-arriving texture effect can call into.
   const uploadRef = useRef<((img: HTMLImageElement) => void) | null>(null)
   const earthRef = useRef<HTMLImageElement | null>(null)
   earthRef.current = earthImg
+
+  // Re-apply the loop gate when the external `active` prop changes.
+  const applyRef = useRef<(() => void) | null>(null)
+  useEffect(() => { applyRef.current?.() }, [active])
 
   useEffect(() => {
     if (earthImg && uploadRef.current) uploadRef.current(earthImg)
@@ -46,13 +62,19 @@ export function FieldGlobe({ className }: FieldGlobeProps) {
     } catch {
       gl = null
     }
-    if (!gl) return // no WebGL2 → StaticBackdrop remains; nothing scheduled
+    if (!gl) {
+      // no WebGL2 → StaticBackdrop remains; show the still image if provided
+      if (staticSrc) setShowStatic(true)
+      return
+    }
 
-    const FRAG = fragmentSource(FIELD_GLOBE_PARAMS)
+    const FRAG = fragmentSource(FIELD_GLOBE_PARAMS, frag)
 
     // ---- GL objects (recreated on context restore) ----
     let prog: WebGLProgram | null = null
     let tex: WebGLTexture | null = null
+    let buf: WebGLBuffer | null = null
+    const shaders: WebGLShader[] = []
     let U: Record<string, WebGLUniformLocation | null> = {}
     let firstFramePainted = false
 
@@ -64,6 +86,7 @@ export function FieldGlobe({ className }: FieldGlobeProps) {
         // eslint-disable-next-line no-console
         console.error(gl!.getShaderInfoLog(s))
       }
+      shaders.push(s)
       return s
     }
 
@@ -81,7 +104,7 @@ export function FieldGlobe({ className }: FieldGlobeProps) {
       }
       g.useProgram(prog)
 
-      const buf = g.createBuffer()
+      buf = g.createBuffer()
       g.bindBuffer(g.ARRAY_BUFFER, buf)
       g.bufferData(g.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), g.STATIC_DRAW)
       const loc = g.getAttribLocation(prog, 'a_pos')
@@ -121,14 +144,14 @@ export function FieldGlobe({ className }: FieldGlobeProps) {
     uploadRef.current = uploadEarth
 
     // ---- size ----
-    const DPR_HARD_CAP = 1.5
-    let dprCap = DPR_HARD_CAP
+    const DPR_HARD_CAP = dprCap
+    let dprCap2 = DPR_HARD_CAP
     let w = 0, h = 0
     const resize = () => {
       const rect = root.getBoundingClientRect()
       w = Math.max(1, Math.round(rect.width))
       h = Math.max(1, Math.round(rect.height))
-      const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, dprCap)
+      const dpr = Math.min(typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1, dprCap2)
       canvas.width = Math.round(w * dpr)
       canvas.height = Math.round(h * dpr)
       gl!.viewport(0, 0, canvas.width, canvas.height)
@@ -184,7 +207,8 @@ export function FieldGlobe({ className }: FieldGlobeProps) {
         const nl = nextLevel(level, avg)
         if (nl !== level) {
           level = nl
-          dprCap = Math.min(DPR_HARD_CAP, qualityFor(level).dprCap)
+          if (isStaticLevel(level) && staticSrc) { stopLoop(); setShowStatic(true); return }
+          dprCap2 = Math.min(DPR_HARD_CAP, qualityFor(level).dprCap)
           resize() // apply any DPR change immediately
         }
         acc = 0; accN = 0; lastEval = now
@@ -206,13 +230,14 @@ export function FieldGlobe({ className }: FieldGlobeProps) {
     // ---- visibility / lifecycle gating ----
     let onscreen = true
     let pageVisible = typeof document === 'undefined' || !document.hidden
-    let active = true // pagehide=false → suspended
+    let pageActive = true // pagehide=false → suspended
 
     const apply = () => {
       if (reduce) return // static: never loops
-      if (onscreen && pageVisible && active) startLoop()
+      if (onscreen && pageVisible && pageActive && activeRef.current) startLoop()
       else stopLoop()
     }
+    applyRef.current = apply
 
     let observer: IntersectionObserver | undefined
     if (typeof IntersectionObserver !== 'undefined') {
@@ -223,8 +248,8 @@ export function FieldGlobe({ className }: FieldGlobeProps) {
       observer.observe(root)
     }
     const onVisibility = () => { pageVisible = !document.hidden; apply() }
-    const onPageHide = () => { active = false; apply() }
-    const onPageShow = () => { active = true; apply() }
+    const onPageHide = () => { pageActive = false; apply() }
+    const onPageShow = () => { pageActive = true; apply() }
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVisibility)
     if (typeof window !== 'undefined') {
       window.addEventListener('pagehide', onPageHide)
@@ -250,18 +275,40 @@ export function FieldGlobe({ className }: FieldGlobeProps) {
     canvas.addEventListener('webglcontextlost', onLost as EventListener)
     canvas.addEventListener('webglcontextrestored', onRestored as EventListener)
 
-    // ---- boot ----
-    if (!initGL()) return
-    if (earthRef.current) uploadEarth(earthRef.current)
-    if (reduce) {
-      renderOnce() // one calm frame, no loop
+    // ---- boot (deferred until the root nears the viewport) ----
+    let booted = false
+    const boot = () => {
+      if (booted) return
+      booted = true
+      if (!initGL()) return
+      if (earthRef.current) uploadEarth(earthRef.current)
+      if (reduce) {
+        renderOnce() // one calm frame, no loop
+      } else {
+        apply()
+      }
+    }
+
+    // Lazy-mount: only create GL work once the root is near the viewport.
+    let bootObserver: IntersectionObserver | undefined
+    if (typeof IntersectionObserver !== 'undefined') {
+      bootObserver = new IntersectionObserver((entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          bootObserver?.disconnect()
+          bootObserver = undefined
+          boot()
+        }
+      }, { rootMargin: '200px' })
+      bootObserver.observe(root)
     } else {
-      apply()
+      boot() // no IO → boot immediately
     }
 
     return () => {
       stopLoop()
       observer?.disconnect()
+      bootObserver?.disconnect()
+      applyRef.current = null
       uploadRef.current = null
       if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVisibility)
       if (typeof window !== 'undefined') {
@@ -271,6 +318,16 @@ export function FieldGlobe({ className }: FieldGlobeProps) {
       }
       canvas.removeEventListener('webglcontextlost', onLost as EventListener)
       canvas.removeEventListener('webglcontextrestored', onRestored as EventListener)
+      // ---- GPU cleanup: delete all owned resources, then drop the context ----
+      const g = gl
+      if (g) {
+        try {
+          if (tex) g.deleteTexture(tex)
+          if (buf) g.deleteBuffer(buf)
+          if (prog) g.deleteProgram(prog)
+          for (const s of shaders) g.deleteShader(s)
+        } catch { /* context may be gone */ }
+      }
       const lose = gl?.getExtension('WEBGL_lose_context')
       lose?.loseContext()
     }
@@ -280,8 +337,18 @@ export function FieldGlobe({ className }: FieldGlobeProps) {
   return (
     <div ref={rootRef} aria-hidden="true" data-testid="field-globe"
       className={className} style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}>
+      {staticSrc && (
+        <img
+          src={staticSrc} alt="" aria-hidden="true" decoding="async"
+          style={{
+            position: 'absolute', inset: 0, width: '100%', height: '100%',
+            objectFit: 'cover', opacity: showStatic ? 1 : 0,
+            transition: 'opacity 260ms ease', pointerEvents: 'none',
+          }}
+        />
+      )}
       <canvas ref={canvasRef}
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0 }} />
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, pointerEvents: 'none' }} />
     </div>
   )
 }

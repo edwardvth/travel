@@ -24,4 +24,19 @@ describe('FieldGlobe', () => {
     expect(raf).not.toHaveBeenCalled()
     raf.mockRestore()
   })
+
+  it('renders the static image when staticSrc is set and WebGL is unavailable', () => {
+    // jsdom getContext('webgl2') is null → static fallback should show.
+    const { container } = render(<FieldGlobe staticSrc="/assets/globe-still.webp" />)
+    const img = container.querySelector('img')
+    expect(img).toBeTruthy()
+    expect(img?.getAttribute('src')).toBe('/assets/globe-still.webp')
+  })
+
+  it('does not start a loop when active=false', () => {
+    const raf = vi.spyOn(window, 'requestAnimationFrame')
+    render(<FieldGlobe active={false} />)
+    expect(raf).not.toHaveBeenCalled()
+    raf.mockRestore()
+  })
 })
