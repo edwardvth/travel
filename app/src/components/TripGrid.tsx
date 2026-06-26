@@ -10,13 +10,15 @@ import type { Trip } from '../types'
  * on mount (collapsed under reduced motion).
  */
 export function TripGrid({
-  trips, onOpen, tripActions, onAdd,
+  trips, onOpen, tripActions, onAdd, glass,
 }: {
   trips: Trip[]
   onOpen: (id: string) => void
   tripActions?: (t: Trip) => React.ReactNode
   /** When provided, append a dashed "add a trip" cell as the last bento cell. */
   onAdd?: () => void
+  /** Render tiles as glass so they read over the globe (launchpad). */
+  glass?: boolean
 }) {
   const reduce = useReducedMotion()
   const container = {
@@ -44,6 +46,7 @@ export function TripGrid({
             actions={tripActions?.(t)}
             variant={isFeature(i, n) ? 'large' : 'small'}
             className="h-full"
+            glass={glass}
           />
         </motion.div>
       ))}

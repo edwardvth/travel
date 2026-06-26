@@ -15,7 +15,7 @@ type Variant = 'hero' | 'large' | 'small'
  * `large` is the bento feature cell (shows stop count); `small` is a grid cell.
  */
 export function TripTile({
-  trip, onOpen, actions, variant, eyebrow, className, alwaysShowActions,
+  trip, onOpen, actions, variant, eyebrow, className, alwaysShowActions, glass,
 }: {
   trip: Trip
   onOpen: (id: string) => void
@@ -25,6 +25,8 @@ export function TripTile({
   className?: string
   /** Reveal actions without hover (touch / single-column mobile). */
   alwaysShowActions?: boolean
+  /** Render the card surface as glass so it reads over the globe (launchpad). */
+  glass?: boolean
 }) {
   const { url, loading } = useTripCover(trip)
   const [failed, setFailed] = useState(false)
@@ -47,8 +49,12 @@ export function TripTile({
 
   return (
     <div
-      className={cn('group relative w-full overflow-hidden rounded-card border border-hair', className)}
-      style={{ background: tripGradient(seed) }}
+      className={cn(
+        'group relative w-full overflow-hidden rounded-card border',
+        glass ? 'border-white/15 bg-white/[0.06] backdrop-blur-xl' : 'border-hair',
+        className,
+      )}
+      style={glass ? undefined : { background: tripGradient(seed) }}
     >
       {/* Destination photo — fades over the gradient; never leaves a gap. */}
       {cover && (
