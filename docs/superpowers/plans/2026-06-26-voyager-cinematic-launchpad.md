@@ -735,13 +735,17 @@ export function CinematicLaunchpad({
         ref={globeRef}
         className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
       >
-        <FieldGlobe
-          className="absolute inset-x-0 top-[20vh] h-[170vh]"
-          active={globeActive}
-          staticSrc={globeStill}
-          dprCap={1.0}
-          frag={{ octaves: 3, blur: false }}
-        />
+        {/* Inner positioning box sets the globe's framing. FieldGlobe's root forces
+            inset:0 inline, so it fills THIS box rather than its own className. */}
+        <div className="absolute inset-x-0 top-[20vh] h-[170vh]">
+          <FieldGlobe
+            className="absolute inset-0"
+            active={globeActive}
+            staticSrc={globeStill}
+            dprCap={1.0}
+            frag={{ octaves: 3, blur: false }}
+          />
+        </div>
       </div>
 
       {/* Cinematic hero — masked to dissolve into the globe; pauses when the globe is active. */}
