@@ -7,6 +7,8 @@ import { useAuth } from '../auth/useAuth'
 import { authUrlError } from '../auth/authErrors'
 import { Input } from '../components/ui/Input'
 import { Mark } from '../components/Logo'
+import { FieldGlobe } from '../home/FieldGlobe'
+import globeStill from '../assets/globe-still.webp'
 
 /**
  * The Voyager sign-in screen — a cinematic, always-dark glass card (deliberately
@@ -95,7 +97,12 @@ export default function Auth() {
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#0A0A0C] relative overflow-hidden flex items-center justify-center p-5">
+    <div className="relative min-h-[100svh] overflow-hidden bg-[#07070b]">
+      <FieldGlobe className="absolute inset-0" staticSrc={globeStill} dprCap={1.5} />
+      {/* legibility scrim — Auth form text is the priority */}
+      <div aria-hidden className="pointer-events-none absolute inset-0"
+        style={{ background: 'radial-gradient(120% 80% at 50% 40%, rgba(5,5,9,0.45), rgba(5,5,9,0.78))' }} />
+      <div className="relative z-10 min-h-screen w-full bg-transparent overflow-hidden flex items-center justify-center p-5">
       {/* Claret atmosphere — the signature, in place of the template's purple */}
       <div className="absolute inset-0 bg-gradient-to-b from-[#9C3D3A]/30 via-[#5A1F22]/40 to-black" />
 
@@ -356,6 +363,7 @@ export default function Auth() {
           </div>
         </motion.div>
       </motion.div>
+      </div>
     </div>
   )
 }
