@@ -161,6 +161,7 @@ async function writeTrip(id: string, prevUpdatedAt: string | undefined, data: un
   const filter = prevUpdatedAt
     ? `id=eq.${encodeURIComponent(id)}&updated_at=eq.${encodeURIComponent(prevUpdatedAt)}`
     : `id=eq.${encodeURIComponent(id)}`
+  // updated_at here is overwritten by the moddatetime trigger; the WHERE filter (OLD row) is what enforces the guard
   const r = await fetch(`${TRIPS}?${filter}`, { method: 'PATCH', headers: sh({ Prefer: 'return=representation' }), body: JSON.stringify({ data, updated_at: new Date().toISOString() }) })
   if (!r.ok) return false
   const rows = await r.json().catch(() => [])
@@ -202,7 +203,8 @@ Deno.serve(async (req) => {
       let lastId = cursor
 
       for (const trip of trips) {
-        lastId = trip.id
+        lastId = trip.id // set BEFORE the try so pagination advances past a malformed trip
+       try {
         const city = String((trip.config?.destination ?? '') || '') // trips.config column, selected above
         const days: Array<{ stops?: Array<Record<string, unknown>> }> = trip.data?.days ?? []
 
@@ -262,17 +264,23 @@ Deno.serve(async (req) => {
           }
         }
 
-        // One optimistic trip write (only if we auto-attached something).
-        if (mutated) {
-          const ok = await writeTrip(trip.id, trip.updated_at, data)
-          if (!ok) continue // benign skip: the trip changed under us; these stops remain for the next run (don't count them, don't queue)
-          stats.tagged += tripTagged // only now that the write landed
-        }
-        // Insert review rows (ignore 409 duplicates from the pending unique index).
+        // Insert review rows first — idempotent (partial unique index) and
+        // independent of the auto-attach write, so a conflict on a confident
+        // stop never starves this trip's review queue.
         for (const row of reviewRows) {
           const ins = await fetch(REVIEW, { method: 'POST', headers: sh({ Prefer: 'return=minimal' }), body: JSON.stringify(row) })
           if (ins.ok) stats.queued++ // 409 = already pending (benign, not re-counted)
         }
+        // Then the single optimistic auto-attach trip write.
+        if (mutated) {
+          const ok = await writeTrip(trip.id, trip.updated_at, data)
+          if (ok) stats.tagged += tripTagged // count only once the write lands
+          // on conflict: benign — these confident stops remain for the next full run
+        }
+       } catch (e) {
+        console.error('[place-id-admin] trip', trip.id, String(e))
+        continue // one malformed trip must not sink the whole scan page
+       }
       }
 
       const remaining = trips.length === SCAN_PAGE_SIZE // a full page → there may be more
@@ -287,7 +295,9 @@ Deno.serve(async (req) => {
 
     // ── attach: tag the stop with a frozen candidate (optimistic). ──
     if (p.action === 'attach') {
-      const rr = await fetch(`${REVIEW}?id=eq.${p.reviewId}&select=*`, { headers: sh() })
+      const reviewId = Number(p.reviewId)
+      if (!Number.isInteger(reviewId)) return json({ status: 'gone' })
+      const rr = await fetch(`${REVIEW}?id=eq.${reviewId}&select=*`, { headers: sh() })
       const row = (rr.ok ? await rr.json() : [])[0]
       if (!row || row.status !== 'pending') return json({ status: 'gone' })
       const cand = (row.candidates as Candidate[]).find(c => c.placeId === p.placeId)
@@ -310,7 +320,9 @@ Deno.serve(async (req) => {
 
     // ── skip: mark the stop placeSource:'none' (optimistic). ──
     if (p.action === 'skip') {
-      const rr = await fetch(`${REVIEW}?id=eq.${p.reviewId}&select=*`, { headers: sh() })
+      const reviewId = Number(p.reviewId)
+      if (!Number.isInteger(reviewId)) return json({ status: 'gone' })
+      const rr = await fetch(`${REVIEW}?id=eq.${reviewId}&select=*`, { headers: sh() })
       const row = (rr.ok ? await rr.json() : [])[0]
       if (!row || row.status !== 'pending') return json({ status: 'gone' })
       const tr = await fetch(`${TRIPS}?id=eq.${encodeURIComponent(row.trip_id)}&select=id,updated_at,data`, { headers: sh() })
