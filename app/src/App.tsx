@@ -12,6 +12,7 @@ import {
   importGuide,
   importTrip,
   importStopDetail,
+  importPlaceIdAdmin,
 } from './trip/lazyRoutes'
 
 // Planner routes are lazy — a Landing/Dashboard visitor never downloads them.
@@ -21,6 +22,7 @@ const Itinerary = lazy(importItinerary)
 const Guide = lazy(importGuide)
 const Trip = lazy(importTrip)
 const StopDetail = lazy(importStopDetail)
+const PlaceIdAdmin = lazy(importPlaceIdAdmin)
 
 export default function App() {
   return (
@@ -31,6 +33,7 @@ export default function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/trips" element={<Dashboard />} />
+            <Route path="/admin/place-ids" element={<PlaceIdAdmin />} />
             <Route path="/trip/:id" element={<PlannerLayout />}>
               <Route index element={<Itinerary />} />
               <Route path="guide" element={<Guide />} />
