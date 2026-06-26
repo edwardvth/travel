@@ -46,6 +46,7 @@ export default function Landing() {
         className="relative h-[100svh] min-h-[600px] overflow-hidden"
         headline={<>Every trip,<br /><span className="italic text-gold whitespace-nowrap">beautifully guided.</span></>}
         subcopy="Made for travelers, by travelers"
+        brightness={1.8}
         onSubmit={go}
         headerRight={
           <div className="flex items-center gap-5 md:gap-7 text-[14px] text-white">
