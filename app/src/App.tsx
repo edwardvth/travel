@@ -3,7 +3,6 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Landing from './routes/Landing'
 import Auth from './routes/Auth'
 import Dashboard from './routes/Dashboard'
-import PreviewLaunchpad from './routes/_PreviewLaunchpad'
 import SplashIntro from './components/SplashIntro'
 import { ChunkErrorBoundary } from './components/ChunkErrorBoundary'
 import { RouteFallback } from './components/RouteFallbacks'
@@ -30,8 +29,6 @@ export default function App() {
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<Landing />} />
-            <Route path="/x-launchpad-fade" element={<PreviewLaunchpad variant="fade" />} />
-            <Route path="/x-launchpad-globe" element={<PreviewLaunchpad variant="globe" />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/trips" element={<Dashboard />} />
             <Route path="/trip/:id" element={<PlannerLayout />}>
