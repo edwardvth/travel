@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react'
 import { TripGrid } from './TripGrid'
-import { StaticBackdrop } from './StaticBackdrop'
+import { HomeBackground } from './HomeBackground'
 import type { Trip } from '../types'
 
 const VALUE_TRIO = [
@@ -29,7 +29,7 @@ export function Launchpad({
     <div className="mt-4 space-y-8">
       {/* Hero over the static fallback backdrop (Phase-2 shader swaps in here). */}
       <div className="relative overflow-hidden rounded-card border border-hair px-6 py-16 text-center md:py-24">
-        <StaticBackdrop />
+        <HomeBackground />
         <div className="relative">
           <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-white/80">Plan · Walk · Remember</p>
           <h1 className="mt-3 font-serif text-[clamp(40px,6vw,64px)] font-semibold leading-[0.98] tracking-tight text-white">
