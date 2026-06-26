@@ -42,7 +42,17 @@ void main(){ gl_Position = vec4(a_pos, 0.0, 1.0); }`
 const f = (n: number): string => (Number.isInteger(n) ? n.toFixed(1) : String(n))
 const v3 = (c: readonly number[]): string => `vec3(${c.map(f).join(',')})`
 
-export function fragmentSource(p: FieldGlobeParams = FIELD_GLOBE_PARAMS): string {
+export interface FragOpts { octaves?: number; blur?: boolean }
+
+export function fragmentSource(p: FieldGlobeParams = FIELD_GLOBE_PARAMS, opts: FragOpts = {}): string {
+  const octaves = opts.octaves ?? 5
+  const blur = opts.blur ?? true
+  const fbmFn = `float fbm(vec2 p){ float v=0.,a=0.5; for(int i=0;i<${octaves};i++){ v+=a*snoise(p); p*=2.02; a*=0.5; } return v; }`
+  const texB = blur
+    ? `vec3 texB = (tex
+      + texture(uEarth, uv + vec2(0.004,0.0)).rgb + texture(uEarth, uv - vec2(0.004,0.0)).rgb
+      + texture(uEarth, uv + vec2(0.0,0.004)).rgb + texture(uEarth, uv - vec2(0.0,0.004)).rgb) * 0.2;`
+    : `vec3 texB = tex;`
   return `#version 300 es
 precision highp float;
 out vec4 fragColor;
@@ -73,7 +83,7 @@ float snoise(vec2 v){
   vec3 g; g.x=a0.x*x0.x+h.x*x0.y; g.yz=a0.yz*x12.xz+h.yz*x12.yw;
   return 130.0*dot(m,g);
 }
-float fbm(vec2 p){ float v=0.,a=0.5; for(int i=0;i<5;i++){ v+=a*snoise(p); p*=2.02; a*=0.5; } return v; }
+${fbmFn}
 float hash21(vec2 p){ p=fract(p*vec2(123.34,345.45)); p+=dot(p,p+34.345); return fract(p.x*p.y); }
 float earthRad(){ return mix(1.9, 0.7, clamp(uCurve/1.2, 0.0, 1.0)); }
 float earthCy(){ return uHorizon - earthRad(); }
@@ -96,9 +106,7 @@ void main(){
     vec2 uv = vec2(0.5 + (p.x / irad) * uEarthZoom + uDrift * t * 0.012,
                    0.5 - ((p.y - icy) / irad) * uEarthZoom + uEarthPanY);
     vec3 tex = texture(uEarth, uv).rgb;
-    vec3 texB = (tex
-      + texture(uEarth, uv + vec2(0.004,0.0)).rgb + texture(uEarth, uv - vec2(0.004,0.0)).rgb
-      + texture(uEarth, uv + vec2(0.0,0.004)).rgb + texture(uEarth, uv - vec2(0.0,0.004)).rgb) * 0.2;
+    ${texB}
     float lum = max(max(tex.r, tex.g), tex.b);
 
     float landish  = (texB.r + texB.g) * 0.5 - texB.b * 0.55 + lum * 0.30;

@@ -26,3 +26,16 @@ describe('field-globe shader source', () => {
     }).toThrow()
   })
 })
+
+describe('fragmentSource cost options', () => {
+  it('defaults to 5 octaves + 5-tap blur (current look)', () => {
+    const f = fragmentSource()
+    expect(f).toMatch(/i<5/)              // fbm octaves
+    expect(f).toMatch(/texture\(uEarth, uv \+ vec2\(0\.004,0\.0\)\)/) // blur taps present
+  })
+  it('can emit a cheaper variant (3 octaves, no blur taps)', () => {
+    const f = fragmentSource(undefined, { octaves: 3, blur: false })
+    expect(f).toMatch(/i<3/)
+    expect(f).not.toMatch(/texture\(uEarth, uv \+ vec2/)
+  })
+})
