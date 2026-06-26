@@ -72,7 +72,14 @@ function validPoster(url: string | null): string | null {
   try { const u = new URL(url); return u.protocol === 'https:' && u.hostname.endsWith('.pexels.com') ? url : null } catch { return null }
 }
 
-/** Require an authenticated Supabase user (lightweight claim check — abuse gate). */
+/**
+ * Require an authenticated Supabase USER (role=authenticated), not anon.
+ * Decodes the JWT claims WITHOUT verifying the signature — that's safe ONLY
+ * because the function is deployed with Supabase's platform `verify_jwt` ENABLED
+ * (the default), which validates the signature before we ever run. So: deploy
+ * normally (do NOT pass --no-verify-jwt). Platform proves the token is genuine;
+ * this check proves it's a real user (the public anon key has role 'anon').
+ */
 function isAuthed(req: Request): boolean {
   const m = (req.headers.get('Authorization') ?? '').match(/^Bearer (.+)$/)
   if (!m) return false
