@@ -751,6 +751,11 @@ export function CinematicLaunchpad({
         videoPlaying={heroActive}
         onSubmit={onCreate}
         headerRight={<Button variant="claret" onClick={onCreate}><Plus size={16} strokeWidth={2.5} />New trip</Button>}
+        // Overrides to match the approved preview metrics (Task 1 added these props;
+        // defaults are Landing's, so we override here for the launchpad's look).
+        headlineClassName="mt-4 font-serif font-medium tracking-tight text-[44px] leading-[1.02] md:text-[70px]"
+        copyPaddingClassName="pt-[16vh] md:pt-[18vh]"
+        pillMarginClassName="mt-[calc(8vh_+_2.25rem)] md:mt-10"
       />
 
       {/* Your travels — pulled up over the globe (glass cards let the Earth show beneath). */}
