@@ -34,13 +34,23 @@ Top → bottom (values locked from the approved `/x-launchpad-globe` preview; th
 2. **Video brightness `1.8`** — a `brightness(1.8)` filter on the video layer (the landing footage reads too dark for the logged-in home; 1.8 was chosen by eye). Headline/pill legibility must hold at this brightness.
 3. **Dissolve transition** — the video layer is masked `linear-gradient(to bottom, #000 70%, transparent 96%)` so its lower third fades to transparent and **merges into the globe's dark sky** (no black panel, no hard cut).
 
-   The transition should feel like a single continuous environment rather than two stacked sections. As the destination footage fades away, it should naturally reveal the night Earth beneath, making the globe feel like the world that exists beyond the cinematic scene instead of a separate background.
+   The transition should feel like a single continuous environment rather than two stacked sections. As the destination footage fades away, it should naturally reveal the night Earth beneath, making the globe feel like the world that exists beyond the cinematic scene instead of a separate background. **The dissolve is owned entirely by the video layer; the globe remains fully opaque beneath it and does not apply a reciprocal mask or fade.**
 4. **The globe** — a tall night-Earth background behind everything; its **dark sky sits behind the clip**, its **bright limb + arcs sit low, behind the bottom of the trip tiles** (preview: globe canvas `top-20vh`, height ~`170vh` — to be re-derived against the production component, see §5).
 5. **Trips** — "Your travels", **medium weight, left-aligned**, pulled up close to the pill (preview: `-mt-18vh`); trip cards remain **glass** (`bg-white/6 backdrop-blur-xl border-white/15`) so they read over the globe while allowing the Earth to remain visible beneath.
 
 > These pixel values are the *intended result*. The implementation re-tunes them once the production `FieldGlobe` (not the preview's always-on inline shader) is in place; the acceptance test is "matches the approved preview," not "identical class strings."
 
 **Design principle:** the cinematic footage should be the primary emotional focus, the search pill the primary interaction, and the globe a subtle environmental backdrop that supports — rather than competes with — the content.
+
+**Layer order (front → back):**
+1. Header
+2. Hero content (headline, search pill, micro details)
+3. Trip cards ("Your travels")
+4. Cinematic video (masked)
+5. FieldGlobe
+6. Static backdrop / page background
+
+This stacking order is fixed unless intentionally revised. The globe must never visually overlap or compete with interactive content.
 
 ## 4. Shared `CinematicHero` component
 
@@ -57,11 +67,14 @@ This is the "copy-paste the elements" request, done as one shared unit instead o
 
 Decision (approved): **animated + full safeguards.** The globe stays a live shader on capable devices but is made cheap and never competes with the video.
 
+**The globe is purely decorative.** It must never receive pointer events, keyboard focus, or affect scrolling or hit testing.
+
 **Reuse from the existing `FieldGlobe`:** offscreen pause (`IntersectionObserver`), tab-hidden pause (`visibilitychange`), `pagehide`/`pageshow`, the adaptive quality ladder (frame-time → fewer arc samples → lower DPR → 30fps cadence), reduced-motion still-frame, and no-WebGL bail.
 
 **New for this context:**
 1. **Make `FieldGlobe` work as the tall dissolve-merge background.** (In preview, an earlier attempt rendered white as a fixed background — the production component must reach the same visual as the proven inline shader; same shader source, so this is a lifecycle/positioning fix, not a visual one.)
 2. **Video ↔ globe coordination — they never render at once.** Exactly one animated background may be active at any time. While the cinematic hero is active, the globe is paused (or not yet mounted). Once the hero leaves its active region, the video pauses and the globe becomes active. This guarantee is part of the performance budget and must always hold.
+   - **"Paused" is defined:** for the **video**, playback halts and **no new frames are decoded** until reactivated; for the **globe**, the **render loop stops entirely** (no `requestAnimationFrame` work). These definitions make the guarantee measurable.
 3. **Cheaper baseline** on the launchpad: DPR cap **≤ 1.0**, fbm octaves **5 → 3**, the **5-tap texture blur → 1 tap**, and the canvas **sized to the visible merge area** (not a 170vh monolith). Negligible visual change, large cost cut.
 4. **Static globe *image* fallback.** Pre-render one representative frame of the globe to a small WebP (`globe-still.webp`). It is shown (zero per-frame cost) for: `prefers-reduced-motion`, no-WebGL, and the **lowest rung of the adaptive ladder** (a device that keeps missing frames drops all the way to the still image rather than juddering). This replaces the plain-gradient fallback so the fallback still *looks like the globe*.
 5. **Lazy-mount** — the WebGL context is created only when the globe nears the viewport; visitors who never scroll down pay nothing.
@@ -86,7 +99,7 @@ Mount the field-globe as the Auth background, behind the sign-up/sign-in form:
 ## 7. Components, files & repurposing
 
 **New**
-- `app/src/components/CinematicHero.tsx` — shared hero (§4).
+- `app/src/components/CinematicHero.tsx` — shared hero (§4). **It is the single source of truth for the landing and launchpad hero; visual changes to shared hero elements are made here, not duplicated between pages.**
 - `app/src/components/HomeBackground.tsx` *(repurpose)* — becomes the launchpad's globe-merge + trips wrapper (was the static-gradient boundary).
 - `app/src/home/useInViewActive.ts` — the shared in-view signal coordinating video↔globe (§5.2).
 - `app/src/assets/globe-still.webp` — pre-rendered static globe frame (§5.4).
@@ -111,6 +124,7 @@ Mount the field-globe as the Auth background, behind the sign-up/sign-in form:
 
 - **Unit/RTL:** `CinematicHero` renders headline/subcopy/pill and applies the brightness filter; Landing + Launchpad both consume it. `useInViewActive` toggles correctly (mock `IntersectionObserver`). `FieldGlobe` still bails/falls-back without WebGL; reduced-motion → no loop. The adaptive ladder's new bottom rung resolves to "static image". Existing Launchpad/Dashboard/Auth tests stay green. `tsc -b` clean.
 - **Manual/perf:** on a throttled mid-range mobile profile — (a) at the hero, the globe loop is **not** running; (b) scrolled to the globe, the **video** is paused and the globe holds ~60fps or steps down gracefully; (c) reduced-motion shows the still image; (d) the dissolve matches the approved preview. Confirm video+globe are never both animating (DevTools performance / frame markers).
+- **Transition fidelity (cross-browser):** verify there is **no visible flash, brightness jump, or discontinuity** during the hero → globe transition across **Chrome, Safari, and Firefox** — this transition is the centerpiece of the page.
 
 ## 10. Perf budget
 
