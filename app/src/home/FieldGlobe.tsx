@@ -280,7 +280,9 @@ export function FieldGlobe({ className, active = true, staticSrc, dprCap = 1.5, 
     const boot = () => {
       if (booted) return
       booted = true
-      if (!initGL()) return
+      // Shader compile/link failure must also fall back to the still image,
+      // never a blank (transparent) canvas that reveals the page behind.
+      if (!initGL()) { if (staticSrc) setShowStatic(true); return }
       if (earthRef.current) uploadEarth(earthRef.current)
       // Always paint one static frame so the globe is visible as a still at the
       // top (no "pop" when it later activates). A single draw is not a loop, so

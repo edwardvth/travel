@@ -30,10 +30,12 @@ export function CinematicLaunchpad({
   const { globeRef, globeActive, heroActive } = useInViewActive()
 
   return (
-    <div className="relative bg-[#07070b] text-white">
-      {/* FieldGlobe — tall background; dark sky behind the clip, arcs low behind tiles. */}
+    <div className="relative min-h-[100svh] bg-[#05060a] text-white">
+      {/* FieldGlobe — tall background; dark sky behind the clip, arcs low behind tiles.
+          The dark bg here guarantees the area is never white even if WebGL fails to
+          start (the canvas + static image layer over it). */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden bg-[#05060a]"
       >
         {/* Inner positioning box sets the globe's framing. FieldGlobe's root forces
             inset:0 inline, so it fills THIS box rather than its own className. */}
