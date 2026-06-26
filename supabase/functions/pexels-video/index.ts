@@ -33,7 +33,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SERVICE_KEY =
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY') ?? ''
 
-const MIN_DURATION = 6
+const MIN_DURATION = 4
 const MIN_GOOD_SCORE = 2.5
 const COUNTRY_MARGIN = 1.0
 const TTL_MS = 180 * 24 * 3600_000
@@ -144,14 +144,18 @@ interface PexelsFile { link?: string; width?: number; height?: number; file_type
 interface PexelsVideo { id?: number; url?: string; duration?: number; image?: string; user?: { name?: string; url?: string }; video_files?: PexelsFile[] }
 
 function bestFile(v: PexelsVideo): { link: string; width: number; height: number } | null {
+  // Permissive: any landscape-ish mp4 ≥360p. Scoring (below) prefers good ones;
+  // we'd rather show a decent clip than fall back to the generic walking video.
   const files = (v.video_files ?? []).filter((f) => {
     const w = f.width ?? 0, h = f.height ?? 0
-    return f.file_type === 'video/mp4' && h >= 540 && h <= 1300 && w / Math.max(h, 1) >= 1.6
+    return f.file_type === 'video/mp4' && w > h && h >= 360 && w / Math.max(h, 1) >= 1.3 && (f.link ? validVideoUrl(f.link) : false)
   })
   if (!files.length) return null
-  files.sort((a, b) => Math.abs((a.height ?? 0) - 1080) - Math.abs((b.height ?? 0) - 1080))
+  // Prefer ~1080p; 4K (>1300p) is allowed but penalized (heavy to stream).
+  const pen = (f: PexelsFile) => { const h = f.height ?? 0; return (h > 1300 ? 400 : 0) + Math.abs(h - 1080) }
+  files.sort((a, b) => pen(a) - pen(b))
   const f = files[0]
-  return f.link && validVideoUrl(f.link) ? { link: f.link, width: f.width ?? 0, height: f.height ?? 0 } : null
+  return { link: f.link!, width: f.width ?? 0, height: f.height ?? 0 }
 }
 
 function score(v: PexelsVideo, idx: number, file: { width: number; height: number }): number {
@@ -182,6 +186,7 @@ async function searchPexels(query: string): Promise<Resolved | null> {
       const s = score(v, idx, f)
       if (!best || s > best.s) best = { s, v, link: f.link }
     })
+    console.log(`[pexels-video] "${query}": ${videos.length} videos → ${best ? `picked score=${(best as { s: number }).s.toFixed(2)}` : 'NO usable landscape clip'}`)
     if (!best) return null
     return {
       url: best.link, score: best.s, poster: validPoster(typeof best.v.image === 'string' ? best.v.image : null),
@@ -203,6 +208,7 @@ Deno.serve(async (req) => {
   const country = (body.country ?? '').slice(0, 120)
   const nCity = normalize(city), nCountry = normalize(country)
   if (!nCity) return json({ url: null })
+  console.log(`[pexels-video] req city="${city}" country="${country}" (key=${nCity}|${nCountry})`)
 
   const key = `${nCity}|${nCountry}`
   const countryKey = nCountry ? `~|${nCountry}` : ''
