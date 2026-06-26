@@ -1,5 +1,6 @@
 import { Search } from 'lucide-react'
 import { TripGrid } from './TripGrid'
+import { StaticBackdrop } from './StaticBackdrop'
 import type { Trip } from '../types'
 
 const VALUE_TRIO = [
@@ -27,24 +28,8 @@ export function Launchpad({
   return (
     <div className="mt-4 space-y-8">
       {/* Hero over the static fallback backdrop (Phase-2 shader swaps in here). */}
-      <div
-        className="relative overflow-hidden rounded-card border border-hair px-6 py-16 text-center md:py-24"
-        style={{
-          background:
-            'radial-gradient(120% 85% at 50% -5%, rgba(58,34,48,0.55) 0%, rgba(21,13,18,0.55) 48%, #07070b 100%)',
-        }}
-      >
-        {/* faint map-grid texture — the launchpad's calm "world field" stand-in */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-40"
-          style={{
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.04) 1px, transparent 1px)',
-            backgroundSize: '34px 34px',
-            maskImage: 'radial-gradient(70% 60% at 50% 30%, #000, transparent 75%)',
-          }}
-        />
+      <div className="relative overflow-hidden rounded-card border border-hair px-6 py-16 text-center md:py-24">
+        <StaticBackdrop />
         <div className="relative">
           <p className="font-mono text-[11px] uppercase tracking-[0.28em] text-white/80">Plan · Walk · Remember</p>
           <h1 className="mt-3 font-serif text-[clamp(40px,6vw,64px)] font-semibold leading-[0.98] tracking-tight text-white">
