@@ -48,3 +48,20 @@ describe('HeroVideoStage', () => {
     expect(srcs).toContain(TOKYO.poster)
   })
 })
+
+const CLIP = {
+  id: 'p', label: 'p', category: 'historic', timeOfDay: ['morning'], season: ['spring'],
+  poster: '/video/paris.jpg', sources: [{ src: '/video/paris.mp4', type: 'video/mp4' }],
+  dominantColor: '#222', focalPoint: { x: 0.5, y: 0.5 }, weight: 1,
+} as never
+
+describe('HeroVideoStage pause', () => {
+  it('pauses video elements when playing=false', () => {
+    const pause = vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {})
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve())
+    const { rerender } = render(<HeroVideoStage clip={CLIP} playing />)
+    rerender(<HeroVideoStage clip={CLIP} playing={false} />)
+    expect(pause).toHaveBeenCalled()
+    vi.restoreAllMocks()
+  })
+})

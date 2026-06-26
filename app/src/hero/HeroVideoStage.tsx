@@ -75,9 +75,11 @@ export interface HeroVideoStageProps {
   /** Upcoming clips to prefetch so the next crossfades are instant. */
   upcoming?: HeroClip[]
   className?: string
+  /** When false, both video layers pause (no new frames decoded). Default true. */
+  playing?: boolean
 }
 
-export function HeroVideoStage({ clip, upcoming, className }: HeroVideoStageProps) {
+export function HeroVideoStage({ clip, upcoming, className, playing = true }: HeroVideoStageProps) {
   const reducedMotion = useReducedMotion() ?? false
   const posterOnly = useMemo(() => computePosterOnly(reducedMotion), [reducedMotion])
   const isMobile = useIsMobile()
@@ -162,6 +164,17 @@ export function HeroVideoStage({ clip, upcoming, className }: HeroVideoStageProp
       fetch(src).catch(() => {})
     }
   }, [upcoming, isMobile, posterOnly])
+
+  /* External pause: halt playback (and new-frame decoding) when not playing;
+     resume on reactivation. Part of the "one animated background" guarantee. */
+  useEffect(() => {
+    const vids = [videoARef.current, videoBRef.current]
+    for (const v of vids) {
+      if (!v) continue
+      if (playing) { v.play?.()?.catch(() => {}) }
+      else { try { v.pause?.() } catch { /* jsdom */ } }
+    }
+  }, [playing, posterOnly])
 
   const scrimColor = (front === 'a' ? clipA : clipB).dominantColor
 
