@@ -22,12 +22,13 @@ import globeStill from '../assets/globe-still.webp'
  */
 
 const TRIP = {
-  name: 'Luxembourg',
-  country: 'Luxembourg',
+  name: 'Sochi',
+  country: 'Russia',
   dates: 'Apr 14 → Apr 20',
   stops: '10 stops',
-  // Resolved by the cover pipeline (no matching hero clip → cover photo is used).
-  cover: 'https://images.unsplash.com/photo-1588336899284-950764f07147?ixid=M3w5ODU3NjF8MHwxfHNlYXJjaHwxfHxMdXhlbWJvdXJnfGVufDF8MHx8fDE3ODI1MTEyOTJ8MA&ixlib=rb-4.1.0&w=1600&q=80&fm=jpg&fit=max',
+  // Resolved by the cover pipeline. No curated clip for Sochi → real Pexels path;
+  // Russia is big so the city ("Sochi Russia") should have footage (no escalation).
+  cover: 'https://images.unsplash.com/photo-1608926632580-067ba78be72b?ixid=M3w5ODU3NjF8MHwxfHNlYXJjaHwxfHxTb2NoaXxlbnwxfDB8fHwxNzgyNTE0NTI0fDA&ixlib=rb-4.1.0&w=1600&q=80&fm=jpg&fit=max',
 }
 const PAST = [
   { name: 'Positano', date: 'Jun 2025 · 4 days', img: '/video/positano.jpg' },
