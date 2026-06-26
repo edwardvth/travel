@@ -14,23 +14,25 @@ export default function PlaceIdAdmin() {
   const [rows, setRows] = useState<ReviewRow[]>([])
   const [busyId, setBusyId] = useState<number | null>(null)
 
-  if (profile && !isFounder(profile)) return <Navigate to="/trips" replace />
+  if (!profile) return null // wait for the profile query before deciding access (no flash of the admin UI)
+  if (!isFounder(profile)) return <Navigate to="/trips" replace />
 
   const loadMetrics = async () => { try { setPending((await placeIdAdmin.metrics()).pending_review) } catch { /* ignore */ } }
   const loadList = async () => { try { setRows((await placeIdAdmin.list()).rows) } catch { /* ignore */ } }
 
   const runBackfill = async () => {
     setRunning(true)
-    const agg = { processed: 0, tagged: 0, queued: 0 }
+    const agg = { processed: 0, tagged: 0, queued: 0, google_failures: 0 }
     let cursor: string | undefined
     try {
-      // Drive pagination until the function reports done.
-      for (;;) {
+      // Drive pagination until the function reports done. The guard is a safety
+      // valve against a non-advancing cursor (server would otherwise loop forever).
+      for (let i = 0; i < 10_000; i++) {
         const s = await placeIdAdmin.scan(cursor)
-        agg.processed += s.processed; agg.tagged += s.tagged; agg.queued += s.queued
+        agg.processed += s.processed; agg.tagged += s.tagged; agg.queued += s.queued; agg.google_failures += s.google_failures
         setStats({ ...s, ...agg })
+        if (s.done || s.cursor === cursor) break // done, or cursor stalled → stop
         cursor = s.cursor
-        if (s.done) break
       }
     } catch { /* surfaced via stats halt */ }
     setRunning(false)
