@@ -29,13 +29,23 @@ export interface CinematicHeroProps {
   videoMask?: string
   /** When false, the video pauses (coordination). Default true. */
   videoPlaying?: boolean
+  /** <h1> className. Defaults to Landing's exact metrics; launchpad overrides. */
+  headlineClassName?: string
+  /** Copy-block top padding. Defaults to Landing's exact metrics; launchpad overrides. */
+  copyPaddingClassName?: string
+  /** HeroSearchPill top margin. Defaults to Landing's exact metrics; launchpad overrides. */
+  pillMarginClassName?: string
   onSubmit: (destination: string) => void
   className?: string
 }
 
 export function CinematicHero({
   headline, subcopy, eyebrow = 'Plan · Walk · Remember', headerRight,
-  brightness = 1, videoMask, videoPlaying = true, onSubmit, className,
+  brightness = 1, videoMask, videoPlaying = true,
+  headlineClassName = 'mt-4 font-serif font-medium tracking-tight text-[40px] leading-[1.04] md:text-[66px] md:leading-[1.02]',
+  copyPaddingClassName = 'pt-[17vh] md:pt-[19vh]',
+  pillMarginClassName = 'mt-[calc(10vh_+_2.25rem)] md:mt-12',
+  onSubmit, className,
 }: CinematicHeroProps) {
   const reduce = useReducedMotion()
   const [clip, setClip] = useState(FIRST_CLIP)
@@ -77,13 +87,13 @@ export function CinematicHero({
         initial={reduce ? false : { y: 12 }}
         animate={{ y: 0 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="pointer-events-none absolute inset-x-0 top-0 z-20 flex h-full flex-col items-center px-5 text-center text-white pt-[16vh] md:pt-[18vh]"
+        className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex h-full flex-col items-center px-5 text-center text-white ${copyPaddingClassName}`}
       >
         <div className="font-mono text-[11px] md:text-[12px] uppercase tracking-[0.32em] text-white/85">
           {eyebrow}
         </div>
         <h1
-          className="mt-4 font-serif font-medium tracking-tight text-[44px] leading-[1.02] md:text-[70px]"
+          className={headlineClassName}
           style={{ textShadow: '0 2px 30px rgba(0,0,0,.6)' }}
         >
           {headline}
@@ -94,7 +104,7 @@ export function CinematicHero({
         <HeroSearchPill
           onSubmit={onSubmit}
           onWordStart={onWord}
-          className="pointer-events-auto mt-[calc(8vh_+_2.25rem)] md:mt-10"
+          className={`pointer-events-auto ${pillMarginClassName}`}
         />
         <HeroMicroDetails className="mt-4" />
       </motion.div>
