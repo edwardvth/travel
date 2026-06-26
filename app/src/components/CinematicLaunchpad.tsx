@@ -18,12 +18,14 @@ const VIDEO_MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
  * FieldGlobe → page black.
  */
 export function CinematicLaunchpad({
-  pastTrips, onCreate, onOpenTrip, tripActions,
+  pastTrips, onCreate, onOpenTrip, tripActions, headerRight,
 }: {
   pastTrips: Trip[]
   onCreate: () => void
   onOpenTrip: (id: string) => void
   tripActions?: (t: Trip) => ReactNode
+  /** Right-hand header content. Default = the "+ New trip" button. */
+  headerRight?: ReactNode
 }) {
   const { globeRef, globeActive, heroActive } = useInViewActive()
 
@@ -31,7 +33,6 @@ export function CinematicLaunchpad({
     <div className="relative bg-[#07070b] text-white">
       {/* FieldGlobe — tall background; dark sky behind the clip, arcs low behind tiles. */}
       <div
-        ref={globeRef}
         className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
       >
         {/* Inner positioning box sets the globe's framing. FieldGlobe's root forces
@@ -56,7 +57,7 @@ export function CinematicLaunchpad({
         videoMask={VIDEO_MASK}
         videoPlaying={heroActive}
         onSubmit={onCreate}
-        headerRight={<Button variant="claret" onClick={onCreate}><Plus size={16} strokeWidth={2.5} />New trip</Button>}
+        headerRight={headerRight ?? <Button variant="claret" onClick={onCreate}><Plus size={16} strokeWidth={2.5} />New trip</Button>}
         // Overrides to match the approved preview metrics (Task 1 added these props;
         // defaults are Landing's, so we override here for the launchpad's look).
         headlineClassName="mt-4 font-serif font-medium tracking-tight text-[44px] leading-[1.02] md:text-[70px]"
@@ -67,6 +68,10 @@ export function CinematicLaunchpad({
       {/* Your travels — pulled up over the globe (glass cards let the Earth show beneath). */}
       <section className="relative z-10 -mt-[18vh]">
         <div className="mx-auto max-w-6xl px-5 md:px-8 pt-[2vh] pb-[40vh]">
+          {/* Globe-activation sentinel — once this scrolls into the top ~45% of the
+              viewport (useInViewActive's -55% bottom margin), the globe goes live and
+              the hero video pauses. At the top (on the hero) the globe stays paused. */}
+          <div ref={globeRef} aria-hidden className="h-px w-full" />
           <h2
             className="mb-5 text-left font-serif text-[clamp(22px,3.2vw,30px)] font-medium tracking-tight text-white"
             style={{ textShadow: '0 2px 24px rgba(0,0,0,.55)' }}

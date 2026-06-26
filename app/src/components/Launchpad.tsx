@@ -8,12 +8,14 @@ import type { Trip } from '../types'
  * Dashboard never changes when the launchpad's internals evolve.
  */
 export function Launchpad({
-  pastTrips, onCreate, onOpenTrip, tripActions,
+  pastTrips, onCreate, onOpenTrip, tripActions, headerRight,
 }: {
   pastTrips: Trip[]
   onCreate: () => void
   onOpenTrip: (id: string) => void
   tripActions?: (t: Trip) => React.ReactNode
+  /** Right-hand header content for the cinematic hero. Default = "+ New trip". */
+  headerRight?: React.ReactNode
 }) {
   return (
     <CinematicLaunchpad
@@ -21,6 +23,7 @@ export function Launchpad({
       onCreate={onCreate}
       onOpenTrip={onOpenTrip}
       tripActions={tripActions}
+      headerRight={headerRight}
     />
   )
 }

@@ -103,8 +103,10 @@ export default function Auth() {
       <div aria-hidden className="pointer-events-none absolute inset-0"
         style={{ background: 'radial-gradient(120% 80% at 50% 40%, rgba(5,5,9,0.45), rgba(5,5,9,0.78))' }} />
       <div className="relative z-10 min-h-screen w-full bg-transparent overflow-hidden flex items-center justify-center p-5">
-      {/* Claret atmosphere — the signature, in place of the template's purple */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#9C3D3A]/30 via-[#5A1F22]/40 to-black" />
+      {/* Claret atmosphere — the signature, in place of the template's purple.
+          Kept deliberately sheer so the FieldGlobe + §6 scrim read through it
+          while the glass card still anchors the form's legibility. */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#9C3D3A]/12 via-[#5A1F22]/18 to-black/40" />
 
       {/* Noise texture */}
       <div className="absolute inset-0 opacity-[0.035] mix-blend-soft-light"

@@ -171,7 +171,7 @@ export function HeroVideoStage({ clip, upcoming, className, playing = true }: He
     const vids = [videoARef.current, videoBRef.current]
     for (const v of vids) {
       if (!v) continue
-      if (playing) { v.play?.()?.catch(() => {}) }
+      if (playing) { try { v.play?.()?.catch(() => {}) } catch { /* jsdom */ } }
       else { try { v.pause?.() } catch { /* jsdom */ } }
     }
   }, [playing, posterOnly])

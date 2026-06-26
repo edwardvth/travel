@@ -22,6 +22,7 @@ import { ShareSheet } from './ShareSheet'
 import { AccountMenu } from '../components/AccountMenu'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { IconButton } from '../components/ui/IconButton'
+import { ThemeToggle } from '../components/ThemeToggle'
 
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth()
@@ -108,7 +109,6 @@ export default function Dashboard() {
   const openArrange = (id: string) => { nav(`/trip/${encodeURIComponent(id)}/trip`) }    // → Trip view
   const openGuide = (id: string) => { nav(`/trip/${encodeURIComponent(id)}/guide`) }     // → Guide
   const isTeaser = !!profile && profile.role !== 'founder' && (profile.credits ?? 0) < 1
-  const hasTrips = (trips?.length ?? 0) > 0
 
   // Single creation entry point. Phase 1 → NewTripSheet; Phase 3 swaps this for the pill.
   const openCreateTrip = () => setNewOpen(true)
@@ -127,6 +127,47 @@ export default function Dashboard() {
     transition: { duration: 0.22, ease: 'easeOut' as const },
   })
 
+  // Sheets/dialogs that must stay mounted regardless of which state renders.
+  const overlays = (
+    <>
+      <NewTripSheet open={newOpen} onClose={() => setNewOpen(false)} isTeaser={isTeaser}
+        onCreated={(id) => { setNewOpen(false); openTrip(id) }} />
+
+      {shareId && <ShareSheet tripId={shareId} open onClose={() => setShareId(null)} />}
+      <ConfirmDialog open={!!deleteId} title="Delete this trip?"
+        body="This removes the trip and all its stops. This can't be undone."
+        confirmLabel="Delete" busy={del.isPending}
+        onCancel={() => setDeleteId(null)}
+        onConfirm={async () => { if (deleteId) { try { await del.mutateAsync(deleteId) } catch { /* ignore */ } setDeleteId(null) } }} />
+    </>
+  )
+
+  // State C — the cinematic launchpad is a FULL-PAGE design with its OWN header.
+  // Render it full-bleed, OUTSIDE AppShell and the padded max-w column, so the
+  // page has exactly ONE header (the cinematic hero's nav). That header carries
+  // the same controls AppShell's home header provides: theme toggle, "+ New trip",
+  // and the account menu — kept legible over the dark hero via a white-text wrapper.
+  if (!isLoading && !focus) {
+    return (
+      <>
+        <Launchpad
+          pastTrips={past}
+          onCreate={openCreateTrip}
+          onOpenTrip={openTrip}
+          tripActions={tripActions}
+          headerRight={
+            <div className="flex items-center gap-2.5 text-white [&_button]:text-white">
+              <ThemeToggle />
+              <Button variant="claret" onClick={openCreateTrip}><Plus size={16} strokeWidth={2.5} />New trip</Button>
+              <AccountMenu email={user?.email ?? ''} profile={profile} />
+            </div>
+          }
+        />
+        {overlays}
+      </>
+    )
+  }
+
   return (
     <AppShell right={<>
       <Button variant="claret" onClick={openCreateTrip}><Plus size={16} strokeWidth={2.5} />New trip</Button>
@@ -140,11 +181,6 @@ export default function Dashboard() {
             <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[0, 1, 2].map(i => <Skeleton key={i} className="h-[200px] rounded-card" />)}
             </div>
-          </>
-        ) : !hasTrips ? (
-          <>
-            <p className="text-[13px] text-muted">{greeting}</p>
-            <Launchpad pastTrips={[]} onCreate={openCreateTrip} onOpenTrip={openTrip} tripActions={tripActions} />
           </>
         ) : focus ? (
           <>
@@ -171,23 +207,10 @@ export default function Dashboard() {
               </motion.div>
             </AnimatePresence>
           </>
-        ) : (
-          <>
-            <p className="text-[13px] text-muted">{greeting}</p>
-            <Launchpad pastTrips={past} onCreate={openCreateTrip} onOpenTrip={openTrip} tripActions={tripActions} />
-          </>
-        )}
+        ) : null /* State C is handled by the full-bleed early-return above. */}
       </div>
 
-      <NewTripSheet open={newOpen} onClose={() => setNewOpen(false)} isTeaser={isTeaser}
-        onCreated={(id) => { setNewOpen(false); openTrip(id) }} />
-
-      {shareId && <ShareSheet tripId={shareId} open onClose={() => setShareId(null)} />}
-      <ConfirmDialog open={!!deleteId} title="Delete this trip?"
-        body="This removes the trip and all its stops. This can't be undone."
-        confirmLabel="Delete" busy={del.isPending}
-        onCancel={() => setDeleteId(null)}
-        onConfirm={async () => { if (deleteId) { try { await del.mutateAsync(deleteId) } catch { /* ignore */ } setDeleteId(null) } }} />
+      {overlays}
     </AppShell>
   )
 }

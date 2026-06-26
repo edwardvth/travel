@@ -282,11 +282,13 @@ export function FieldGlobe({ className, active = true, staticSrc, dprCap = 1.5, 
       booted = true
       if (!initGL()) return
       if (earthRef.current) uploadEarth(earthRef.current)
-      if (reduce) {
-        renderOnce() // one calm frame, no loop
-      } else {
-        apply()
-      }
+      // Always paint one static frame so the globe is visible as a still at the
+      // top (no "pop" when it later activates). A single draw is not a loop, so
+      // this doesn't violate "one animated background".
+      renderOnce()
+      // Then start the animation LOOP only if motion is allowed (apply() also
+      // honours onscreen/visible/active, and is a no-op under reduced motion).
+      if (!reduce) apply()
     }
 
     // Lazy-mount: only create GL work once the root is near the viewport.

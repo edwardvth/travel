@@ -7,8 +7,12 @@ import { useCallback, useEffect, useState } from 'react'
  * region scrolls in, the globe becomes active and the hero deactivates (video
  * pauses). Using a callback ref + state means the observer attaches exactly when
  * the node mounts (and re-attaches if it changes), with no per-render churn.
+ *
+ * `rootMargin` shrinks the observed area: the default `0px 0px -55% 0px` means the
+ * sentinel must scroll into the top ~45% of the viewport before the globe activates,
+ * so at the top of the page (on the hero) the globe stays paused and the video plays.
  */
-export function useInViewActive() {
+export function useInViewActive(rootMargin = '0px 0px -55% 0px') {
   const [globeEl, setGlobeEl] = useState<HTMLElement | null>(null)
   const globeRef = useCallback((el: HTMLElement | null) => { setGlobeEl(el) }, [])
   const [globeActive, setGlobeActive] = useState(false)
@@ -19,11 +23,11 @@ export function useInViewActive() {
       (entries) => {
         for (const e of entries) setGlobeActive(e.isIntersecting)
       },
-      { threshold: 0.01 },
+      { threshold: 0.01, rootMargin },
     )
     io.observe(globeEl)
     return () => io.disconnect()
-  }, [globeEl])
+  }, [globeEl, rootMargin])
 
   return { globeRef, globeActive, heroActive: !globeActive }
 }
