@@ -6,7 +6,7 @@ import { homeGroups, filterTrips, type HomeGroups } from '../lib/home-groups'
 import { useAccountSettings } from '../data/useAccountSettings'
 import { TravelTile } from './TravelTile'
 import { TripRow } from './TripRow'
-import { SoftBackdrop, TS } from './home-style'
+import { TS } from './home-style'
 
 /**
  * The "Your travels" block below the State-B cockpit hero: a heading + a
@@ -104,9 +104,9 @@ export function TravelsList({
         )}
       </div>
 
-      {/* Content */}
+      {/* Content — no dark backdrop here so the globe stays visible behind the
+          list (esp. on mobile); items carry their own glass bg + text shadows. */}
       <div className="relative">
-        <SoftBackdrop />
         {empty ? (
           <p className="py-12 text-center text-[14px] text-white/55">
             {query.trim() ? `No trips match “${query}”.` : 'Your other trips will appear here.'}

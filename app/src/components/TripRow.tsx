@@ -33,7 +33,7 @@ export function TripRow({
         className="absolute inset-0 z-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
       />
 
-      <div className="pointer-events-none relative z-10 flex w-full items-center gap-3.5">
+      <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-3.5">
         <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-white/[0.04] ring-1 ring-white/10">
           {url && <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />}
           {loading && <span className="absolute inset-0 animate-pulse bg-white/[0.04]" />}
@@ -49,7 +49,7 @@ export function TripRow({
       </div>
 
       {actions && (
-        <div className="absolute right-3 top-1/2 z-20 flex -translate-y-1/2 gap-1.5 opacity-100 transition-opacity duration-200 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-within:opacity-100">
+        <div className="relative z-20 flex shrink-0 items-center gap-1.5 opacity-100 transition-opacity duration-200 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-within:opacity-100">
           {actions}
         </div>
       )}
