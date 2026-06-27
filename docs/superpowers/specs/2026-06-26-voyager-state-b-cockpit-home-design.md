@@ -1,6 +1,6 @@
 # Voyager State B — Cinematic Cockpit Home (design spec)
 
-**Date:** 2026-06-26 · **Branch:** `field-globe-phase-2` · **Status:** approved-for-planning
+**Date:** 2026-06-26 · **Branch:** `field-globe-phase-2` · **Status:** approved-for-planning (revised after spec review)
 
 ## Context
 
@@ -39,13 +39,14 @@ Full-bleed, rendered **outside `AppShell`** (an early-return in `Dashboard`, exa
 │     └───────────────────────────────────┘                     │
 │  ── video dissolves into globe (−18vh) ──                     │
 │  YOUR TRAVELS                          [▦ Tiles] [▤ Detailed] │
-│  [ 🔍 Search your trips… ]                                    │
-│  Upcoming                                                     │
-│   <tiles | rows>                                              │
-│  Past                                                         │
-│   <tiles | rows>                                              │
+│  [ 🔍 Search your trips…                                 ✕ ] │
+│  Upcoming   <tiles | rows>                                    │
+│  Planning   <tiles | rows>   (undated future trips)          │
+│  Past       <tiles | rows>                                    │
 └───────────────────────────────────────────────────────────────┘
 ```
+
+**Group order is fixed: Upcoming → Planning → Past** (undated/“planning” trips sit closer to upcoming than to completed). Each group keeps its **label heading even after a search filter** — the list is grouped sections, never one flattened grid, so the timeline structure survives at 30+ trips.
 
 ## Component 1 — the cockpit card (featured trip)
 
@@ -61,6 +62,14 @@ Full-bleed, rendered **outside `AppShell`** (an early-return in `Dashboard`, exa
 | `before`, itinerary incomplete | **Start planning** → Plan | **Guide** → Guide |
 | `before`, itinerary complete | **Open plan** → Plan | **Guide** → Guide |
 
+**“Itinerary complete” is concretely `cockpitModel.itineraryComplete`** = `days.length > 0 && every day has ≥1 stop` (the existing, unit-tested field). It is **independent of reservations** — unreserved stops surface separately via "N to arrange" and do **not** flip the label. `phase` (`during`/`before`) is `cockpitModel.phase`.
+
+**Fallback / failure copy (no errors, no blank rows):**
+- **No weather** (`useWeather` null, or no `destinationGeo` and no located stop) → **hide the weather row entirely** (don't show "—" or throw).
+- **No dates** (undated trip, `countdownLabel` null) → countdown reads **"Planning trip"**; the context line drops the date range and shows just the stop count (or the no-stops copy below).
+- **No stops** (`stopCount === 0`) → context line reads **"No stops yet"** instead of "0 stops".
+- **No cover** → `useTripCover` already falls back to its gradient; never a grey gap.
+
 **Polish:** hover-pop (desktop) + tap-lift (mobile) + a soft backdrop halo behind it (both sizes) so it separates from the footage.
 
 ## Component 2 — the hero destination video
@@ -68,17 +77,24 @@ Full-bleed, rendered **outside `AppShell`** (an early-return in `Dashboard`, exa
 Clip selection for the featured trip's destination, **curated-first**:
 
 1. `clipForWord(destination)` — if it returns a curated clip (not the girl-walking fallback), use it (self-hosted, instant).
-2. else `fetchDestinationVideo(city, country)` → `clipFromDestinationVideo(...)` (Pexels, cached globally); while it resolves or on any miss, show the **girl-walking** generic clip, then crossfade in the result.
+2. else `fetchDestinationVideo(city, country)` → `clipFromDestinationVideo(...)` (Pexels, cached globally).
+
+**No-flash crossfade (required):** mount the **girl-walking generic clip immediately** so the hero is never blank, fetch the destination clip **in the background**, and crossfade to it **only once it's `canplay`/ready** — never blank or jump the hero while fetching, and no layout shift. On any miss/error the generic clip just stays.
+
+**"Different media" enforcement:** the hero is always a **video clip** and the card is always a **still photo** (`useTripCover`), so they're inherently different. If they ever resolve to the same source/URL, the **hero keeps the Pexels/video result** and the **card uses `useTripCover`'s next candidate / gradient fallback** — the card yields, never the hero.
 
 The hero video **pauses when the globe is active** (`heroActive` from `useInViewActive`). This lands the Pexels pipeline source on `main` (edge fn `pexels-video`, `video_cache.sql`, `destinationVideo.ts`).
 
 ## Component 3 — "Your travels" (searchable list + view toggle)
 
-**Data:** every trip **except the featured one**, via a derived view-model (below): `upcoming` (start asc), then `past` (end desc), plus `planning` (undated upcoming) shown under its own label. **No 90-day "Later" bucket** — a searchable, sorted list makes proximity-bucketing unnecessary.
+**Data:** every trip **except the featured one**, rendered as **grouped sections in fixed order — Upcoming → Planning → Past** (view-model below). Group **label headings always render** (even after filtering); empty groups hide. **No 90-day "Later" bucket** — a searchable, sorted, grouped list makes proximity-bucketing unnecessary.
 
-**Search:** a labelled input filters by `title`/`destination` (case-insensitive, trimmed) across all groups; empty groups and their labels hide; a "No trips match …" empty state.
+**Layout (no infinite stacking, no nested scroll):** the "Your travels" section is a **responsive grid, not a rail** — **1 column mobile · 2 tablet · 3 desktop** — with clear spacing between groups. It does **not** horizontally scroll and introduces **no nested scrollbars** (the page scrolls). This is the explicit, chosen direction — do **not** reintroduce the deck/rail.
 
-**View toggle** (segmented, **two modes**, choice persisted per account):
+**Search:** a labelled input filters (case-insensitive, trimmed) across **all groups** by `title`, `config.destination`, and `config.city`/`config.country` when those exist separately — so a trip titled "Spring Break" still matches "Paris" via its destination. Includes a **clear (✕) button** inside the input that appears once there's a query and resets it. Empty result → a "No trips match …" state.
+
+**View toggle** (segmented, **two modes**, choice **persisted per account**):
+- **Persistence:** store `homeTravelsViewMode` (`'tiles' | 'detailed'`) in the **existing `useAccountSettings` store** (the same localStorage-backed per-account settings that hold units/theme). If a Supabase profile/settings field is later added, prefer it; localStorage keyed to the account is the fallback. Default **Tiles**; never resets on its own.
 - **Tiles** — glass photo card + **blurred footer** holding name/dates (the look the owner picked); upcoming get a countdown chip. Lifts on hover (desktop) and tap (mobile).
 - **Detailed** — Explorer-style rows: thumbnail · name · dates · stops · "when" (claret countdown for upcoming, muted for past). A column header on `md+`.
 
@@ -86,15 +102,17 @@ The hero video **pauses when the globe is active** (`heroActive` from `useInView
 
 ## Derived view-model (new, pure, unit-tested)
 
-`homeGroups(trips, today)` → `{ featured, upcoming[], past[], planning[] }`:
+`homeGroups(trips, today)` → `{ featured, upcoming[], planning[], past[] }` (note the **render order** the consumer iterates: upcoming → planning → past):
 - `featured = selectFocusTrip(trips)` (already active-wins).
-- the rest via `splitTrips`, with `featured` removed, `upcoming` sorted by `tripStart` asc (undated → `planning`), `past` by `tripEnd` desc.
+- the rest with `featured` removed: **dated upcoming** (`tripEnd ≥ today`, dated) sorted by `tripStart` asc; **planning** (undated upcoming, `tripStart === '9999-12-31'`) in input order; **past** (`tripEnd < today`) sorted by `tripEnd` desc.
 
-`filterTrips(groups, query)` → the same shape, name/destination-filtered. Both pure; tests cover featured-exclusion, sort order, undated→planning, and search.
+`filterTrips(groups, query)` → the same shape, filtered by `title` + `config.destination` + `config.city`/`config.country` (case-insensitive, trimmed; empty query = passthrough). Both pure; tests cover featured-exclusion, the three-group sort/order, undated→planning, and multi-field search (e.g. title "Spring Break" matching on destination "Paris").
 
 ## Dashboard wiring
 
-`Dashboard` gains a **third branch**: when `!isLoading && focus` → early-return the new `CockpitHome` full-bleed (outside `AppShell`), passing `trips`, `focus`, `onCreate`/`onOpen`/`onOpenArrange`/`onOpenGuide`, `tripActions`, `units`, and the same `headerRight` (ThemeToggle + New trip + AccountMenu) and overlays State C uses. The existing cover/destination **backfill effect, `isTeaser` gating, and Share/Delete/New-trip overlays stay**. The Phase-1 `Cockpit`/`Segmented`/`TripGrid` State-B path is removed.
+`Dashboard` gains a **third branch**: when `!isLoading && focus` → early-return the new `CockpitHome` full-bleed (outside `AppShell`), passing `trips`, `focus`, `onCreate`/`onOpen`/`onOpenArrange`/`onOpenGuide`, `tripActions`, `units`, and the same `headerRight` (ThemeToggle + New trip + AccountMenu) and overlays State C uses. The existing cover/destination **backfill effect, `isTeaser` gating, and Share/Delete/New-trip overlays stay**.
+
+**Regression guard — remove the old path last.** Remove the Phase-1 `Cockpit`/`Segmented`/`TripGrid` State-B path **only after** `CockpitHome` is verified to preserve, end-to-end: **New trip** (incl. teaser gating), **Share**, **Delete** (owner-gated), **cover/destination backfill**, **opening a trip** (Plan/Guide/Trip targets), and **founder/credits behavior**. Until then both can coexist behind the branch so nothing regresses.
 
 ## Accessibility & motion
 
@@ -106,12 +124,12 @@ The deck/rail mobile interactions (not chosen); the 90-day "Later" bucket; the c
 
 ## Delivery
 
-**Keep the preview explorations as reference files only — not wired into the running app.** Remove all `/x-*` preview routes and their imports from `App.tsx` (nothing routed, nothing bundled, not viewable in the running app), and **move the 7 preview files into `app/src/routes/_home-explorations/`**, a folder **excluded from the TS build** (`tsconfig` `exclude`) so the archived files never affect compilation or the bundle. They live in git purely so the owner can look at / restore a direction later. Keep `npx tsc -b` clean and `npm test` green (new tests for the view-model). Holistic review → merge `field-globe-phase-2` → `main` (brings the parked State-B + Pexels-source commits) → manual `wrangler deploy`.
+**Keep the preview explorations as reference files only — not wired into the running app.** Remove all `/x-*` preview routes and their imports from `App.tsx` (nothing routed, nothing bundled, not viewable in the running app), and **move the 4 preview files (which together back the 7 `/x-*` routes) into `app/src/routes/_home-explorations/`**, a folder **excluded from the TS build** (`tsconfig` `exclude`) so the archived files never affect compilation or the bundle. They live in git purely so the owner can look at / restore a direction later. Keep `npx tsc -b` clean and `npm test` green (new tests for the view-model). Holistic review → merge `field-globe-phase-2` → `main` (brings the parked State-B + Pexels-source commits) → manual `wrangler deploy`.
 
 ## Locked decisions
 
 - **State B = has a trip**; featured = active-wins via `selectFocusTrip`; non-featured trips live in "Your travels."
-- List is **Upcoming → Past (+ Planning)**, date-sorted, searchable; **no "Later" bucket**.
+- List is grouped **Upcoming → Planning → Past** (labels always shown), date-sorted, searchable across title + destination/city/country; responsive grid (1/2/3), no rail, no nested scroll; **no "Later" bucket**.
 - Cockpit keeps **weather + "N to arrange"**; two-action model with **Open plan** when the itinerary is complete.
 - **Tiles** default, **remembered** per account; tiles lift on hover + tap.
 - Hero video **curated-first → Pexels → girl-walking**, never the same picture as the card.
@@ -119,7 +137,7 @@ The deck/rail mobile interactions (not chosen); the 90-day "Later" bucket; the c
 
 ## Files
 
-- **Create:** `app/src/components/CockpitHome.tsx` (full-bleed State B), `app/src/components/CockpitCard.tsx` (featured card), `app/src/components/TravelsList.tsx` (search + toggle + tiles/detailed), `app/src/components/TripRow.tsx` (detailed row), `app/src/lib/home-groups.ts` (+ test).
-- **Modify:** `app/src/routes/Dashboard.tsx` (third branch, remove Phase-1 State-B path), `app/src/components/TripTile.tsx` (tap-lift + tiles footer variant, if reused), `app/src/App.tsx` (drop preview routes).
+- **Create:** `app/src/components/CockpitHome.tsx` (full-bleed State B), `app/src/components/CockpitCard.tsx` (featured card), `app/src/components/TravelsList.tsx` (search + clear-✕ + view toggle + grouped responsive grid), `app/src/components/TripRow.tsx` (detailed row), `app/src/lib/home-groups.ts` (`homeGroups` + `filterTrips`, **+ test**).
+- **Modify:** `app/src/routes/Dashboard.tsx` (third branch; remove Phase-1 State-B path **only after** the regression-guard checks pass), `app/src/data/useAccountSettings.ts` (add the persisted `homeTravelsViewMode`), `app/src/components/TripTile.tsx` (tap-lift + glass-footer tiles variant, if reused), `app/src/App.tsx` (drop preview routes/imports), `app/tsconfig*.json` (exclude `_home-explorations/`).
 - **Land from branch:** `supabase/functions/pexels-video/`, `docs/supabase/video-cache.sql`, `app/src/hero/destinationVideo.ts`.
 - **Archive as reference (move, keep — do NOT delete, NOT wired in):** `_PreviewCockpit.tsx`, `_PreviewLayouts.tsx`, `_PreviewHomeInteractions.tsx`, `_PreviewHomeSearch.tsx` → `app/src/routes/_home-explorations/`. Their `App.tsx` routes/imports are removed; the folder is `tsconfig`-excluded so it isn't compiled, bundled, or reachable — purely files to look at later.
