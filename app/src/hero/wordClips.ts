@@ -93,6 +93,11 @@ export function clipForWord(word: string): HeroClip {
   return WORD_TO_CLIP[word] ?? FIRST_CLIP
 }
 
+/** The curated self-hosted clip mapped to a word, or null if none is curated. */
+export function curatedClipFor(word: string): HeroClip | null {
+  return WORD_TO_CLIP[word] ?? null
+}
+
 /** The full typewriter sequence, in order. */
 export const ORDERED_WORDS: string[] = [PROMPT, ...HERO_DESTINATIONS, FINALE]
 
