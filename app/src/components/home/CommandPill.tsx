@@ -7,6 +7,8 @@ import { formatRangeChip, type DateRange } from '../../lib/range-calendar'
 import { RangeCalendar } from './RangeCalendar'
 import { cn } from '../../lib/utils'
 
+// Renders only over the dark cinematic home hero — hence the fixed dark-glass rgba tokens (mirrors HeroSearchPill), not theme tokens.
+
 /** Minimum chars before suggestions appear (mirrors usePlaceSearch gate). */
 const MIN_QUERY = 3
 /** Debounce before querying Photon (ms). */
@@ -117,6 +119,8 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
           setAcOpen(false)
           setActive(-1)
         } else {
+          e.preventDefault()
+          e.stopPropagation()
           inputRef.current?.blur()
         }
         return
@@ -219,7 +223,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
                 aria-label={`Clear destination ${destination}`}
                 disabled={pending}
                 onClick={clearDestination}
-                className="ml-0.5 grid place-items-center rounded-full text-white/60 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:pointer-events-none disabled:opacity-40"
+                className="ml-0.5 grid h-9 w-9 place-items-center rounded-full text-white/60 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:pointer-events-none disabled:opacity-40"
               >
                 <X size={13} />
               </button>
