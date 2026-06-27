@@ -14,8 +14,9 @@ import type { Units } from '../data/useAccountSettings'
 import type { Trip } from '../types'
 
 const MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
-// The globe box dissolves into the starfield over its bottom ~quarter.
-const GLOBE_MASK = 'linear-gradient(to bottom, #000 72%, transparent 96%)'
+// The globe box dissolves into the starfield: solid through the video handoff,
+// then faded to stars by ~140vh so the list scrolls over the starfield.
+const GLOBE_MASK = 'linear-gradient(to bottom, #000 50%, transparent 75%)'
 
 /**
  * State-B cockpit home — the full-bleed page that assembles the night-Earth globe
@@ -66,8 +67,9 @@ export function CockpitHome({
             className="absolute inset-0"
             active={globeActive}
             staticSrc={globeStill}
-            dprCap={1.0}
-            frag={{ octaves: 4, blur: true }}
+            staticFrame
+            dprCap={1.5}
+            frag={{ octaves: 6, blur: true }}
           />
         </div>
       </div>

@@ -10,7 +10,7 @@ import globeStill from '../assets/globe-still.webp'
 import type { Trip } from '../types'
 
 const VIDEO_MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
-const GLOBE_MASK = 'linear-gradient(to bottom, #000 72%, transparent 96%)'
+const GLOBE_MASK = 'linear-gradient(to bottom, #000 50%, transparent 75%)'
 
 /**
  * State C launchpad (spec §3). Cinematic hero (brightness 1.8) whose clip
@@ -50,8 +50,9 @@ export function CinematicLaunchpad({
             className="absolute inset-0"
             active={globeActive}
             staticSrc={globeStill}
-            dprCap={1.0}
-            frag={{ octaves: 4, blur: true }}
+            staticFrame
+            dprCap={1.5}
+            frag={{ octaves: 6, blur: true }}
           />
         </div>
       </div>

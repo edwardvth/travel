@@ -24,11 +24,14 @@ export interface FieldGlobeProps {
   dprCap?: number
   /** Cheaper-shader options. */
   frag?: FragOpts
+  /** Render ONE high-quality frame (re-rendered when the texture loads / on resize)
+   *  and NEVER animate — zero per-frame GPU cost. Use a richer `frag` for it. */
+  staticFrame?: boolean
 }
 
 const FADE_MS = 260
 
-export function FieldGlobe({ className, active = true, staticSrc, dprCap = 1.5, frag }: FieldGlobeProps) {
+export function FieldGlobe({ className, active = true, staticSrc, dprCap = 1.5, frag, staticFrame = false }: FieldGlobeProps) {
   const reduce = useReducedMotion() ?? false
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -139,7 +142,7 @@ export function FieldGlobe({ className, active = true, staticSrc, dprCap = 1.5, 
       } catch {
         /* ignore a bad/cross-origin decode; keep the default texture */
       }
-      if (reduce) renderOnce()
+      if (reduce || staticFrame) renderOnce()
     }
     uploadRef.current = uploadEarth
 
@@ -233,7 +236,7 @@ export function FieldGlobe({ className, active = true, staticSrc, dprCap = 1.5, 
     let pageActive = true // pagehide=false → suspended
 
     const apply = () => {
-      if (reduce) return // static: never loops
+      if (reduce || staticFrame) return // static: never loops
       if (onscreen && pageVisible && pageActive && activeRef.current) startLoop()
       else stopLoop()
     }
@@ -255,7 +258,7 @@ export function FieldGlobe({ className, active = true, staticSrc, dprCap = 1.5, 
       window.addEventListener('pagehide', onPageHide)
       window.addEventListener('pageshow', onPageShow)
     }
-    const onResize = () => { resize(); if (reduce) draw(performance.now()) }
+    const onResize = () => { resize(); if (reduce || staticFrame) draw(performance.now()) }
     if (typeof window !== 'undefined') window.addEventListener('resize', onResize)
 
     // ---- context loss / restore ----
@@ -270,7 +273,7 @@ export function FieldGlobe({ className, active = true, staticSrc, dprCap = 1.5, 
       if (!initGL()) return
       if (earthRef.current) uploadEarth(earthRef.current)
       apply()
-      if (reduce) renderOnce()
+      if (reduce || staticFrame) renderOnce()
     }
     canvas.addEventListener('webglcontextlost', onLost as EventListener)
     canvas.addEventListener('webglcontextrestored', onRestored as EventListener)
@@ -289,8 +292,9 @@ export function FieldGlobe({ className, active = true, staticSrc, dprCap = 1.5, 
       // this doesn't violate "one animated background".
       renderOnce()
       // Then start the animation LOOP only if motion is allowed (apply() also
-      // honours onscreen/visible/active, and is a no-op under reduced motion).
-      if (!reduce) apply()
+      // honours onscreen/visible/active, and is a no-op under reduced motion or
+      // when staticFrame is set — one crisp frame, no per-frame cost).
+      if (!reduce && !staticFrame) apply()
     }
 
     // Lazy-mount: only create GL work once the root is near the viewport.
