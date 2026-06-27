@@ -14,9 +14,9 @@ import type { Units } from '../data/useAccountSettings'
 import type { Trip } from '../types'
 
 const MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
-// The globe box dissolves into the starfield: solid through the video handoff,
-// then faded to stars by ~140vh so the list scrolls over the starfield.
-const GLOBE_MASK = 'linear-gradient(to bottom, #000 50%, transparent 75%)'
+// Keep the globe prominent (mockup look) for almost its whole height, dissolving
+// into the starfield only at the very bottom edge.
+const GLOBE_MASK = 'linear-gradient(to bottom, #000 84%, transparent 100%)'
 
 /**
  * State-B cockpit home — the full-bleed page that assembles the night-Earth globe
@@ -59,7 +59,7 @@ export function CockpitHome({
           bottom (GLOBE_MASK). High-quality-but-efficient shader: full detail
           (octaves 4 + blur) at a capped DPR so it isn't laggy on desktop. */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden bg-[#05060a]"
         style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
       >
         <div className="absolute inset-x-0 top-[20vh] h-[170vh]">
