@@ -14,13 +14,14 @@ import { SoftBackdrop, TS } from './home-style'
  * rows. View mode persists per account; search is local + clearable (✕ / Esc).
  */
 export function TravelsList({
-  trips, featuredId, onOpen, userId, today,
+  trips, featuredId, onOpen, userId, today, tripActions,
 }: {
   trips: Trip[]
   featuredId: string
   onOpen: (id: string) => void
   userId?: string
   today?: string
+  tripActions?: (t: Trip) => React.ReactNode
 }) {
   const { settings, setSettings } = useAccountSettings(userId)
   const view = settings.homeTravelsViewMode ?? 'tiles'
@@ -116,7 +117,7 @@ export function TravelsList({
                   <h3 className="mb-3 font-mono text-[11px] uppercase tracking-[0.18em] text-white/55">{s.label}</h3>
                   {view === 'tiles' ? (
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {s.items.map((t) => <TravelTile key={t.id} trip={t} onOpen={onOpen} today={today} />)}
+                      {s.items.map((t) => <TravelTile key={t.id} trip={t} onOpen={onOpen} today={today} actions={tripActions?.(t)} />)}
                     </div>
                   ) : (
                     <div className="flex flex-col gap-2">
@@ -126,7 +127,7 @@ export function TravelsList({
                         <span className="w-20 shrink-0 text-center">Stops</span>
                         <span className="w-24 shrink-0 text-right">When</span>
                       </div>
-                      {s.items.map((t) => <TripRow key={t.id} trip={t} onOpen={onOpen} today={today} />)}
+                      {s.items.map((t) => <TripRow key={t.id} trip={t} onOpen={onOpen} today={today} actions={tripActions?.(t)} />)}
                     </div>
                   )}
                 </section>

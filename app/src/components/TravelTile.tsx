@@ -27,11 +27,12 @@ export function deriveTravel(trip: Trip, today: string = todayISO()): { kind: Tr
  * trips carry a countdown chip top-left. `today` is a test/SSR seam.
  */
 export function TravelTile({
-  trip, onOpen, today,
+  trip, onOpen, today, actions,
 }: {
   trip: Trip
   onOpen: (id: string) => void
   today?: string
+  actions?: React.ReactNode
 }) {
   const { kind, when } = deriveTravel(trip, today)
   const { url, loading } = useTripCover(trip)
@@ -39,34 +40,46 @@ export function TravelTile({
   const meta = formatDateRange(trip) + (m.stopCount > 0 ? ` · ${m.stopCount} stops` : '')
 
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(trip.id)}
-      className="group w-full overflow-hidden rounded-card border border-white/15 bg-white/[0.06] text-left shadow-[0_12px_40px_rgba(0,0,0,.42)] backdrop-blur-xl outline-none transition-[transform,box-shadow] duration-300 ease-out [@media(hover:hover)]:hover:-translate-y-1.5 [@media(hover:hover)]:hover:shadow-[0_26px_60px_rgba(0,0,0,.55)] active:translate-y-0 active:scale-[0.985] focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent motion-reduce:transition-none motion-reduce:hover:transform-none motion-reduce:active:transform-none"
-    >
-      <div className="relative h-[140px] overflow-hidden">
-        {url && (
-          <img
-            src={url}
-            alt=""
-            loading="lazy"
-            className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 [@media(hover:hover)]:group-hover:scale-[1.04]"
-          />
-        )}
-        {loading && <span className="absolute inset-0 animate-pulse bg-white/[0.04]" />}
-        {(kind === 'upcoming' || kind === 'planning') && (
-          <span
-            className="absolute left-3 top-3 rounded-full bg-black/40 px-2.5 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.16em] text-white backdrop-blur-sm"
-            style={{ textShadow: TS }}
-          >
-            {when}
-          </span>
-        )}
+    <div className="group relative w-full overflow-hidden rounded-card border border-white/15 bg-white/[0.06] shadow-[0_12px_40px_rgba(0,0,0,.42)] backdrop-blur-xl transition-[transform,box-shadow] duration-300 ease-out [@media(hover:hover)]:hover:-translate-y-1.5 [@media(hover:hover)]:hover:shadow-[0_26px_60px_rgba(0,0,0,.55)] active:translate-y-0 active:scale-[0.985] motion-reduce:transition-none motion-reduce:hover:transform-none motion-reduce:active:transform-none">
+      {/* Whole-tile open target, beneath the content + actions. */}
+      <button
+        type="button"
+        onClick={() => onOpen(trip.id)}
+        aria-label={`Open ${trip.title}`}
+        className="absolute inset-0 z-0 outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+      />
+
+      <div className="pointer-events-none relative z-10">
+        <div className="relative h-[140px] overflow-hidden">
+          {url && (
+            <img
+              src={url}
+              alt=""
+              loading="lazy"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 [@media(hover:hover)]:group-hover:scale-[1.04]"
+            />
+          )}
+          {loading && <span className="absolute inset-0 animate-pulse bg-white/[0.04]" />}
+          {(kind === 'upcoming' || kind === 'planning') && (
+            <span
+              className="absolute left-3 top-3 rounded-full bg-black/40 px-2.5 py-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.16em] text-white backdrop-blur-sm"
+              style={{ textShadow: TS }}
+            >
+              {when}
+            </span>
+          )}
+        </div>
+        <div className="px-4 py-3">
+          <div className="font-serif text-[21px] text-white" style={{ textShadow: TS }}>{trip.title}</div>
+          <div className="mt-0.5 font-mono text-[11px] uppercase tracking-wide text-white/65">{meta}</div>
+        </div>
       </div>
-      <div className="px-4 py-3">
-        <div className="font-serif text-[21px] text-white" style={{ textShadow: TS }}>{trip.title}</div>
-        <div className="mt-0.5 font-mono text-[11px] uppercase tracking-wide text-white/65">{meta}</div>
-      </div>
-    </button>
+
+      {actions && (
+        <div className="absolute right-3 top-3 z-20 flex gap-1.5 opacity-100 transition-opacity duration-200 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-within:opacity-100">
+          {actions}
+        </div>
+      )}
+    </div>
   )
 }

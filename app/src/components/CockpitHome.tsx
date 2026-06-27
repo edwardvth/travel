@@ -27,7 +27,7 @@ const MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
  */
 export function CockpitHome({
   trips, focus, firstName, units, userId, today,
-  onOpen, onOpenArrange, onOpenGuide, headerRight,
+  onOpen, onOpenArrange, onOpenGuide, headerRight, tripActions,
 }: {
   trips: Trip[]
   focus: Trip
@@ -39,6 +39,7 @@ export function CockpitHome({
   onOpenArrange: (id: string) => void
   onOpenGuide: (id: string) => void
   headerRight: ReactNode
+  tripActions?: (t: Trip) => React.ReactNode
 }) {
   const reduce = useReducedMotion()
   const { globeRef, globeActive, heroActive } = useInViewActive()
@@ -122,7 +123,7 @@ export function CockpitHome({
           {/* Globe-activation sentinel — once it scrolls into the top ~45% of the
               viewport the globe goes live and the hero video pauses. */}
           <div ref={globeRef} aria-hidden className="h-px w-full" />
-          <TravelsList trips={trips} featuredId={focus.id} onOpen={onOpen} userId={userId} today={today} />
+          <TravelsList trips={trips} featuredId={focus.id} onOpen={onOpen} userId={userId} today={today} tripActions={tripActions} />
         </div>
       </section>
     </div>

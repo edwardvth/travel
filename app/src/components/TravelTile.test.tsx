@@ -17,11 +17,11 @@ const mk = (cfg: Partial<Trip['config']>, days: Day[]): Trip => ({
   config: { title: 'Kyoto', ...cfg }, data: { days, completed: [], hotel: null },
 })
 
-function renderTile(trip: Trip, onOpen = vi.fn(), today = '2026-07-10') {
+function renderTile(trip: Trip, onOpen = vi.fn(), today = '2026-07-10', actions?: React.ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   render(
     <QueryClientProvider client={qc}>
-      <TravelTile trip={trip} onOpen={onOpen} today={today} />
+      <TravelTile trip={trip} onOpen={onOpen} today={today} actions={actions} />
     </QueryClientProvider>,
   )
   return onOpen
@@ -43,5 +43,25 @@ describe('TravelTile', () => {
   it('does not render an upcoming countdown chip for a past trip', () => {
     renderTile(mk({ startDate: '2026-06-01', numDays: 2 }, [day(1), day(1)]))
     expect(screen.queryByText(/in \d+ days|tomorrow/i)).not.toBeInTheDocument()
+  })
+
+  it('renders actions and clicking one does not open the trip', async () => {
+    const onAction = vi.fn()
+    const onOpen = renderTile(
+      mk({ startDate: '2026-07-17', numDays: 2 }, [day(1), day(1)]),
+      vi.fn(),
+      '2026-07-10',
+      <button onClick={onAction}>Share</button>,
+    )
+    const share = screen.getByRole('button', { name: 'Share' })
+    expect(share).toBeInTheDocument()
+    await userEvent.click(share)
+    expect(onAction).toHaveBeenCalledTimes(1)
+    expect(onOpen).not.toHaveBeenCalled()
+  })
+
+  it('renders no Share action when actions are omitted', () => {
+    renderTile(mk({ startDate: '2026-07-17', numDays: 2 }, [day(1), day(1)]))
+    expect(screen.queryByRole('button', { name: 'Share' })).not.toBeInTheDocument()
   })
 })

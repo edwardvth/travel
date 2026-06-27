@@ -182,6 +182,7 @@ export default function Dashboard() {
           onOpen={openTrip}
           onOpenArrange={openArrange}
           onOpenGuide={openGuide}
+          tripActions={tripActions}
           headerRight={
             <div className="flex items-center gap-2.5 text-white [&_button]:text-white">
               <ThemeToggle />
