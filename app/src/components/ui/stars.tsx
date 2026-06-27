@@ -64,7 +64,7 @@ export function StarsBackground({
   ...props
 }: StarsBackgroundProps) {
   return (
-    <div data-slot="stars-background" className={cn('relative size-full overflow-hidden', className)} {...props}>
+    <div data-slot="stars-background" className={cn('relative overflow-hidden', className)} {...props}>
       {/* Three parallax-feeling layers: small/dense + medium + large/sparse, each
           drifting upward at a different speed. */}
       <StarLayer count={50} tile={320} size={1.4} color={starColor} durationS={speed} />
