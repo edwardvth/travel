@@ -106,7 +106,7 @@ The deck/rail mobile interactions (not chosen); the 90-day "Later" bucket; the c
 
 ## Delivery
 
-Delete the 7 preview routes (`_PreviewCockpit`, `_PreviewLayouts`, `_PreviewHomeInteractions`, `_PreviewHomeSearch` + their `App.tsx` routes). Keep `npx tsc -b` clean and `npm test` green (new tests for the view-model). Holistic review → merge `field-globe-phase-2` → `main` (brings the parked State-B + Pexels-source commits) → manual `wrangler deploy`.
+**Keep the preview explorations — do not delete them.** Move the 7 preview routes into a dedicated `app/src/routes/_home-explorations/` folder and keep them reachable at their `/x-*` URLs, **lazy-loaded** (code-split, so they add nothing to the production main bundle) — the owner may revisit any direction later. Keep `npx tsc -b` clean and `npm test` green (new tests for the view-model). Holistic review → merge `field-globe-phase-2` → `main` (brings the parked State-B + Pexels-source commits) → manual `wrangler deploy`.
 
 ## Locked decisions
 
@@ -122,4 +122,4 @@ Delete the 7 preview routes (`_PreviewCockpit`, `_PreviewLayouts`, `_PreviewHome
 - **Create:** `app/src/components/CockpitHome.tsx` (full-bleed State B), `app/src/components/CockpitCard.tsx` (featured card), `app/src/components/TravelsList.tsx` (search + toggle + tiles/detailed), `app/src/components/TripRow.tsx` (detailed row), `app/src/lib/home-groups.ts` (+ test).
 - **Modify:** `app/src/routes/Dashboard.tsx` (third branch, remove Phase-1 State-B path), `app/src/components/TripTile.tsx` (tap-lift + tiles footer variant, if reused), `app/src/App.tsx` (drop preview routes).
 - **Land from branch:** `supabase/functions/pexels-video/`, `docs/supabase/video-cache.sql`, `app/src/hero/destinationVideo.ts`.
-- **Delete:** `app/src/routes/_PreviewCockpit.tsx`, `_PreviewLayouts.tsx`, `_PreviewHomeInteractions.tsx`, `_PreviewHomeSearch.tsx`.
+- **Archive (move, keep — do NOT delete):** `_PreviewCockpit.tsx`, `_PreviewLayouts.tsx`, `_PreviewHomeInteractions.tsx`, `_PreviewHomeSearch.tsx` → `app/src/routes/_home-explorations/`, lazy-loaded in `App.tsx` so they stay viewable at `/x-*` without bundling into the main app.
