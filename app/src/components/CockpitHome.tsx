@@ -49,7 +49,7 @@ export function CockpitHome({
 }) {
   const reduce = useReducedMotion()
   const { globeRef, globeActive, heroActive } = useInViewActive()
-  const { clip, credit } = useDestinationClip(focus)
+  const { clip } = useDestinationClip(focus)
 
   return (
     <div className="relative min-h-[100svh] bg-[#05060a] text-white">
@@ -112,19 +112,6 @@ export function CockpitHome({
             />
           </div>
         </motion.div>
-
-        {/* Pexels attribution — only when the clip came from a Pexels fetch. */}
-        {credit && (
-          <a
-            href={credit.pexelsUrl ?? 'https://www.pexels.com'}
-            target="_blank"
-            rel="noreferrer"
-            className="absolute bottom-3 right-4 z-30 font-mono text-[10px] tracking-wide text-white/45 transition-colors hover:text-white/70"
-            style={{ textShadow: TS }}
-          >
-            Video{credit.name ? ` by ${credit.name}` : ''} · Pexels
-          </a>
-        )}
       </section>
 
       {/* Your travels — pulled up over the globe (glass cards let the Earth show beneath). */}
