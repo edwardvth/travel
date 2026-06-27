@@ -105,7 +105,9 @@ export function TravelsList({
       <div className="relative">
         <SoftBackdrop />
         {empty ? (
-          <p className="py-12 text-center text-[14px] text-white/55">No trips match “{query}”.</p>
+          <p className="py-12 text-center text-[14px] text-white/55">
+            {query.trim() ? `No trips match “${query}”.` : 'Your other trips will appear here.'}
+          </p>
         ) : (
           <div className="flex flex-col gap-8">
             {sections.map((s) =>
