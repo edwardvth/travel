@@ -46,7 +46,7 @@ Full-bleed, rendered **outside `AppShell`** (an early-return in `Dashboard`, exa
 └───────────────────────────────────────────────────────────────┘
 ```
 
-**Group order is fixed: Upcoming → Planning → Past** (undated/“planning” trips sit closer to upcoming than to completed). Each group keeps its **label heading even after a search filter** — the list is grouped sections, never one flattened grid, so the timeline structure survives at 30+ trips.
+**Group order is fixed: Upcoming → Planning → Past** (undated/“planning” trips sit closer to upcoming than to completed). **A group's label renders only for groups that have visible trips after filtering; empty groups hide. The list must never flatten into one mixed grid** — grouped sections always, so the timeline structure survives at 30+ trips.
 
 ## Component 1 — the cockpit card (featured trip)
 
@@ -70,7 +70,9 @@ Full-bleed, rendered **outside `AppShell`** (an early-return in `Dashboard`, exa
 - **No stops** (`stopCount === 0`) → context line reads **"No stops yet"** instead of "0 stops".
 - **No cover** → `useTripCover` already falls back to its gradient; never a grey gap.
 
-**Polish:** hover-pop (desktop) + tap-lift (mobile) + a soft backdrop halo behind it (both sizes) so it separates from the footage.
+**Navigation:** the card holds **multiple actions**, so the **whole card is NOT a click target**. Navigation happens only through the explicit action-bar buttons and the "N to arrange" link. The card body may lift for feedback but a tap on it does nothing navigational.
+
+**Polish:** desktop **hover-pop**; mobile shows a **pressed animation during touch** (transient), **not** a persistent toggled lift; plus a soft backdrop halo behind it (both sizes) so it separates from the footage. Reduced-motion → no lift.
 
 ## Component 2 — the hero destination video
 
@@ -87,32 +89,40 @@ The hero video **pauses when the globe is active** (`heroActive` from `useInView
 
 ## Component 3 — "Your travels" (searchable list + view toggle)
 
-**Data:** every trip **except the featured one**, rendered as **grouped sections in fixed order — Upcoming → Planning → Past** (view-model below). Group **label headings always render** (even after filtering); empty groups hide. **No 90-day "Later" bucket** — a searchable, sorted, grouped list makes proximity-bucketing unnecessary.
+**Data:** every trip **except the featured one**, rendered as **grouped sections in fixed order — Upcoming → Planning → Past** (view-model below). **A group label renders for every group that has visible trips after filtering; empty groups hide. The list must never flatten into one mixed grid.** **No 90-day "Later" bucket** — a searchable, sorted, grouped list makes proximity-bucketing unnecessary.
 
 **Layout (no infinite stacking, no nested scroll):** the "Your travels" section is a **responsive grid, not a rail** — **1 column mobile · 2 tablet · 3 desktop** — with clear spacing between groups. It does **not** horizontally scroll and introduces **no nested scrollbars** (the page scrolls). This is the explicit, chosen direction — do **not** reintroduce the deck/rail.
 
-**Search:** a labelled input filters (case-insensitive, trimmed) across **all groups** by `title`, `config.destination`, and `config.city`/`config.country` when those exist separately — so a trip titled "Spring Break" still matches "Paris" via its destination. Includes a **clear (✕) button** inside the input that appears once there's a query and resets it. Empty result → a "No trips match …" state.
+**Search:** a labelled input filters (case-insensitive, trimmed) across **all groups** by `title`, `config.destination`, and `config.city`/`config.country` when those exist separately — so a trip titled "Spring Break" still matches "Paris" via its destination. Includes a **clear (✕) button** inside the input that appears once there's a query and resets it; the button has `aria-label="Clear trip search"` and is **keyboard-reachable**, and pressing **Escape** while focused in the input also clears the query. Empty result → a "No trips match …" state.
+
+**Navigation (both views):** a tile or detailed row **opens the trip's Plan view** (single tap/click — no two-tap). **Guide** is reachable **only** through explicit Guide actions (the cockpit card's Guide button), never as default row/tile navigation.
 
 **View toggle** (segmented, **two modes**, choice **persisted per account**):
 - **Persistence:** store `homeTravelsViewMode` (`'tiles' | 'detailed'`) in the **existing `useAccountSettings` store** (the same localStorage-backed per-account settings that hold units/theme). If a Supabase profile/settings field is later added, prefer it; localStorage keyed to the account is the fallback. Default **Tiles**; never resets on its own.
-- **Tiles** — glass photo card + **blurred footer** holding name/dates (the look the owner picked); upcoming get a countdown chip. Lifts on hover (desktop) and tap (mobile).
-- **Detailed** — Explorer-style rows: thumbnail · name · dates · stops · "when" (claret countdown for upcoming, muted for past). A column header on `md+`.
+- **Tiles** — glass photo card + **blurred footer** holding name/dates (the look the owner picked); upcoming get a countdown chip. Desktop **hover-lifts**; mobile shows a **pressed animation during touch** (transient), **not** a persistent toggled lift. A single tap **opens the trip** (Plan).
+- **Detailed** — Explorer-style rows: thumbnail · name · dates · stops · "when" (claret countdown for upcoming, muted for past). A column header on `md+`. A row click/tap **opens the trip** (Plan).
 
 **Polish:** soft backdrop behind the list; two-layer text shadows on all labels/cards.
 
 ## Derived view-model (new, pure, unit-tested)
 
-`homeGroups(trips, today)` → `{ featured, upcoming[], planning[], past[] }` (note the **render order** the consumer iterates: upcoming → planning → past):
+`homeGroups(trips, today)` → `{ featured, upcoming[], planning[], past[] }` (render order: upcoming → planning → past):
 - `featured = selectFocusTrip(trips)` (already active-wins).
-- the rest with `featured` removed: **dated upcoming** (`tripEnd ≥ today`, dated) sorted by `tripStart` asc; **planning** (undated upcoming, `tripStart === '9999-12-31'`) in input order; **past** (`tripEnd < today`) sorted by `tripEnd` desc.
+- the rest with `featured` removed: **dated upcoming** (not past, dated) by `tripStart` asc; **planning** (undated upcoming) in input order; **past** by `tripEnd` desc.
+- **Undated detection is centralized** in one helper `isUndatedTrip(trip)`. UI/view-model code calls that helper — it does **not** repeat the `9999-12-31` sentinel inline — so a future date-model change touches one place.
+- **All comparisons use local calendar dates.** Normalize `today`, `tripStart`, `tripEnd` to `YYYY-MM-DD` before comparing, so trips don't flip groups around midnight or across time zones.
 
-`filterTrips(groups, query)` → the same shape, filtered by `title` + `config.destination` + `config.city`/`config.country` (case-insensitive, trimmed; empty query = passthrough). Both pure; tests cover featured-exclusion, the three-group sort/order, undated→planning, and multi-field search (e.g. title "Spring Break" matching on destination "Paris").
+`filterTrips(groups, query)` → the same shape, filtered by `title` + `config.destination` + `config.city`/`config.country` (case-insensitive, trimmed; empty query = passthrough).
+
+**Tests (pure):** featured-exclusion; the three-group sort/order; undated→planning (via `isUndatedTrip`); multi-field search (title "Spring Break" matches destination "Paris"); **an active trip is selected as featured AND excluded from Upcoming/Planning/Past, even though its date range would otherwise place it in Upcoming**; and a local-date boundary case (a trip ending "today" is still active/upcoming, not past).
 
 ## Dashboard wiring
 
 `Dashboard` gains a **third branch**: when `!isLoading && focus` → early-return the new `CockpitHome` full-bleed (outside `AppShell`), passing `trips`, `focus`, `onCreate`/`onOpen`/`onOpenArrange`/`onOpenGuide`, `tripActions`, `units`, and the same `headerRight` (ThemeToggle + New trip + AccountMenu) and overlays State C uses. The existing cover/destination **backfill effect, `isTeaser` gating, and Share/Delete/New-trip overlays stay**.
 
 **Regression guard — remove the old path last.** Remove the Phase-1 `Cockpit`/`Segmented`/`TripGrid` State-B path **only after** `CockpitHome` is verified to preserve, end-to-end: **New trip** (incl. teaser gating), **Share**, **Delete** (owner-gated), **cover/destination backfill**, **opening a trip** (Plan/Guide/Trip targets), and **founder/credits behavior**. Until then both can coexist behind the branch so nothing regresses.
+
+**Loading states (no awkward blanks):** while `trips` load, keep the Dashboard's **existing loading skeleton**. While account settings load, **default the view mode to Tiles** and reconcile once settings arrive **without layout shift**. While covers load, use `useTripCover`'s **existing fallback** (gradient), never a grey gap.
 
 ## Accessibility & motion
 
@@ -124,7 +134,7 @@ The deck/rail mobile interactions (not chosen); the 90-day "Later" bucket; the c
 
 ## Delivery
 
-**Keep the preview explorations as reference files only — not wired into the running app.** Remove all `/x-*` preview routes and their imports from `App.tsx` (nothing routed, nothing bundled, not viewable in the running app), and **move the 4 preview files (which together back the 7 `/x-*` routes) into `app/src/routes/_home-explorations/`**, a folder **excluded from the TS build** (`tsconfig` `exclude`) so the archived files never affect compilation or the bundle. They live in git purely so the owner can look at / restore a direction later. Keep `npx tsc -b` clean and `npm test` green (new tests for the view-model). Holistic review → merge `field-globe-phase-2` → `main` (brings the parked State-B + Pexels-source commits) → manual `wrangler deploy`.
+**Keep the preview explorations as reference files only — not wired into the running app.** Remove all `/x-*` preview routes and their imports from `App.tsx` (nothing routed, nothing bundled, not viewable in the running app), and **move the 4 preview files (which together back the 7 `/x-*` routes) into `app/src/routes/_home-explorations/`**, a folder **excluded from the TS build** (`tsconfig` `exclude`) so the archived files never affect compilation or the bundle. They live in git purely so the owner can look at / restore a direction later. **After moving, verify there are zero imports from `_home-explorations/` anywhere in app code** (grep) — the archive must be genuinely unreachable and unbundled. Keep `npx tsc -b` clean and `npm test` green (new tests for the view-model). Holistic review → merge `field-globe-phase-2` → `main` (brings the parked State-B + Pexels-source commits) → manual `wrangler deploy`.
 
 ## Locked decisions
 
@@ -141,3 +151,18 @@ The deck/rail mobile interactions (not chosen); the 90-day "Later" bucket; the c
 - **Modify:** `app/src/routes/Dashboard.tsx` (third branch; remove Phase-1 State-B path **only after** the regression-guard checks pass), `app/src/data/useAccountSettings.ts` (add the persisted `homeTravelsViewMode`), `app/src/components/TripTile.tsx` (tap-lift + glass-footer tiles variant, if reused), `app/src/App.tsx` (drop preview routes/imports), `app/tsconfig*.json` (exclude `_home-explorations/`).
 - **Land from branch:** `supabase/functions/pexels-video/`, `docs/supabase/video-cache.sql`, `app/src/hero/destinationVideo.ts`.
 - **Archive as reference (move, keep — do NOT delete, NOT wired in):** `_PreviewCockpit.tsx`, `_PreviewLayouts.tsx`, `_PreviewHomeInteractions.tsx`, `_PreviewHomeSearch.tsx` → `app/src/routes/_home-explorations/`. Their `App.tsx` routes/imports are removed; the folder is `tsconfig`-excluded so it isn't compiled, bundled, or reachable — purely files to look at later.
+
+## Acceptance checklist
+
+- `npx tsc -b` passes.
+- `npm test` passes, including the `home-groups` tests.
+- No `/x-*` routes are reachable.
+- Preview files are present **only** under `_home-explorations/`, excluded from the TS build, with **zero imports** from app code.
+- State B renders **full-bleed outside `AppShell`** with **one** header.
+- The hero video **pauses when the globe becomes active**.
+- The **featured trip is excluded** from "Your travels."
+- "Your travels" renders **Upcoming → Planning → Past**, with **no flattened mixed grid** and empty groups hidden.
+- Search filters **title + destination/city/country**; the **clear button** (and Escape) works.
+- **Tiles/Detailed** preference **persists per account** and defaults to Tiles without layout shift.
+- A tile/row **opens Plan**; the whole cockpit card is **not** a click target; Guide only via explicit Guide actions.
+- **New trip, Share, Delete, Plan, Guide, teaser gating, and cover backfill** all still work.
