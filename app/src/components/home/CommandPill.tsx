@@ -5,6 +5,7 @@ import { resolveCommitLabel } from '../../lib/destination-commit'
 import { warmCover } from '../../lib/cover-prefetch'
 import { formatRangeChip, type DateRange } from '../../lib/range-calendar'
 import { RangeCalendar } from './RangeCalendar'
+import { Typewriter } from '../../hero/Typewriter'
 import { cn } from '../../lib/utils'
 
 // Renders only over the dark cinematic home hero — hence the fixed dark-glass rgba tokens (mirrors HeroSearchPill), not theme tokens.
@@ -25,6 +26,8 @@ export interface CommandPillProps {
   onCommit: (c: CommandPillCommit) => Promise<void> | void
   pending?: boolean     // parent-driven "creating" state
   error?: string | null // parent-driven inline error
+  /** Forwarded to the Typewriter placeholder so the cinematic hero background cycles. */
+  onWordStart?: (word: string) => void
   className?: string
 }
 
@@ -35,9 +38,10 @@ export interface CommandPillHandle {
 type Phase = 'destination' | 'dates'
 
 export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
-  function CommandPill({ onCommit, pending = false, error = null, className }, ref) {
+  function CommandPill({ onCommit, pending = false, error = null, onWordStart, className }, ref) {
     const [phase, setPhase] = useState<Phase>('destination')
     const [text, setText] = useState('')
+    const [focused, setFocused] = useState(false)
     const [debounced, setDebounced] = useState('')
     const [destination, setDestination] = useState<string | null>(null)
     const [acOpen, setAcOpen] = useState(false)
@@ -232,34 +236,47 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
 
           {/* Destination input (phase "destination") */}
           {phase === 'destination' && (
-            <input
-              ref={inputRef}
-              type="text"
-              role="combobox"
-              aria-expanded={showList}
-              aria-controls={listId}
-              aria-autocomplete="list"
-              aria-activedescendant={active >= 0 ? optionId(active) : undefined}
-              aria-label="Where do you want to go?"
-              autoComplete="off"
-              disabled={pending}
-              value={text}
-              placeholder="Where to?"
-              onChange={e => {
-                setText(e.target.value)
-                setAcOpen(true)
-                setActive(-1)
-              }}
-              onFocus={() => {
-                if (text.trim().length >= MIN_QUERY) setAcOpen(true)
-              }}
-              onBlur={() => setAcOpen(false)}
-              onKeyDown={onKeyDown}
-              className={cn(
-                'min-w-0 flex-1 bg-transparent text-[15px] leading-[1.4] text-white outline-none',
-                'placeholder:text-white/50 disabled:opacity-50',
+            <div className="relative min-w-0 flex-1">
+              <input
+                ref={inputRef}
+                type="text"
+                role="combobox"
+                aria-expanded={showList}
+                aria-controls={listId}
+                aria-autocomplete="list"
+                aria-activedescendant={active >= 0 ? optionId(active) : undefined}
+                aria-label="Where do you want to go?"
+                autoComplete="off"
+                disabled={pending}
+                value={text}
+                // Native placeholder kept empty while the Typewriter overlay is active.
+                placeholder={text === '' && !focused ? '' : 'Where to?'}
+                onChange={e => {
+                  setText(e.target.value)
+                  setAcOpen(true)
+                  setActive(-1)
+                }}
+                onFocus={() => {
+                  setFocused(true)
+                  if (text.trim().length >= MIN_QUERY) setAcOpen(true)
+                }}
+                onBlur={() => {
+                  setFocused(false)
+                  setAcOpen(false)
+                }}
+                onKeyDown={onKeyDown}
+                className={cn(
+                  'w-full bg-transparent text-[15px] leading-[1.4] text-white outline-none',
+                  'placeholder:text-white/50 disabled:opacity-50',
+                )}
+              />
+              {text === '' && !focused && (
+                <Typewriter
+                  onWordStart={onWordStart}
+                  className="pointer-events-none absolute inset-0 flex items-center text-[15px] leading-[1.4] text-white/50"
+                />
               )}
-            />
+            </div>
           )}
 
           {/* Date token (phase "dates") */}

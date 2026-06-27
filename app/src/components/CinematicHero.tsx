@@ -35,7 +35,12 @@ export interface CinematicHeroProps {
   copyPaddingClassName?: string
   /** HeroSearchPill top margin. Defaults to Landing's exact metrics; launchpad overrides. */
   pillMarginClassName?: string
-  onSubmit: (destination: string) => void
+  onSubmit?: (destination: string) => void
+  /**
+   * When provided, renders this instead of the default HeroSearchPill. Receives the
+   * hero's clip-driver so a custom pill's typewriter can still cycle the background video.
+   */
+  renderPill?: (api: { onWordStart: (word: string) => void }) => ReactNode
   className?: string
 }
 
@@ -45,7 +50,7 @@ export function CinematicHero({
   headlineClassName = 'mt-4 font-serif font-medium tracking-tight text-[40px] leading-[1.04] md:text-[66px] md:leading-[1.02]',
   copyPaddingClassName = 'pt-[17vh] md:pt-[19vh]',
   pillMarginClassName = 'mt-[calc(10vh_+_2.25rem)] md:mt-12',
-  onSubmit, className,
+  onSubmit, renderPill, className,
 }: CinematicHeroProps) {
   const reduce = useReducedMotion()
   const [clip, setClip] = useState(FIRST_CLIP)
@@ -101,11 +106,11 @@ export function CinematicHero({
         <p className="mt-4 md:mt-5 font-sans italic text-[15px] md:text-[18px] text-white/85">
           {subcopy}
         </p>
-        <HeroSearchPill
-          onSubmit={onSubmit}
-          onWordStart={onWord}
-          className={`pointer-events-auto ${pillMarginClassName}`}
-        />
+        <div className={`pointer-events-auto ${pillMarginClassName}`}>
+          {renderPill
+            ? renderPill({ onWordStart: onWord })
+            : <HeroSearchPill onSubmit={onSubmit ?? (() => {})} onWordStart={onWord} />}
+        </div>
         <HeroMicroDetails className="mt-4" />
       </motion.div>
     </section>
