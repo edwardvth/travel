@@ -25,6 +25,24 @@ const LANDMARK_OVERRIDES: Record<string, string> = {
 }
 
 /**
+ * Direct image-URL overrides for a city whose auto-resolved cover keeps landing
+ * wrong and a specific shot is wanted. Unlike LANDMARK_OVERRIDES (a search-query
+ * nudge), this pins the exact image, so it can't be re-resolved to something else
+ * by the backfill. MUST be an `images.unsplash.com/photo-…` (or other direct CDN)
+ * URL. Wins over an auto/stored cover, but never over a user's own upload.
+ * Keyed by lowercased city (leading comma-segment of the destination).
+ */
+const COVER_URL_OVERRIDES: Record<string, string> = {
+  london: 'https://images.unsplash.com/photo-1486299267070-83823f5448dd?w=1600&q=80&fm=jpg&fit=max',
+}
+
+/** The pinned cover URL for a destination's city, or null. Pure. */
+export function coverUrlOverrideFor(destination: string): string | null {
+  const city = destination.split(',')[0].trim().toLowerCase()
+  return COVER_URL_OVERRIDES[city] ?? null
+}
+
+/**
  * Unsplash matches a clean city name ("St. Louis") far better than a verbose
  * "City, State, Country" string — that mismatch is what produced irrelevant
  * covers (a kitchen for St. Louis). Reduce a query to just its leading

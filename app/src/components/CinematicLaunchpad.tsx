@@ -44,8 +44,6 @@ export function CinematicLaunchpad({
             className="absolute inset-0"
             active={globeActive}
             staticSrc={globeStill}
-            dprCap={1.0}
-            frag={{ octaves: 3, blur: false }}
           />
         </div>
       </div>
