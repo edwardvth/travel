@@ -51,6 +51,24 @@ The destination step should prefer **structured autocomplete data**, because the
 - If autocomplete is **still loading** when Enter is pressed, **wait briefly** for the first result before committing. If **no usable result** is returned, then — and only then — allow a **raw-text destination fallback**. Raw-text fallback still allows trip creation, but geo/photo/video backfills remain best-effort and must not block the flow.
 - The **destination chip displays the clean committed label**, usually `City, Country` when available.
 
+### 3.2.1 Destination metadata handling
+
+The committed destination should **preserve the selected Photon result in client state through creation**, including the clean label and any available structured metadata.
+
+**No schema migration is required in Phase 3.** If the existing trip payload only persists a destination *label*, persist the **clean committed label** (e.g. `Kyoto, Japan`), not the raw query `Kyoto`.
+
+However, the implementation should still **use the selected autocomplete result wherever existing client-side helpers can benefit from it**:
+
+- geo backfill,
+- cover prefetch,
+- video / cache lookup,
+- materialization seed,
+- future cache keys.
+
+If existing helpers currently accept only a destination string, **pass the clean committed label**. Do **not** regress to raw free text unless Photon returns no usable result.
+
+Persisting lat/lng directly to the trip record is out of scope for this phase, but **the selected autocomplete result should not be discarded before all existing prefetch/backfill opportunities have run.**
+
 ### 3.3 Unknown dates / "Don't know dates yet"
 
 After a destination commits, the range calendar opens as the next step. The bottom of the calendar includes a secondary action: **"Don't know dates yet."**
@@ -231,7 +249,7 @@ Cover + destination-geo backfills fire-and-forget exactly as `NewTripSheet` did 
 Bite-sized, subagent-driven, commit-per-task, spec + code-quality review between tasks:
 
 1. **`RangeCalendar` + pure date logic** (`lib/range-calendar.ts`, tested) — two-click range, end<start swap, band, local-date formatting (§3.7), "Don't know dates yet" action, mobile panel (§3.6), a11y. Standalone, dark-glass styled.
-2. **`CommandPill`** — evolve `HeroSearchPill` into the four-beat state machine: destination commit (§3.2) + chip, "When?", calendar mount, `Dates TBD` (§3.3), confirm with loading/error (§3.4), Esc/reset (§3.5). Emits `onCommit`. **During intermediate phases `CommandPill` may emit into a temporary development handler or story harness — it must never submit into `NewTripSheet`.** The production path is always `CommandPill → useCreateTrip → MaterializeOverlay → Planner`; `NewTripSheet` stays untouched until §7.1.
+2. **`CommandPill`** — evolve `HeroSearchPill` into the four-beat state machine: destination commit (§3.2) + chip, automatically opened calendar, `Dates TBD` (§3.3), confirm with loading/error (§3.4), Esc/reset (§3.5). Emits `onCommit`. **During intermediate phases `CommandPill` may emit into a temporary development handler or story harness — it must never submit into `NewTripSheet`.** The production path is always `CommandPill → useCreateTrip → MaterializeOverlay → Planner`; `NewTripSheet` stays untouched until §7.1.
 3. **Cover prefetch on commit** (§3.1) — fire-and-forget cache warm via the cover service (no imperative hooks); seed reads cache-only.
 4. **`MaterializeOverlay`** (§4 / §4.1) — portal transition controller, seed-card flight + reduced-motion dissolve; wire confirm → `useCreateTrip` → navigate, overlay survives the route change and hands off on planner mount (graceful fallback if unmeasurable). Now the pill's real production commit path.
 5. **Unified home composition** (§5) — merge `Dashboard` / `CinematicLaunchpad` / `CockpitHome` into the stacked layout; add `UpcomingJourney`; apply undated ordering (§5.2); repoint `openCreateTrip` to focus the pill.
@@ -244,4 +262,4 @@ Bite-sized, subagent-driven, commit-per-task, spec + code-quality review between
 - Seed-card flight precise curve / durations — tune in build against the approved prototype feel (v3 choreography).
 - Whether "Your next journey" video reuses `useDestinationClip` verbatim or a calmer single-clip — decide in build (default: reuse).
 - Multiple simultaneously-imminent upcoming trips beyond the focus trip — out of scope (parent spec already defers).
-- Capturing the selected place's lat/lng from Photon at commit (to skip a later geocode) — out of scope; the parser currently keeps the label only.
+- Persisting selected Photon lat/lng directly to the trip record is out of scope; Phase 3 still commits the top structured autocomplete result in client state and uses its clean label/metadata for existing prefetch/backfill helpers wherever supported.
