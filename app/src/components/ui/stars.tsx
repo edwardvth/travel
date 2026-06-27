@@ -1,121 +1,75 @@
 import * as React from 'react'
-import {
-  type HTMLMotionProps,
-  motion,
-  type SpringOptions,
-  type Transition,
-  useMotionValue,
-  useSpring,
-} from 'framer-motion'
+import { motion, type SpringOptions } from 'framer-motion'
 
 import { cn } from '../../lib/utils'
 
-type StarLayerProps = HTMLMotionProps<'div'> & {
-  count: number
-  size: number
-  transition: Transition
-  starColor: string
-}
+/**
+ * Animated starfield background. Same public API as the original `StarsBackground`
+ * (drop-in), but the stars are rendered as REPEATING radial-gradient tiles rather
+ * than a giant `box-shadow` string — the box-shadow approach didn't paint reliably
+ * when used as a masked, negatively-stacked background layer. Each layer is a tile
+ * of random dots that repeats across the page (even, dense coverage) and drifts
+ * upward via `background-position` (seamless: it travels exactly one tile).
+ */
 
-function generateStars(count: number, starColor: string) {
-  // Spread over the visible quadrant (the emitter sits at the layer's top-left
-  // origin): x across a wide viewport, y across one 2000px tile (a second copy is
-  // painted at +2000px so it tiles seamlessly down the page). Positive-only offsets
-  // mean stars cover the WHOLE page evenly instead of clustering bottom-right.
-  const shadows: string[] = []
+/** Build a comma-separated list of radial-gradient dots within a `tile`×`tile` cell. */
+function starTile(count: number, tile: number, size: number, color: string): string {
+  const dots: string[] = []
   for (let i = 0; i < count; i++) {
-    const x = Math.floor(Math.random() * 2560)
-    const y = Math.floor(Math.random() * 2000)
-    shadows.push(`${x}px ${y}px ${starColor}`)
+    const x = Math.floor(Math.random() * tile)
+    const y = Math.floor(Math.random() * tile)
+    dots.push(`radial-gradient(${size}px ${size}px at ${x}px ${y}px, ${color}, transparent)`)
   }
-  return shadows.join(', ')
+  return dots.join(', ')
 }
 
 function StarLayer({
-  count = 1000,
-  size = 1,
-  transition = { repeat: Infinity, duration: 50, ease: 'linear' },
-  starColor = '#fff',
-  className,
-  ...props
-}: StarLayerProps) {
-  const [boxShadow, setBoxShadow] = React.useState<string>('')
-
-  React.useEffect(() => {
-    setBoxShadow(generateStars(count, starColor))
-  }, [count, starColor])
-
+  count, tile, size, color, durationS,
+}: { count: number; tile: number; size: number; color: string; durationS: number }) {
+  const [bg, setBg] = React.useState('')
+  React.useEffect(() => { setBg(starTile(count, tile, size, color)) }, [count, tile, size, color])
   return (
     <motion.div
       data-slot="star-layer"
-      animate={{ y: [0, -2000] }}
-      transition={transition}
-      className={cn('absolute top-0 left-0 w-full h-[2000px]', className)}
-      {...props}
-    >
-      <div
-        className="absolute bg-transparent rounded-full"
-        style={{ width: `${size}px`, height: `${size}px`, boxShadow }}
-      />
-      <div
-        className="absolute bg-transparent rounded-full top-[2000px]"
-        style={{ width: `${size}px`, height: `${size}px`, boxShadow }}
-      />
-    </motion.div>
+      aria-hidden
+      className="absolute inset-0"
+      style={{ backgroundImage: bg, backgroundSize: `${tile}px ${tile}px`, backgroundRepeat: 'repeat' }}
+      animate={{ backgroundPositionY: ['0px', `-${tile}px`] }}
+      transition={{ repeat: Infinity, duration: durationS, ease: 'linear' }}
+    />
   )
 }
 
 type StarsBackgroundProps = React.ComponentProps<'div'> & {
+  /** Retained for API compatibility (parallax is disabled for the background use). */
   factor?: number
+  /** Base loop duration (seconds) for the densest layer; back layers are slower. */
   speed?: number
   transition?: SpringOptions
   starColor?: string
-  /** Disable mouse-parallax (e.g. when used as a non-interactive background). */
   pointerParallax?: boolean
 }
 
 export function StarsBackground({
   children,
   className,
-  factor = 0.05,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  factor,
   speed = 50,
-  transition = { stiffness: 50, damping: 20 },
-  starColor = '#fff',
-  pointerParallax = false,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  transition,
+  starColor = '#ffffff',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  pointerParallax,
   ...props
 }: StarsBackgroundProps) {
-  const offsetX = useMotionValue(1)
-  const offsetY = useMotionValue(1)
-
-  const springX = useSpring(offsetX, transition)
-  const springY = useSpring(offsetY, transition)
-
-  const handleMouseMove = React.useCallback(
-    (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
-      if (!pointerParallax) return
-      const centerX = window.innerWidth / 2
-      const centerY = window.innerHeight / 2
-      offsetX.set(-(e.clientX - centerX) * factor)
-      offsetY.set(-(e.clientY - centerY) * factor)
-    },
-    [offsetX, offsetY, factor, pointerParallax],
-  )
-
   return (
-    <div
-      data-slot="stars-background"
-      className={cn(
-        'relative size-full overflow-hidden bg-[radial-gradient(ellipse_at_bottom,_#0b0e16_0%,_#05060a_100%)]',
-        className,
-      )}
-      onMouseMove={pointerParallax ? handleMouseMove : undefined}
-      {...props}
-    >
-      <motion.div style={{ x: springX, y: springY }}>
-        <StarLayer count={1800} size={2} transition={{ repeat: Infinity, duration: speed, ease: 'linear' }} starColor={starColor} />
-        <StarLayer count={750} size={3} transition={{ repeat: Infinity, duration: speed * 2, ease: 'linear' }} starColor={starColor} />
-        <StarLayer count={400} size={4} transition={{ repeat: Infinity, duration: speed * 3, ease: 'linear' }} starColor={starColor} />
-      </motion.div>
+    <div data-slot="stars-background" className={cn('relative size-full overflow-hidden', className)} {...props}>
+      {/* Three parallax-feeling layers: small/dense + medium + large/sparse, each
+          drifting upward at a different speed. */}
+      <StarLayer count={50} tile={320} size={1.4} color={starColor} durationS={speed} />
+      <StarLayer count={26} tile={440} size={2} color={starColor} durationS={speed * 1.7} />
+      <StarLayer count={14} tile={600} size={2.6} color={starColor} durationS={speed * 2.6} />
       {children}
     </div>
   )
