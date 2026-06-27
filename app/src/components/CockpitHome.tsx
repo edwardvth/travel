@@ -14,9 +14,11 @@ import type { Units } from '../data/useAccountSettings'
 import type { Trip } from '../types'
 
 const MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
-// Keep the globe prominent (mockup look) for almost its whole height, dissolving
-// into the starfield only at the very bottom edge.
+// The globe is the page-top background; the travels-section starfield fades IN
+// below the globe's content (transparent at the top so the globe shows, full
+// stars lower) — a clean globe→stars split instead of stacked full-page layers.
 const GLOBE_MASK = 'linear-gradient(to bottom, #000 84%, transparent 100%)'
+const STARS_MASK = 'linear-gradient(to bottom, transparent 0%, transparent 18%, #000 44%)'
 
 /**
  * State-B cockpit home — the full-bleed page that assembles the night-Earth globe
@@ -51,13 +53,7 @@ export function CockpitHome({
 
   return (
     <div className="relative min-h-[100svh] bg-[#05060a] text-white">
-      {/* Starfield — the deepest background, covering the WHOLE page so the list
-          scrolls over stars (not black) for its full length, on desktop + mobile. */}
-      <StarsBackground className="pointer-events-none absolute inset-0 z-0" speed={70} />
-
-      {/* Globe — sits over the stars for its 185vh and dissolves into them at its
-          bottom (GLOBE_MASK). High-quality-but-efficient shader: full detail
-          (octaves 4 + blur) at a capped DPR so it isn't laggy on desktop. */}
+      {/* Globe — the page-top background, behind the hero (static high-quality frame). */}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
         style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
@@ -133,6 +129,14 @@ export function CockpitHome({
 
       {/* Your travels — pulled up over the globe (glass cards let the Earth show beneath). */}
       <section className="relative z-10 -mt-[18vh]">
+        {/* Starfield — background of the travels section only. The mask fades it IN
+            below the globe's content, so the globe stays prominent above and the
+            list scrolls over a full starfield (fills the empty space, desktop + mobile). */}
+        <StarsBackground
+          className="pointer-events-none absolute inset-0 -z-10"
+          speed={70}
+          style={{ WebkitMaskImage: STARS_MASK, maskImage: STARS_MASK }}
+        />
         <div className="mx-auto max-w-5xl px-5 md:px-8 pt-[2vh] pb-[40vh]">
           {/* Globe-activation sentinel — once it scrolls into the top ~45% of the
               viewport the globe goes live and the hero video pauses. */}

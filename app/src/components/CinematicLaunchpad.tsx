@@ -11,6 +11,8 @@ import type { Trip } from '../types'
 
 const VIDEO_MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
 const GLOBE_MASK = 'linear-gradient(to bottom, #000 84%, transparent 100%)'
+// Travels-section starfield fades in below the globe's content (globe→stars split).
+const STARS_MASK = 'linear-gradient(to bottom, transparent 0%, transparent 18%, #000 44%)'
 
 /**
  * State C launchpad (spec §3). Cinematic hero (brightness 1.8) whose clip
@@ -33,12 +35,7 @@ export function CinematicLaunchpad({
 
   return (
     <div className="relative min-h-[100svh] bg-[#05060a] text-white">
-      {/* Starfield — deepest background, covers the whole page so content past the
-          globe scrolls over stars (not black), on desktop + mobile. */}
-      <StarsBackground className="pointer-events-none absolute inset-0 z-0" speed={70} />
-
-      {/* FieldGlobe — over the stars; dissolves into them at its bottom (GLOBE_MASK).
-          High-quality-but-efficient shader (octaves 4 + blur, capped DPR). */}
+      {/* FieldGlobe — the page-top background, behind the hero (static high-quality frame). */}
       <div
         className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
         style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
@@ -76,6 +73,12 @@ export function CinematicLaunchpad({
 
       {/* Your travels — pulled up over the globe (glass cards let the Earth show beneath). */}
       <section className="relative z-10 -mt-[18vh]">
+        {/* Starfield — background of the travels section; fades in below the globe. */}
+        <StarsBackground
+          className="pointer-events-none absolute inset-0 -z-10"
+          speed={70}
+          style={{ WebkitMaskImage: STARS_MASK, maskImage: STARS_MASK }}
+        />
         <div className="mx-auto max-w-6xl px-5 md:px-8 pt-[2vh] pb-[40vh]">
           {/* Globe-activation sentinel — once this scrolls into the top ~45% of the
               viewport (useInViewActive's -55% bottom margin), the globe goes live and

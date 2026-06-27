@@ -18,10 +18,14 @@ type StarLayerProps = HTMLMotionProps<'div'> & {
 }
 
 function generateStars(count: number, starColor: string) {
+  // Spread over the visible quadrant (the emitter sits at the layer's top-left
+  // origin): x across a wide viewport, y across one 2000px tile (a second copy is
+  // painted at +2000px so it tiles seamlessly down the page). Positive-only offsets
+  // mean stars cover the WHOLE page evenly instead of clustering bottom-right.
   const shadows: string[] = []
   for (let i = 0; i < count; i++) {
-    const x = Math.floor(Math.random() * 4000) - 2000
-    const y = Math.floor(Math.random() * 4000) - 2000
+    const x = Math.floor(Math.random() * 2560)
+    const y = Math.floor(Math.random() * 2000)
     shadows.push(`${x}px ${y}px ${starColor}`)
   }
   return shadows.join(', ')
