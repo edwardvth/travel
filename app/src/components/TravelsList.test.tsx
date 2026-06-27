@@ -77,7 +77,8 @@ describe('TravelsList', () => {
     expect(screen.queryByText('When')).not.toBeInTheDocument()
     await userEvent.click(screen.getByRole('button', { name: /detailed/i }))
     // Detailed-only marker: the column header row appears (on md+).
-    expect(screen.getAllByText('When').length).toBeGreaterThan(0)
+    // The view crossfades (AnimatePresence mode="wait"), so await it.
+    expect((await screen.findAllByText('When')).length).toBeGreaterThan(0)
   })
 
   it('shows an empty state when nothing matches', async () => {

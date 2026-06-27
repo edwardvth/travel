@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Search, LayoutGrid, LayoutList, X } from 'lucide-react'
 import type { Trip } from '../types'
 import { homeGroups, filterTrips, type HomeGroups } from '../lib/home-groups'
@@ -26,6 +27,7 @@ export function TravelsList({
   const { settings, setSettings } = useAccountSettings(userId)
   const view = settings.homeTravelsViewMode ?? 'tiles'
   const [query, setQuery] = useState('')
+  const reduce = useReducedMotion()
 
   // `homeGroups` already drops the featured trip; `featuredId` is a redundant,
   // defensive guard in case the focus selection ever diverges.
@@ -110,30 +112,39 @@ export function TravelsList({
             {query.trim() ? `No trips match “${query}”.` : 'Your other trips will appear here.'}
           </p>
         ) : (
-          <div className="flex flex-col gap-8">
-            {sections.map((s) =>
-              s.items.length === 0 ? null : (
-                <section key={s.key}>
-                  <h3 className="mb-3 font-mono text-[11px] uppercase tracking-[0.18em] text-white/55">{s.label}</h3>
-                  {view === 'tiles' ? (
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                      {s.items.map((t) => <TravelTile key={t.id} trip={t} onOpen={onOpen} today={today} actions={tripActions?.(t)} />)}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col gap-2">
-                      <div className="hidden items-center gap-3.5 px-3 pb-1 text-[10.5px] uppercase tracking-[0.16em] text-white/40 md:flex">
-                        <span className="w-16 shrink-0" />
-                        <span className="flex-1">Trip</span>
-                        <span className="w-20 shrink-0 text-center">Stops</span>
-                        <span className="w-24 shrink-0 text-right">When</span>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={view}
+              initial={reduce ? false : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -6 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="flex flex-col gap-8"
+            >
+              {sections.map((s) =>
+                s.items.length === 0 ? null : (
+                  <section key={s.key}>
+                    <h3 className="mb-3 font-mono text-[11px] uppercase tracking-[0.18em] text-white/55">{s.label}</h3>
+                    {view === 'tiles' ? (
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {s.items.map((t) => <TravelTile key={t.id} trip={t} onOpen={onOpen} today={today} actions={tripActions?.(t)} />)}
                       </div>
-                      {s.items.map((t) => <TripRow key={t.id} trip={t} onOpen={onOpen} today={today} actions={tripActions?.(t)} />)}
-                    </div>
-                  )}
-                </section>
-              ),
-            )}
-          </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <div className="hidden items-center gap-3.5 px-3 pb-1 text-[10.5px] uppercase tracking-[0.16em] text-white/40 md:flex">
+                          <span className="w-16 shrink-0" />
+                          <span className="flex-1">Trip</span>
+                          <span className="w-20 shrink-0 text-center">Stops</span>
+                          <span className="w-24 shrink-0 text-right">When</span>
+                        </div>
+                        {s.items.map((t) => <TripRow key={t.id} trip={t} onOpen={onOpen} today={today} actions={tripActions?.(t)} />)}
+                      </div>
+                    )}
+                  </section>
+                ),
+              )}
+            </motion.div>
+          </AnimatePresence>
         )}
       </div>
     </div>

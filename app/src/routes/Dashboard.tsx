@@ -18,7 +18,6 @@ import { ShareSheet } from './ShareSheet'
 import { AccountMenu } from '../components/AccountMenu'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { IconButton } from '../components/ui/IconButton'
-import { ThemeToggle } from '../components/ThemeToggle'
 
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth()
@@ -136,7 +135,6 @@ export default function Dashboard() {
           tripActions={tripActions}
           headerRight={
             <div className="flex items-center gap-2.5 text-white [&_button]:text-white">
-              <ThemeToggle />
               <Button variant="claret" onClick={openCreateTrip}><Plus size={16} strokeWidth={2.5} />New trip</Button>
               <AccountMenu email={user?.email ?? ''} profile={profile} />
             </div>
@@ -163,7 +161,6 @@ export default function Dashboard() {
           tripActions={tripActions}
           headerRight={
             <div className="flex items-center gap-2.5 text-white [&_button]:text-white">
-              <ThemeToggle />
               <Button variant="claret" onClick={openCreateTrip}><Plus size={16} strokeWidth={2.5} />New trip</Button>
               <AccountMenu email={user?.email ?? ''} profile={profile} />
             </div>
