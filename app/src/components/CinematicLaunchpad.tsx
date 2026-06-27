@@ -12,7 +12,7 @@ import type { Trip } from '../types'
 const VIDEO_MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
 const GLOBE_MASK = 'linear-gradient(to bottom, #000 84%, transparent 100%)'
 // Travels-section starfield fades in below the globe's content (globe→stars split).
-const STARS_MASK = 'linear-gradient(to bottom, transparent 0%, transparent 18%, #000 44%)'
+const STARS_MASK = 'linear-gradient(to bottom, transparent 0%, #000 14%)'
 
 /**
  * State C launchpad (spec §3). Cinematic hero (brightness 1.8) whose clip
@@ -75,7 +75,7 @@ export function CinematicLaunchpad({
       <section className="relative z-10 -mt-[18vh]">
         {/* Starfield — background of the travels section; fades in below the globe. */}
         <StarsBackground
-          className="pointer-events-none absolute inset-0 -z-10"
+          className="pointer-events-none absolute inset-0 -z-10 !bg-transparent"
           speed={70}
           style={{ WebkitMaskImage: STARS_MASK, maskImage: STARS_MASK }}
         />

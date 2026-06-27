@@ -18,7 +18,7 @@ const MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
 // below the globe's content (transparent at the top so the globe shows, full
 // stars lower) — a clean globe→stars split instead of stacked full-page layers.
 const GLOBE_MASK = 'linear-gradient(to bottom, #000 84%, transparent 100%)'
-const STARS_MASK = 'linear-gradient(to bottom, transparent 0%, transparent 18%, #000 44%)'
+const STARS_MASK = 'linear-gradient(to bottom, transparent 0%, #000 14%)'
 
 /**
  * State-B cockpit home — the full-bleed page that assembles the night-Earth globe
@@ -133,7 +133,7 @@ export function CockpitHome({
             below the globe's content, so the globe stays prominent above and the
             list scrolls over a full starfield (fills the empty space, desktop + mobile). */}
         <StarsBackground
-          className="pointer-events-none absolute inset-0 -z-10"
+          className="pointer-events-none absolute inset-0 -z-10 !bg-transparent"
           speed={70}
           style={{ WebkitMaskImage: STARS_MASK, maskImage: STARS_MASK }}
         />
