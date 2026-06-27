@@ -1,5 +1,5 @@
-import { useRef, useState, type ReactNode } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { CinematicHero } from './CinematicHero'
 import { FieldGlobe } from '../home/FieldGlobe'
@@ -12,6 +12,7 @@ import { CommandPill, type CommandPillHandle, type CommandPillCommit } from './h
 import { UpcomingJourney } from './home/UpcomingJourney'
 import { MaterializeOverlay } from './home/MaterializeOverlay'
 import { materialize } from './home/materialize-controller'
+import { useHeroPillInView } from './home/useHeroPillInView'
 import { peekCover } from '../lib/cover-prefetch'
 import { formatRangeChip } from '../lib/range-calendar'
 import { useCreateTrip, useBackfillCoverImage } from '../data/useTrips'
@@ -53,8 +54,10 @@ export interface HomePageProps {
  */
 export function HomePage({ trips, focus, units, userId, accountControls, tripActions }: HomePageProps) {
   const nav = useNavigate()
+  const location = useLocation()
   const openTrip = (id: string) => nav('/trip/' + encodeURIComponent(id))
   const { globeRef, globeActive, heroActive } = useInViewActive()
+  const { ref: pillSentinelRef, inView: pillInView } = useHeroPillInView<HTMLDivElement>()
 
   const create = useCreateTrip()
   const backfillCover = useBackfillCoverImage()
@@ -92,6 +95,16 @@ export function HomePage({ trips, focus, units, userId, accountControls, tripAct
     requestAnimationFrame(() => pillHandleRef.current?.focus())
   }
 
+  // Off-Home entry: /?new=1 scrolls to top and auto-focuses the pill (spec §6).
+  useEffect(() => {
+    if (new URLSearchParams(location.search).get('new') === '1') {
+      window.scrollTo({ top: 0 })
+      requestAnimationFrame(() => pillHandleRef.current?.focus())
+      nav('/', { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <div className="relative min-h-[100svh] bg-[#05060a] text-white">
       {/* FieldGlobe — the page-top background, behind the hero (static high-quality frame). */}
@@ -124,7 +137,8 @@ export function HomePage({ trips, focus, units, userId, accountControls, tripAct
         copyPaddingClassName="pt-[16vh] md:pt-[18vh]"
         pillMarginClassName="mt-[calc(8vh_+_2.25rem)] md:mt-10"
         renderPill={({ onWordStart }) => (
-          <div ref={pillWrapRef} className="w-full">
+          <div ref={pillWrapRef} className="relative w-full">
+            <div ref={pillSentinelRef} aria-hidden className="absolute inset-x-0 top-0 h-px" />
             <CommandPill
               ref={pillHandleRef}
               onWordStart={onWordStart}
@@ -136,7 +150,6 @@ export function HomePage({ trips, focus, units, userId, accountControls, tripAct
         )}
         headerRight={
           <div className="flex items-center gap-2.5 text-white [&_button]:text-white">
-            <Button variant="claret" onClick={focusHeroPill}><Plus size={16} strokeWidth={2.5} />New trip</Button>
             {accountControls}
           </div>
         }
@@ -176,6 +189,16 @@ export function HomePage({ trips, focus, units, userId, accountControls, tripAct
       </section>
 
       <HomeCredits />
+
+      {/* Fixed "New trip" button — fades in once the hero pill scrolls out of view (spec §5.1).
+          Smooth-scrolls back to the hero and focuses the pill when clicked. */}
+      <div
+        aria-hidden={pillInView}
+        className={`fixed right-4 top-4 z-40 transition-opacity duration-300 ${pillInView ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
+      >
+        <Button variant="claret" onClick={focusHeroPill}><Plus size={16} strokeWidth={2.5} />New trip</Button>
+      </div>
+
       <MaterializeOverlay />
     </div>
   )
