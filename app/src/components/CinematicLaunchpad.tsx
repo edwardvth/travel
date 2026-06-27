@@ -40,7 +40,7 @@ export function CinematicLaunchpad({
       {/* FieldGlobe — over the stars; dissolves into them at its bottom (GLOBE_MASK).
           High-quality-but-efficient shader (octaves 4 + blur, capped DPR). */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden bg-[#05060a]"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
         style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
       >
         {/* Inner positioning box sets the globe's framing. FieldGlobe's root forces

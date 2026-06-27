@@ -108,9 +108,9 @@ export function StarsBackground({
       {...props}
     >
       <motion.div style={{ x: springX, y: springY }}>
-        <StarLayer count={1000} size={1} transition={{ repeat: Infinity, duration: speed, ease: 'linear' }} starColor={starColor} />
-        <StarLayer count={400} size={2} transition={{ repeat: Infinity, duration: speed * 2, ease: 'linear' }} starColor={starColor} />
-        <StarLayer count={200} size={3} transition={{ repeat: Infinity, duration: speed * 3, ease: 'linear' }} starColor={starColor} />
+        <StarLayer count={1800} size={1} transition={{ repeat: Infinity, duration: speed, ease: 'linear' }} starColor={starColor} />
+        <StarLayer count={750} size={2} transition={{ repeat: Infinity, duration: speed * 2, ease: 'linear' }} starColor={starColor} />
+        <StarLayer count={400} size={3} transition={{ repeat: Infinity, duration: speed * 3, ease: 'linear' }} starColor={starColor} />
       </motion.div>
       {children}
     </div>

@@ -59,7 +59,7 @@ export function CockpitHome({
           bottom (GLOBE_MASK). High-quality-but-efficient shader: full detail
           (octaves 4 + blur) at a capped DPR so it isn't laggy on desktop. */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden bg-[#05060a]"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
         style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
       >
         <div className="absolute inset-x-0 top-[20vh] h-[170vh]">
