@@ -5,6 +5,7 @@ import { FieldGlobe } from '../home/FieldGlobe'
 import { useInViewActive } from '../home/useInViewActive'
 import { TripGrid } from './TripGrid'
 import { StarsBackground } from './ui/stars'
+import { HomeCredits } from './home-style'
 import { Button } from './ui/Button'
 import globeStill from '../assets/globe-still.webp'
 import type { Trip } from '../types'
@@ -79,7 +80,7 @@ export function CinematicLaunchpad({
           speed={70}
           style={{ WebkitMaskImage: STARS_MASK, maskImage: STARS_MASK }}
         />
-        <div className="mx-auto max-w-6xl px-5 md:px-8 pt-[2vh] pb-[40vh]">
+        <div className="mx-auto max-w-6xl px-5 md:px-8 pt-[2vh] pb-[22vh]">
           {/* Globe-activation sentinel — once this scrolls into the top ~45% of the
               viewport (useInViewActive's -55% bottom margin), the globe goes live and
               the hero video pauses. At the top (on the hero) the globe stays paused. */}
@@ -97,6 +98,8 @@ export function CinematicLaunchpad({
           )}
         </div>
       </section>
+
+      <HomeCredits />
     </div>
   )
 }

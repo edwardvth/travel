@@ -3,7 +3,7 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { Mark } from './Logo'
 import { CockpitCard } from './CockpitCard'
 import { TravelsList } from './TravelsList'
-import { SoftBackdrop, TS, TS_STRONG } from './home-style'
+import { HomeCredits, SoftBackdrop, TS, TS_STRONG } from './home-style'
 import { StarsBackground } from './ui/stars'
 import { useDestinationClip } from '../hero/useDestinationClip'
 import { HeroVideoStage } from '../hero/HeroVideoStage'
@@ -124,13 +124,15 @@ export function CockpitHome({
           speed={70}
           style={{ WebkitMaskImage: STARS_MASK, maskImage: STARS_MASK }}
         />
-        <div className="mx-auto max-w-5xl px-5 md:px-8 pt-[2vh] pb-[40vh]">
+        <div className="mx-auto max-w-5xl px-5 md:px-8 pt-[2vh] pb-[22vh]">
           {/* Globe-activation sentinel — once it scrolls into the top ~45% of the
               viewport the globe goes live and the hero video pauses. */}
           <div ref={globeRef} aria-hidden className="h-px w-full" />
           <TravelsList trips={trips} featuredId={focus.id} onOpen={onOpen} userId={userId} today={today} tripActions={tripActions} />
         </div>
       </section>
+
+      <HomeCredits />
     </div>
   )
 }

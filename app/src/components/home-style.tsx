@@ -5,3 +5,16 @@ export const HEADER_SCRIM = 'linear-gradient(to bottom, rgba(8,8,12,.30) 0%, rgb
 export function SoftBackdrop() {
   return <div aria-hidden className="pointer-events-none absolute -inset-x-1 -inset-y-4 -z-10 rounded-[32px] bg-black/45 blur-[52px]" />
 }
+
+/** Footer media attribution for the home (Pexels videos + Unsplash photos). */
+export function HomeCredits() {
+  const link = 'underline-offset-2 transition-colors hover:text-white/65 hover:underline'
+  return (
+    <footer className="relative z-10 px-5 pb-9 pt-2 text-center font-mono text-[10.5px] tracking-wide text-white/35">
+      Destination videos from{' '}
+      <a href="https://www.pexels.com" target="_blank" rel="noreferrer" className={link}>Pexels</a>
+      {' · '}Trip photos from{' '}
+      <a href="https://unsplash.com" target="_blank" rel="noreferrer" className={link}>Unsplash</a>
+    </footer>
+  )
+}
