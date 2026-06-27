@@ -17,7 +17,7 @@ const MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
 // The globe box is short (its golden content sits up top); it stays solid through
 // the video handoff (~100vh) then dissolves into the starfield, which fills the
 // rest of the page beneath it.
-const GLOBE_MASK = 'linear-gradient(to bottom, #000 71%, transparent 93%)'
+const GLOBE_MASK = 'linear-gradient(to bottom, #000 67%, transparent 92%)'
 
 /**
  * State-B cockpit home — the full-bleed page that assembles the night-Earth globe
@@ -60,7 +60,7 @@ export function CockpitHome({
           bottom (GLOBE_MASK). High-quality-but-efficient shader: full detail
           (octaves 4 + blur) at a capped DPR so it isn't laggy on desktop. */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[140vh] overflow-hidden"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[150vh] overflow-hidden"
         style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
       >
         <div className="absolute inset-x-0 top-[20vh] h-[170vh]">
