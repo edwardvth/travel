@@ -27,7 +27,7 @@ const MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
  */
 export function CockpitHome({
   trips, focus, firstName, units, userId, today,
-  onCreate: _onCreate, onOpen, onOpenArrange, onOpenGuide, headerRight,
+  onOpen, onOpenArrange, onOpenGuide, headerRight,
 }: {
   trips: Trip[]
   focus: Trip
@@ -35,7 +35,6 @@ export function CockpitHome({
   units: Units
   userId?: string
   today?: string
-  onCreate: () => void
   onOpen: (id: string) => void
   onOpenArrange: (id: string) => void
   onOpenGuide: (id: string) => void

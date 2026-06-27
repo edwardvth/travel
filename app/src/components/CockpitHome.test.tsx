@@ -34,7 +34,7 @@ describe('CockpitHome', () => {
   it('renders the personalised welcome headline', () => {
     renderHome(
       <CockpitHome trips={trips} focus={tokyo} firstName="Edward" units="metric" today={today}
-        onCreate={noop} onOpen={noop} onOpenArrange={noop} onOpenGuide={noop}
+        onOpen={noop} onOpenArrange={noop} onOpenGuide={noop}
         headerRight={<button>New trip</button>} />,
     )
     expect(screen.getByText('Welcome back, Edward.')).toBeInTheDocument()
@@ -43,7 +43,7 @@ describe('CockpitHome', () => {
   it('shows the focus trip in the hero exactly once (not duplicated into the list)', () => {
     renderHome(
       <CockpitHome trips={trips} focus={tokyo} firstName="Edward" units="metric" today={today}
-        onCreate={noop} onOpen={noop} onOpenArrange={noop} onOpenGuide={noop}
+        onOpen={noop} onOpenArrange={noop} onOpenGuide={noop}
         headerRight={<button>New trip</button>} />,
     )
     expect(screen.getAllByText('Tokyo')).toHaveLength(1)
@@ -54,7 +54,7 @@ describe('CockpitHome', () => {
   it('renders the supplied headerRight content', () => {
     renderHome(
       <CockpitHome trips={trips} focus={tokyo} firstName="Edward" units="metric" today={today}
-        onCreate={noop} onOpen={noop} onOpenArrange={noop} onOpenGuide={noop}
+        onOpen={noop} onOpenArrange={noop} onOpenGuide={noop}
         headerRight={<button>New trip</button>} />,
     )
     expect(screen.getByRole('button', { name: 'New trip' })).toBeInTheDocument()
