@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { Plus } from 'lucide-react'
 import { useAuth } from '../auth/useAuth'
 import { useProfile, isFounder } from '../data/useProfile'
@@ -11,13 +10,9 @@ import { COVER_LOGIC_VERSION } from '../trip/cover-image'
 import { useUnits } from '../data/useUnits'
 import { AppShell } from '../components/AppShell'
 import { Button } from '../components/ui/Button'
-import { Segmented } from '../components/ui/Segmented'
 import { Skeleton } from '../components/ui/Skeleton'
-import { Cockpit } from '../components/Cockpit'
 import { CockpitHome } from '../components/CockpitHome'
 import { Launchpad } from '../components/Launchpad'
-import { TripGrid } from '../components/TripGrid'
-import { AddTripTile } from '../components/AddTripTile'
 import { NewTripSheet } from './NewTripSheet'
 import { ShareSheet } from './ShareSheet'
 import { AccountMenu } from '../components/AccountMenu'
@@ -28,11 +23,9 @@ import { ThemeToggle } from '../components/ThemeToggle'
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth()
   const nav = useNavigate()
-  const reduce = useReducedMotion()
   const units = useUnits()
   const { data: profile } = useProfile(user?.id)
   const { data: trips, isLoading } = useTrips(user?.id, profile)
-  const [tab, setTab] = useState<'upcoming' | 'past'>('upcoming')
   const [newOpen, setNewOpen] = useState(false)
 
   useEffect(() => { if (!authLoading && !user) nav('/auth', { replace: true }) }, [authLoading, user, nav])
@@ -103,7 +96,6 @@ export default function Dashboard() {
     </>
   ) : undefined
 
-  const shown = tab === 'past' ? past : upcoming
   const focus = useMemo(() => selectFocusTrip(trips ?? []), [trips])
   const firstName = (profile?.name || user?.email?.split('@')[0] || 'traveler').split(/\s+/)[0]
   const openTrip = (id: string) => { nav(`/trip/${encodeURIComponent(id)}`) }            // → Plan
@@ -113,20 +105,6 @@ export default function Dashboard() {
 
   // Single creation entry point. Phase 1 → NewTripSheet; Phase 3 swaps this for the pill.
   const openCreateTrip = () => setNewOpen(true)
-
-  // Greeting varies by state: cockpit / returning / brand-new.
-  const greeting = focus
-    ? <>Good to see you, <span className="font-semibold text-ink">{firstName}</span> — here's what's next.</>
-    : past.length > 0
-      ? <>Welcome back, <span className="font-semibold text-ink">{firstName}</span>.</>
-      : <>Welcome, <span className="font-semibold text-ink">{firstName}</span>.</>
-
-  const tabSwap = (r: boolean) => ({
-    initial: r ? false : { opacity: 0, y: 8 },
-    animate: { opacity: 1, y: 0 },
-    exit: r ? { opacity: 0 } : { opacity: 0, y: -8 },
-    transition: { duration: 0.22, ease: 'easeOut' as const },
-  })
 
   // Sheets/dialogs that must stay mounted regardless of which state renders.
   const overlays = (
@@ -196,46 +174,19 @@ export default function Dashboard() {
     )
   }
 
+  // Only reached while loading — both State-C (`!focus`) and State-B (`focus`)
+  // return full-bleed above, so this renders the loading skeleton alone.
   return (
     <AppShell right={<>
       <Button variant="claret" onClick={openCreateTrip}><Plus size={16} strokeWidth={2.5} />New trip</Button>
       <AccountMenu email={user?.email ?? ''} profile={profile} />
     </>}>
       <div className="px-5 md:px-8 py-6 max-w-6xl mx-auto">
-        {isLoading ? (
-          <>
-            <Skeleton className="h-4 w-56 rounded" />
-            <Skeleton className="mt-4 h-[300px] w-full rounded-card md:h-[360px]" />
-            <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {[0, 1, 2].map(i => <Skeleton key={i} className="h-[200px] rounded-card" />)}
-            </div>
-          </>
-        ) : focus ? (
-          <>
-            <p className="text-[13px] text-muted">{greeting}</p>
-            <div className="mt-4">
-              <Cockpit trip={focus} onOpen={openTrip} onOpenArrange={openArrange} onOpenGuide={openGuide} units={units} />
-            </div>
-
-            <div className="mt-7 mb-4 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-              <h2 className="font-serif text-xl">Your trips</h2>
-              <Segmented value={tab} onChange={setTab}
-                options={[{ value: 'upcoming', label: `Upcoming (${upcoming.length})` }, { value: 'past', label: `Past (${past.length})` }]} />
-            </div>
-
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.div key={tab} {...tabSwap(!!reduce)}>
-                {shown.length === 0 ? (
-                  tab === 'upcoming'
-                    ? <AddTripTile onClick={openCreateTrip} label="Plan your next escape" sub="Add a trip" className="min-h-[200px]" />
-                    : <p className="py-12 text-center text-[14px] text-muted">Trips you finish will land here as keepsakes.</p>
-                ) : (
-                  <TripGrid trips={shown} onOpen={openTrip} tripActions={tripActions} onAdd={tab === 'upcoming' ? openCreateTrip : undefined} />
-                )}
-              </motion.div>
-            </AnimatePresence>
-          </>
-        ) : null /* State C is handled by the full-bleed early-return above. */}
+        <Skeleton className="h-4 w-56 rounded" />
+        <Skeleton className="mt-4 h-[300px] w-full rounded-card md:h-[360px]" />
+        <div className="mt-7 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {[0, 1, 2].map(i => <Skeleton key={i} className="h-[200px] rounded-card" />)}
+        </div>
       </div>
 
       {overlays}
