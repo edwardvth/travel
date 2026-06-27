@@ -40,6 +40,13 @@ describe('useDestinationClip', () => {
     expect(mockFetch).not.toHaveBeenCalled()
   })
 
+  it('matches the leading city token so "Tokyo, Japan" still uses the curated clip (no fetch)', () => {
+    const curated = curatedClipFor('Tokyo')
+    const { result } = renderHook(() => useDestinationClip(tripFor('Tokyo, Japan')))
+    expect(result.current.clip.id).toBe(curated!.id)
+    expect(mockFetch).not.toHaveBeenCalled()
+  })
+
   it('starts on FIRST_CLIP then swaps to the Pexels clip for an uncurated destination', async () => {
     mockFetch.mockResolvedValue(PEXELS_VIDEO)
 

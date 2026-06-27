@@ -12,7 +12,9 @@ import { fetchDestinationVideo, clipFromDestinationVideo, type DestinationVideoC
  */
 export function useDestinationClip(trip: Trip): { clip: HeroClip; credit: DestinationVideoCredit | null } {
   const destination = (trip.config?.destination || trip.title || '').trim()
-  const curated = curatedClipFor(destination)
+  // Curated match tries the full destination first, then the leading city token,
+  // so "Tokyo, Japan" / "Paris, Île-de-France, France" still hit the self-hosted clip.
+  const curated = curatedClipFor(destination) ?? curatedClipFor(destination.split(',')[0].trim())
   const [clip, setClip] = useState<HeroClip>(curated ?? FIRST_CLIP)
   const [credit, setCredit] = useState<DestinationVideoCredit | null>(null)
 
