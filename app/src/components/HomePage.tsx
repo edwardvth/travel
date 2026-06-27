@@ -10,7 +10,6 @@ import { HomeCredits } from './home-style'
 import { Button } from './ui/Button'
 import { CommandPill, type CommandPillHandle, type CommandPillCommit } from './home/CommandPill'
 import { UpcomingJourney } from './home/UpcomingJourney'
-import { MaterializeOverlay } from './home/MaterializeOverlay'
 import { materialize } from './home/materialize-controller'
 import { useHeroPillInView } from './home/useHeroPillInView'
 import { peekCover } from '../lib/cover-prefetch'
@@ -199,7 +198,6 @@ export function HomePage({ trips, focus, units, userId, accountControls, tripAct
         <Button variant="claret" onClick={focusHeroPill}><Plus size={16} strokeWidth={2.5} />New trip</Button>
       </div>
 
-      <MaterializeOverlay />
     </div>
   )
 }
