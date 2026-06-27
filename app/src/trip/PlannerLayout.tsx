@@ -19,6 +19,7 @@ import { importGuide, importTrip, importItinerary } from './lazyRoutes'
 import { Button } from '../components/ui/Button'
 import { cn } from '../lib/utils'
 import { dayCount, dayLabel } from './helpers'
+import { materialize } from '../components/home/materialize-controller'
 import { Briefcase, CalendarDays, Compass, Eye, LayoutList } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import type { Trip } from '../types'
@@ -68,6 +69,7 @@ function HeaderSkeleton() {
 }
 
 export default function PlannerLayout() {
+  useEffect(() => { materialize.arrive() }, [])
   const { id } = useParams()
   const { user, loading: authLoading } = useAuth()
   const nav = useNavigate()
