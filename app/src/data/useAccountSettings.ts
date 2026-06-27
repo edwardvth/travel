@@ -18,6 +18,7 @@ export interface AccountSettings {
   aiKey?: string
   units?: Units
   voiceId?: string
+  homeTravelsViewMode?: 'tiles' | 'detailed'
 }
 
 const STORAGE_PREFIX = 'voyager:account:'
@@ -42,6 +43,8 @@ export function parseAccountSettings(raw: string | null): AccountSettings {
   if (typeof rec.aiKey === 'string' && rec.aiKey) out.aiKey = rec.aiKey
   if (rec.units === 'metric' || rec.units === 'imperial') out.units = rec.units
   if (typeof rec.voiceId === 'string' && rec.voiceId) out.voiceId = rec.voiceId
+  if (rec.homeTravelsViewMode === 'tiles' || rec.homeTravelsViewMode === 'detailed')
+    out.homeTravelsViewMode = rec.homeTravelsViewMode
   return out
 }
 
