@@ -158,7 +158,7 @@ function bestFile(v: PexelsVideo): { link: string; width: number; height: number
   return { link: f.link!, width: f.width ?? 0, height: f.height ?? 0 }
 }
 
-function score(v: PexelsVideo, idx: number, file: { width: number; height: number }): number {
+function score(v: PexelsVideo, file: { width: number; height: number }): number {
   let s = 0
   if (file.height >= 1080) s += 3
   else if (file.height >= 720) s += 1
@@ -166,7 +166,14 @@ function score(v: PexelsVideo, idx: number, file: { width: number; height: numbe
   if (d >= 10 && d <= 30) s += 2
   else if (d >= MIN_DURATION) s += 1
   s -= Math.abs(file.width / Math.max(file.height, 1) - 16 / 9) * 2.5
-  s -= idx * 0.15
+  // Source production quality. Pexels exposes NO likes/views, and its result
+  // ORDER is relevance (not quality) — so we deliberately do NOT bias by index
+  // (that bias used to hand the first result an unearned edge). Instead reward a
+  // high NATIVE resolution: a 4K/1440p source is usually a higher-production clip
+  // even when we stream its 1080p file.
+  const nativeH = v.height ?? 0
+  if (nativeH >= 2160) s += 1.5
+  else if (nativeH >= 1440) s += 0.75
   return s
 }
 
@@ -179,11 +186,11 @@ async function searchPexels(query: string): Promise<Resolved | null> {
     if (!r.ok) { console.error(`[pexels-video] search ${r.status}: ${await r.text().catch(() => '')}`); return null }
     const videos = ((await r.json().catch(() => null)) as { videos?: PexelsVideo[] } | null)?.videos ?? []
     let best: { s: number; v: PexelsVideo; link: string } | null = null
-    videos.forEach((v, idx) => {
+    videos.forEach((v) => {
       if ((v.duration ?? 0) < MIN_DURATION) return
       const f = bestFile(v)
       if (!f) return
-      const s = score(v, idx, f)
+      const s = score(v, f)
       if (!best || s > best.s) best = { s, v, link: f.link }
     })
     console.log(`[pexels-video] "${query}": ${videos.length} videos → ${best ? `picked score=${(best as { s: number }).s.toFixed(2)}` : 'NO usable landscape clip'}`)
