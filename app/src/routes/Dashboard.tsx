@@ -14,6 +14,7 @@ import { Button } from '../components/ui/Button'
 import { Segmented } from '../components/ui/Segmented'
 import { Skeleton } from '../components/ui/Skeleton'
 import { Cockpit } from '../components/Cockpit'
+import { CockpitHome } from '../components/CockpitHome'
 import { Launchpad } from '../components/Launchpad'
 import { TripGrid } from '../components/TripGrid'
 import { AddTripTile } from '../components/AddTripTile'
@@ -155,6 +156,32 @@ export default function Dashboard() {
           onCreate={openCreateTrip}
           onOpenTrip={openTrip}
           tripActions={tripActions}
+          headerRight={
+            <div className="flex items-center gap-2.5 text-white [&_button]:text-white">
+              <ThemeToggle />
+              <Button variant="claret" onClick={openCreateTrip}><Plus size={16} strokeWidth={2.5} />New trip</Button>
+              <AccountMenu email={user?.email ?? ''} profile={profile} />
+            </div>
+          }
+        />
+        {overlays}
+      </>
+    )
+  }
+
+  // State B — cinematic cockpit home (full-bleed, outside AppShell, like State C).
+  if (!isLoading && focus) {
+    return (
+      <>
+        <CockpitHome
+          trips={trips ?? []}
+          focus={focus}
+          firstName={firstName}
+          units={units}
+          userId={user?.id}
+          onOpen={openTrip}
+          onOpenArrange={openArrange}
+          onOpenGuide={openGuide}
           headerRight={
             <div className="flex items-center gap-2.5 text-white [&_button]:text-white">
               <ThemeToggle />
