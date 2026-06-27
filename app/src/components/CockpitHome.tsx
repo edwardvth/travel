@@ -4,6 +4,7 @@ import { Mark } from './Logo'
 import { CockpitCard } from './CockpitCard'
 import { TravelsList } from './TravelsList'
 import { SoftBackdrop, TS, TS_STRONG } from './home-style'
+import { StarsBackground } from './ui/stars'
 import { useDestinationClip } from '../hero/useDestinationClip'
 import { HeroVideoStage } from '../hero/HeroVideoStage'
 import { FieldGlobe } from '../home/FieldGlobe'
@@ -13,6 +14,8 @@ import type { Units } from '../data/useAccountSettings'
 import type { Trip } from '../types'
 
 const MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
+// The globe box dissolves into the starfield over its bottom ~quarter.
+const GLOBE_MASK = 'linear-gradient(to bottom, #000 72%, transparent 96%)'
 
 /**
  * State-B cockpit home — the full-bleed page that assembles the night-Earth globe
@@ -47,13 +50,24 @@ export function CockpitHome({
 
   return (
     <div className="relative min-h-[100svh] bg-[#05060a] text-white">
-      {/* Globe — original transition geometry (tall background, dark sky behind the clip). */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden bg-[#05060a]">
+      {/* Starfield — the deepest background, covering the WHOLE page so the list
+          scrolls over stars (not black) for its full length, on desktop + mobile. */}
+      <StarsBackground className="pointer-events-none absolute inset-0 z-0" speed={70} />
+
+      {/* Globe — sits over the stars for its 185vh and dissolves into them at its
+          bottom (GLOBE_MASK). High-quality-but-efficient shader: full detail
+          (octaves 4 + blur) at a capped DPR so it isn't laggy on desktop. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
+        style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
+      >
         <div className="absolute inset-x-0 top-[20vh] h-[170vh]">
           <FieldGlobe
             className="absolute inset-0"
             active={globeActive}
             staticSrc={globeStill}
+            dprCap={1.0}
+            frag={{ octaves: 4, blur: true }}
           />
         </div>
       </div>

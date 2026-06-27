@@ -4,11 +4,13 @@ import { CinematicHero } from './CinematicHero'
 import { FieldGlobe } from '../home/FieldGlobe'
 import { useInViewActive } from '../home/useInViewActive'
 import { TripGrid } from './TripGrid'
+import { StarsBackground } from './ui/stars'
 import { Button } from './ui/Button'
 import globeStill from '../assets/globe-still.webp'
 import type { Trip } from '../types'
 
 const VIDEO_MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
+const GLOBE_MASK = 'linear-gradient(to bottom, #000 72%, transparent 96%)'
 
 /**
  * State C launchpad (spec §3). Cinematic hero (brightness 1.8) whose clip
@@ -31,11 +33,15 @@ export function CinematicLaunchpad({
 
   return (
     <div className="relative min-h-[100svh] bg-[#05060a] text-white">
-      {/* FieldGlobe — tall background; dark sky behind the clip, arcs low behind tiles.
-          The dark bg here guarantees the area is never white even if WebGL fails to
-          start (the canvas + static image layer over it). */}
+      {/* Starfield — deepest background, covers the whole page so content past the
+          globe scrolls over stars (not black), on desktop + mobile. */}
+      <StarsBackground className="pointer-events-none absolute inset-0 z-0" speed={70} />
+
+      {/* FieldGlobe — over the stars; dissolves into them at its bottom (GLOBE_MASK).
+          High-quality-but-efficient shader (octaves 4 + blur, capped DPR). */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden bg-[#05060a]"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
+        style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
       >
         {/* Inner positioning box sets the globe's framing. FieldGlobe's root forces
             inset:0 inline, so it fills THIS box rather than its own className. */}
@@ -44,6 +50,8 @@ export function CinematicLaunchpad({
             className="absolute inset-0"
             active={globeActive}
             staticSrc={globeStill}
+            dprCap={1.0}
+            frag={{ octaves: 4, blur: true }}
           />
         </div>
       </div>
