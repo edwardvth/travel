@@ -10,7 +10,7 @@ import globeStill from '../assets/globe-still.webp'
 import type { Trip } from '../types'
 
 const VIDEO_MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
-const GLOBE_MASK = 'linear-gradient(to bottom, #000 84%, transparent 100%)'
+const GLOBE_MASK = 'linear-gradient(to bottom, #000 71%, transparent 93%)'
 
 /**
  * State C launchpad (spec §3). Cinematic hero (brightness 1.8) whose clip
@@ -40,7 +40,7 @@ export function CinematicLaunchpad({
       {/* FieldGlobe — over the stars; dissolves into them at its bottom (GLOBE_MASK).
           High-quality-but-efficient shader (octaves 4 + blur, capped DPR). */}
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
+        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[140vh] overflow-hidden"
         style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
       >
         {/* Inner positioning box sets the globe's framing. FieldGlobe's root forces
