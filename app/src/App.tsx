@@ -4,6 +4,9 @@ import Landing from './routes/Landing'
 import Auth from './routes/Auth'
 import Dashboard from './routes/Dashboard'
 import PreviewCockpit from './routes/_PreviewCockpit'
+import PreviewLayouts from './routes/_PreviewLayouts'
+import PreviewHomeInteractions from './routes/_PreviewHomeInteractions'
+import PreviewHomeSearch from './routes/_PreviewHomeSearch'
 import SplashIntro from './components/SplashIntro'
 import { ChunkErrorBoundary } from './components/ChunkErrorBoundary'
 import { RouteFallback } from './components/RouteFallbacks'
@@ -32,6 +35,11 @@ export default function App() {
             <Route path="/" element={<Landing />} />
             <Route path="/x-cockpit-a" element={<PreviewCockpit variant="a" />} />
             <Route path="/x-cockpit-b" element={<PreviewCockpit variant="b" />} />
+            <Route path="/x-layout-a" element={<PreviewLayouts variant="a" />} />
+            <Route path="/x-layout-c" element={<PreviewLayouts variant="c" />} />
+            <Route path="/x-home-mobile-deck-expand" element={<PreviewHomeInteractions variant="expand" />} />
+            <Route path="/x-home-mobile-horizontal-rail" element={<PreviewHomeInteractions variant="rail" />} />
+            <Route path="/x-home-search-views" element={<PreviewHomeSearch />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/trips" element={<Dashboard />} />
             <Route path="/trip/:id" element={<PlannerLayout />}>
