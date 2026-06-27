@@ -52,7 +52,7 @@ export function CockpitCard({
     formatDateRange(trip) + (m.stopCount > 0 ? ` · ${m.stopCount} stop${m.stopCount === 1 ? '' : 's'}` : ' · No stops yet')
 
   const secondaryBtn =
-    'rounded-full border border-white/20 bg-white/[0.07] px-5 py-2.5 text-[14px] font-medium text-white transition-colors hover:bg-white/15 md:px-6 md:py-3'
+    'rounded-full border border-white/20 bg-white/[0.07] px-5 py-2.5 text-[14px] font-medium text-white transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 md:px-6 md:py-3'
 
   return (
     <div className="group h-[264px] w-full overflow-hidden rounded-[22px] shadow-[0_22px_64px_rgba(0,0,0,.5)] transition-[transform,box-shadow] duration-300 ease-out md:h-[330px] [@media(hover:hover)]:hover:-translate-y-1.5 [@media(hover:hover)]:hover:shadow-[0_34px_82px_rgba(0,0,0,.62)] motion-reduce:transition-none motion-reduce:hover:transform-none">
