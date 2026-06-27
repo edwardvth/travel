@@ -88,10 +88,11 @@ describe('buildNewTripPayload', () => {
     expect(p.data.days).toHaveLength(4)
     expect(p.id).toBe('kyoto')
   })
-  it('defaults to 4 undated days when no range', () => {
+  it('defaults to 5 generic days when no range (Don\'t know dates yet)', () => {
     const p = buildNewTripPayload({ slug: 'x', title: 'X', subtitle: '', start: '', end: '' })
-    expect(p.config.numDays).toBe(4)
-    expect(p.config.dayLabels?.[0]).toBe('Day 1')
+    expect(p.config.numDays).toBe(5)
+    expect(p.config.dayLabels).toEqual(['Day 1', 'Day 2', 'Day 3', 'Day 4', 'Day 5'])
+    expect(p.data.days).toHaveLength(5)
   })
   it('threads destination + notes into config', () => {
     const p = buildNewTripPayload({ slug: 'x', title: 'X', subtitle: '', start: '', end: '', destination: 'Kyoto, Japan', notes: 'pack light' })
