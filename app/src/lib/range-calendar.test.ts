@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   isoOf, monthGrid, applyRangeClick, inBand, isEnd, isStart,
-  formatRangeChip, addMonths, monthLabel,
+  formatRangeChip, addMonths, addDays, monthLabel,
 } from './range-calendar'
 
 describe('isoOf', () => {
@@ -78,4 +78,11 @@ describe('month navigation', () => {
   it('monthLabel is human', () => {
     expect(monthLabel({ y: 2026, m: 6 })).toBe('July 2026')
   })
+})
+
+describe('addDays', () => {
+  it('adds within a month', () => { expect(addDays('2026-07-14', 4)).toBe('2026-07-18') })
+  it('crosses a month boundary forward', () => { expect(addDays('2026-07-31', 1)).toBe('2026-08-01') })
+  it('crosses a month boundary backward', () => { expect(addDays('2026-08-01', -1)).toBe('2026-07-31') })
+  it('crosses a year boundary', () => { expect(addDays('2026-12-31', 1)).toBe('2027-01-01') })
 })

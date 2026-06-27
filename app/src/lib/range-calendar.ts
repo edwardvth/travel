@@ -84,4 +84,11 @@ export function addMonths(ym: YM, delta: number): YM {
   const total = ym.y * 12 + ym.m + delta
   return { y: Math.floor(total / 12), m: ((total % 12) + 12) % 12 }
 }
+
+/** Add (or subtract) whole days to a `YYYY-MM-DD`, crossing month/year boundaries. Local-date safe. */
+export function addDays(iso: string, delta: number): string {
+  const { y, m, d } = parseISO(iso)
+  const dt = new Date(y, m, d + delta, 12)   // noon-anchored → DST-safe
+  return isoOf({ y: dt.getFullYear(), m: dt.getMonth(), d: dt.getDate() })
+}
 export function monthLabel({ y, m }: YM): string { return `${MONTHS_LONG[m]} ${y}` }
