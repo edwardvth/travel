@@ -361,12 +361,19 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
           </button>
         </div>
 
-        {/* ── Autocomplete listbox (phase "destination") ─────────────────── */}
-        {showList && (
-          <ul
+        {/* ── Autocomplete listbox (phase "destination") — fades/scales in ── */}
+        <AnimatePresence>
+          {showList && (
+          <motion.ul
+            key="ac"
             id={listId}
             role="listbox"
             aria-label="Destination suggestions"
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.97 }}
+            transition={{ duration: reduce ? 0.12 : 0.18, ease: [0.22, 1, 0.36, 1] }}
+            style={{ transformOrigin: 'top center' }}
             className={cn(
               'absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-2xl',
               'border border-white/12 bg-[rgba(16,14,20,.92)] backdrop-blur-xl',
@@ -404,8 +411,9 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
                 <span className="truncate">{place}</span>
               </li>
             ))}
-          </ul>
-        )}
+          </motion.ul>
+          )}
+        </AnimatePresence>
 
         {/* ── Range calendar overlay (phase "dates") — fades/scales in from the pill ── */}
         <AnimatePresence>
