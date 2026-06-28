@@ -193,6 +193,7 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
                   className="absolute inset-0"
                   active={globeActive}
                   staticSrc={globeStill}
+                  staticFrame
                   dprCap={1.5}
                   frag={{ octaves: 6, blur: true }}
                 />

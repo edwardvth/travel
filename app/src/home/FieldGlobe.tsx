@@ -182,7 +182,11 @@ export function FieldGlobe({ className, active = true, staticSrc, dprCap = 1.5, 
       fadeIn()
     }
 
-    const renderOnce = () => { resize(); draw(performance.now()) }
+    // A static frame must be DETERMINISTIC — always the uTime=0 frame — so it looks
+    // identical no matter WHEN it boots. (A late-booting static globe far down the
+    // page would otherwise paint a different rotation/atmosphere frame than one that
+    // boots on load.) Live loops still use the real clock via draw(now) in frame().
+    const renderOnce = () => { resize(); draw(start) }
 
     // ---- animated loop with cadence + adaptive quality ----
     let rafId = 0
@@ -258,7 +262,7 @@ export function FieldGlobe({ className, active = true, staticSrc, dprCap = 1.5, 
       window.addEventListener('pagehide', onPageHide)
       window.addEventListener('pageshow', onPageShow)
     }
-    const onResize = () => { resize(); if (reduce || staticFrame) draw(performance.now()) }
+    const onResize = () => { resize(); if (reduce || staticFrame) draw(start) }
     if (typeof window !== 'undefined') window.addEventListener('resize', onResize)
 
     // ---- context loss / restore ----
