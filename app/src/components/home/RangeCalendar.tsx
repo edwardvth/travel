@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   monthGrid, applyRangeClick, inBand, isStart, isEnd, addMonths, addDays, monthLabel,
@@ -15,6 +16,8 @@ export interface RangeCalendarProps {
   onComplete?: (range: DateRange) => void
   /** "Don't know dates yet". */
   onSkip: () => void
+  /** Claret "Confirm dates" — shown once a full range is picked. */
+  onConfirm: () => void
   /** Month initially shown; defaults to today's month or the current start. */
   initialMonth?: YM
 }
@@ -27,7 +30,9 @@ function humanLabel(iso: string): string {
   })
 }
 
-export function RangeCalendar({ value, onChange, onComplete, onSkip, initialMonth }: RangeCalendarProps) {
+export function RangeCalendar({ value, onChange, onComplete, onSkip, onConfirm, initialMonth }: RangeCalendarProps) {
+  const reduce = useReducedMotion()
+  const complete = !!value.start && !!value.end
   const [month, setMonth] = useState<YM>(() =>
     initialMonth ?? (value.start ? ymOf(value.start) : ymToday()))
   const [focusIso, setFocusIso] = useState<string>(() =>
@@ -141,13 +146,39 @@ export function RangeCalendar({ value, onChange, onComplete, onSkip, initialMont
         ))}
       </div>
 
-      <button
-        type="button"
-        onClick={onSkip}
-        className="mt-3 w-full h-11 rounded-xl text-[13px] text-white/70 border border-white/14 hover:bg-white/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
-      >
-        Don't know dates yet
-      </button>
+      {/* Once a full range is picked, the "Don't know dates yet" action swaps for a
+          claret "Confirm dates" — a small fade so the change is felt, not abrupt. */}
+      <div className="mt-3">
+        <AnimatePresence mode="wait" initial={false}>
+          {complete ? (
+            <motion.button
+              key="confirm"
+              type="button"
+              onClick={onConfirm}
+              initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
+              transition={{ duration: reduce ? 0.1 : 0.16, ease: [0.22, 1, 0.36, 1] }}
+              className="w-full h-11 rounded-xl bg-sig text-[13.5px] font-semibold text-white shadow-[0_4px_14px_rgba(0,0,0,.25)] hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+            >
+              Confirm dates
+            </motion.button>
+          ) : (
+            <motion.button
+              key="skip"
+              type="button"
+              onClick={onSkip}
+              initial={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, y: 4 }}
+              transition={{ duration: reduce ? 0.1 : 0.16, ease: [0.22, 1, 0.36, 1] }}
+              className="w-full h-11 rounded-xl text-[13px] text-white/70 border border-white/14 hover:bg-white/6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/50"
+            >
+              Don't know dates yet
+            </motion.button>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   )
 }

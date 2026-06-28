@@ -185,12 +185,6 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
       setDatesTBD(false)
     }
 
-    const handleRangeComplete = (completed: DateRange) => {
-      setRange(completed)
-      setDatesTBD(false)
-      setCalOpen(false)
-    }
-
     const handleSkip = () => {
       setDatesTBD(true)
       setRange({ start: null, end: null })
@@ -430,8 +424,8 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
               <RangeCalendar
                 value={range}
                 onChange={handleRangeChange}
-                onComplete={handleRangeComplete}
                 onSkip={handleSkip}
+                onConfirm={() => setCalOpen(false)}
               />
             </motion.div>
           )}
