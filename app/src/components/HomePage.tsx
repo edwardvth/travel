@@ -185,10 +185,12 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
               62vh down the Earth and shows its lit lower limb. */}
           {focus && (
             <div
-              className="pointer-events-none absolute inset-x-0 top-[100svh] z-0 h-[185vh] overflow-hidden"
+              className="pointer-events-none absolute inset-x-0 top-[100svh] z-0 h-[240vh] overflow-hidden"
               style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
             >
-              <div className="absolute inset-x-0 top-[20vh] h-[170vh]">
+              {/* Earth frame pushed DOWN (top-55vh) so the globe's horizon lands behind
+                  the tile rows rather than at the "Your travels" heading. */}
+              <div className="absolute inset-x-0 top-[55vh] h-[170vh]">
                 <FieldGlobe
                   className="absolute inset-0"
                   active={globeActive}
