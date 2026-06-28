@@ -1,4 +1,5 @@
 import { forwardRef, useImperativeHandle, useRef, useState, useId, useEffect } from 'react'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { X, Loader2, MapPin, Calendar } from 'lucide-react'
 import { usePlaceSearch } from '../../data/usePlaceSearch'
 import { resolveCommitLabel } from '../../lib/destination-commit'
@@ -52,6 +53,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
     const [calOpen, setCalOpen] = useState(false)
     const [datesTBD, setDatesTBD] = useState(false)
 
+    const reduce = useReducedMotion()
     const inputRef = useRef<HTMLInputElement>(null)
     const listId = useId()
     const optionId = (i: number) => `${listId}-opt-${i}`
@@ -294,7 +296,10 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
               disabled={pending}
               onClick={() => setCalOpen(c => !c)}
               className={cn(
-                'flex min-w-0 flex-1 items-center gap-2 text-[13.5px] font-medium',
+                // Fixed width: the label changes (Choose dates → Jul 14 → Jul 14 → Jul 18)
+                // but the token must NOT resize, or the centered pill (and the anchored
+                // calendar) re-centers and visibly jumps when you pick the first date.
+                'flex w-[152px] shrink-0 items-center gap-2 text-[13.5px] font-medium',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:pointer-events-none disabled:opacity-50',
                 dateChipComplete ? 'text-gold' : 'text-white/60',
               )}
@@ -402,17 +407,27 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
           </ul>
         )}
 
-        {/* ── Range calendar overlay (phase "dates") ─────────────────────── */}
-        {phase === 'dates' && calOpen && (
-          <div className="absolute left-0 top-full z-20 mt-2">
-            <RangeCalendar
-              value={range}
-              onChange={handleRangeChange}
-              onComplete={handleRangeComplete}
-              onSkip={handleSkip}
-            />
-          </div>
-        )}
+        {/* ── Range calendar overlay (phase "dates") — fades/scales in from the pill ── */}
+        <AnimatePresence>
+          {phase === 'dates' && calOpen && (
+            <motion.div
+              key="cal"
+              initial={reduce ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.97 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.97 }}
+              transition={{ duration: reduce ? 0.12 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+              style={{ transformOrigin: 'top center' }}
+              className="absolute left-0 top-full z-20 mt-2"
+            >
+              <RangeCalendar
+                value={range}
+                onChange={handleRangeChange}
+                onComplete={handleRangeComplete}
+                onSkip={handleSkip}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── Inline error ───────────────────────────────────────────────── */}
         {error && (
