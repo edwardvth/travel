@@ -25,6 +25,11 @@ const GLOBE_MASK = 'linear-gradient(to bottom, #000 84%, transparent 100%)'
 // Travels-section starfield fades in below the globe's content (globe→stars split).
 const STARS_MASK = 'linear-gradient(to bottom, transparent 0%, #000 14%)'
 
+/** Tile-style hover "pop" — lift + deeper shadow on hover-capable devices,
+ *  disabled under reduced motion. Matches `TravelTile` / `UpcomingJourney`. */
+const POP =
+  '[@media(hover:hover)]:hover:-translate-y-1 [@media(hover:hover)]:hover:shadow-[0_16px_38px_rgba(0,0,0,.45)] motion-reduce:hover:transform-none'
+
 const REASONS: Record<string, string> = {
   slug_taken: "Couldn't find a free trip address — try a slightly different title.",
   no_credits: "You're out of trip credits. Credit packs are coming soon.",
@@ -210,7 +215,7 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
         aria-hidden={pillInView}
         className={`fixed right-4 top-4 z-40 transition-opacity duration-300 ${pillInView ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
       >
-        <Button variant="claret" onClick={focusHeroPill}><Plus size={16} strokeWidth={2.5} />New trip</Button>
+        <Button variant="claret" onClick={focusHeroPill} className={POP}><Plus size={16} strokeWidth={2.5} />New trip</Button>
       </div>
 
     </div>

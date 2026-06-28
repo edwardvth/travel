@@ -1,4 +1,5 @@
 import { ArrowRight } from 'lucide-react'
+import { Button } from '../ui/Button'
 import { cockpitModel } from '../../lib/cockpit-model'
 import { useDestinationClip } from '../../hero/useDestinationClip'
 import { HeroVideoStage } from '../../hero/HeroVideoStage'
@@ -22,6 +23,11 @@ const BOTTOM_SCRIM = 'linear-gradient(to top, #05060a 0%, rgba(5,6,10,0) 10%)'
 /** Video-layer mask — fades the footage out over the same bottom 10% so there's no
  *  hard video edge at the seam. */
 const SECTION_MASK = 'linear-gradient(to bottom, #000 90%, transparent 100%)'
+
+/** Tile-style hover "pop" — a lift + deeper shadow on hover-capable devices,
+ *  disabled under reduced motion. Matches `TravelTile`. */
+const POP =
+  '[@media(hover:hover)]:hover:-translate-y-1 [@media(hover:hover)]:hover:shadow-[0_16px_38px_rgba(0,0,0,.45)] motion-reduce:hover:transform-none'
 
 export interface UpcomingJourneyProps {
   trip: Trip
@@ -93,8 +99,8 @@ export function UpcomingJourney({ trip, units, onOpen, today, playing = true }: 
         style={{ background: BOTTOM_SCRIM }}
       />
 
-      {/* Content — centered, pushed toward the bottom third. */}
-      <div className="relative z-20 flex h-full min-h-[80vh] flex-col items-center justify-end px-5 pb-[10vh] text-center text-white md:pb-[12vh]">
+      {/* Content — centered in the upper half of the section. */}
+      <div className="relative z-20 flex h-full min-h-[80vh] flex-col items-center justify-start px-5 pt-[14vh] text-center text-white md:pt-[16vh]">
         {/* Eyebrow */}
         <div
           className="font-mono text-[11px] uppercase tracking-[0.32em] md:text-[12px]"
@@ -134,15 +140,16 @@ export function UpcomingJourney({ trip, units, onOpen, today, playing = true }: 
           )}
         </div>
 
-        {/* Primary action */}
-        <button
+        {/* Primary action — on-brand claret, tile-style hover pop. */}
+        <Button
+          variant="claret"
           onClick={() => onOpen(trip.id)}
-          className="mt-6 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-white px-7 py-3 text-[15px] font-bold text-[#05060a] transition-[background,box-shadow] duration-150 hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 active:translate-y-px md:text-[16px]"
           aria-label={`Open ${city} trip`}
+          className={`mt-6 min-h-[44px] ${POP}`}
         >
           Open {city}
           <ArrowRight size={16} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
     </section>
   )
