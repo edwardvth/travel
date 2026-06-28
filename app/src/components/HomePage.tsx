@@ -178,6 +178,29 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
           only the hero; the rest fades in once `loading` clears. */}
       {!loading && (
         <>
+          {/* State B globe — the EXACT deployed CockpitHome background, just shifted
+              down by the hero (100svh) so the UpcomingJourney now plays the role the
+              deployed hero did (covering the Earth's dark top). Box at the journey top,
+              Earth at top-20vh of a 170vh frame; the travels list (-18vh below) sits
+              62vh down the Earth and shows its lit lower limb. */}
+          {focus && (
+            <div
+              className="pointer-events-none absolute inset-x-0 top-[100svh] z-0 h-[185vh] overflow-hidden"
+              style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
+            >
+              <div className="absolute inset-x-0 top-[20vh] h-[170vh]">
+                <FieldGlobe
+                  className="absolute inset-0"
+                  active={globeActive}
+                  staticSrc={globeStill}
+                  staticFrame
+                  dprCap={1.5}
+                  frag={{ octaves: 6, blur: true }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Your next journey — only when a focus trip exists. */}
           {focus && (
             <UpcomingJourney
@@ -190,33 +213,9 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
             />
           )}
 
-          {/* Your travels — pulled up over the globe in State C (no journey section); a normal
-              top margin when a journey precedes it (so the sections don't overlap). */}
-          <section className={`relative z-10 ${focus ? 'pt-[6vh]' : '-mt-[18vh]'}`}>
-            {/* State B: the night-Earth globe behind the travels list (in State C it's
-                the page-top globe above). Replicates the deployed CockpitHome geometry
-                EXACTLY: there the globe box is page-top (Earth at top-20vh of a 170vh
-                frame) and the list sits -18vh into it, so the list begins 62vh down the
-                Earth — its lower, glowing portion shows while the dark top is hidden.
-                We anchor the same relationship to the travels section: box at the list
-                top, Earth shifted up -62vh, clipped + masked. */}
-            {focus && (
-              <div
-                className="pointer-events-none absolute inset-x-0 top-0 -z-20 h-[112vh] overflow-hidden"
-                style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
-              >
-                <div className="absolute inset-x-0 -top-[62vh] h-[170vh]">
-                  <FieldGlobe
-                    className="absolute inset-0"
-                    active={globeActive}
-                    staticSrc={globeStill}
-                    staticFrame
-                    dprCap={1.5}
-                    frag={{ octaves: 6, blur: true }}
-                  />
-                </div>
-              </div>
-            )}
+          {/* Your travels — pulled -18vh up over the globe (State C: into the hero over the
+              page-top globe; State B: into the journey's faded bottom over the globe above). */}
+          <section className="relative z-10 -mt-[18vh]">
             {/* Starfield — background of the travels section; fades in below the globe. */}
             <StarsBackground
               className="pointer-events-none absolute inset-0 -z-10 !bg-transparent"
@@ -228,12 +227,6 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
                   viewport (useInViewActive's -55% bottom margin), the globe goes live and
                   the hero video pauses. At the top (on the hero) the globe stays paused. */}
               <div ref={globeRef} aria-hidden className="h-px w-full" />
-              <h2
-                className="mb-5 text-left font-serif text-[clamp(22px,3.2vw,30px)] font-medium tracking-tight text-white"
-                style={{ textShadow: '0 2px 24px rgba(0,0,0,.55)' }}
-              >
-                Your travels
-              </h2>
               <TravelsList
                 trips={trips}
                 featuredId={focus?.id ?? ''}
