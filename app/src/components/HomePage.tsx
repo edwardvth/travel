@@ -193,17 +193,22 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
           {/* Your travels — pulled up over the globe in State C (no journey section); a normal
               top margin when a journey precedes it (so the sections don't overlap). */}
           <section className={`relative z-10 ${focus ? 'pt-[6vh]' : '-mt-[18vh]'}`}>
-            {/* State B: the night-Earth globe lives behind the travels list here (in State C
-                it's the page-top globe above). Bleeds up into the journey's faded bottom. */}
+            {/* State B: the night-Earth globe behind the travels list (in State C it's
+                the page-top globe above). Replicates the deployed CockpitHome geometry
+                EXACTLY: there the globe box is page-top (Earth at top-20vh of a 170vh
+                frame) and the list sits -18vh into it, so the list begins 62vh down the
+                Earth — its lower, glowing portion shows while the dark top is hidden.
+                We anchor the same relationship to the travels section: box at the list
+                top, Earth shifted up -62vh, clipped + masked. */}
             {focus && (
               <div
-                className="pointer-events-none absolute inset-x-0 -top-[10vh] -z-20 h-[190vh] overflow-hidden"
+                className="pointer-events-none absolute inset-x-0 top-0 -z-20 h-[112vh] overflow-hidden"
                 style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
               >
-                <div className="absolute inset-x-0 top-[10vh] h-[170vh]">
+                <div className="absolute inset-x-0 -top-[62vh] h-[170vh]">
                   <FieldGlobe
                     className="absolute inset-0"
-                    active={false}
+                    active={globeActive}
                     staticSrc={globeStill}
                     staticFrame
                     dprCap={1.5}
