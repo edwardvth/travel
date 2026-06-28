@@ -123,7 +123,7 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
       {/* FieldGlobe — the page-top background behind the hero, for the hero→globe
           dissolve. State C only: in State B the UpcomingJourney sits here instead,
           and the globe moves to behind "Your travels" (below). */}
-      {!focus && (
+      {!focus && !loading && (
         <div
           className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
           style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
@@ -185,20 +185,23 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
               62vh down the Earth and shows its lit lower limb. */}
           {focus && (
             <div
-              className="pointer-events-none absolute inset-x-0 top-[100svh] z-0 h-[200vh] overflow-hidden"
+              className="pointer-events-none absolute inset-x-0 top-[100svh] z-0 h-[185vh] overflow-hidden"
               style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
             >
-              {/* The night-Earth still (`globe-still.webp`, the same frame the WebGL globe
-                  paints) as a plain image — it renders reliably this far down the page,
-                  where the live WebGL globe silently fails to paint. `object-position`
-                  slides the crop so the horizon arc lands behind the tile rows. */}
-              <img
-                src={globeStill}
-                alt=""
-                aria-hidden
-                className="absolute inset-0 h-full w-full object-cover"
-                style={{ objectPosition: 'center 42%' }}
-              />
+              {/* Live WebGL globe. It's now the ONLY globe in a State-B session (the
+                  page-top one is gated off above), so its context boots cleanly. Box at
+                  the journey top, Earth at top-20vh of a 170vh frame → horizon behind the
+                  travels list (which sits -18vh below). */}
+              <div className="absolute inset-x-0 top-[20vh] h-[170vh]">
+                <FieldGlobe
+                  className="absolute inset-0"
+                  active={globeActive}
+                  staticSrc={globeStill}
+                  staticFrame
+                  dprCap={1.5}
+                  frag={{ octaves: 6, blur: true }}
+                />
+              </div>
             </div>
           )}
 

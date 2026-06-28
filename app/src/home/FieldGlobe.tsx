@@ -330,7 +330,7 @@ export function FieldGlobe({ className, active = true, staticSrc, dprCap = 1.5, 
       }
       canvas.removeEventListener('webglcontextlost', onLost as EventListener)
       canvas.removeEventListener('webglcontextrestored', onRestored as EventListener)
-      // ---- GPU cleanup: delete all owned resources, then drop the context ----
+      // ---- GPU cleanup: delete all owned resources ----
       const g = gl
       if (g) {
         try {
@@ -340,8 +340,13 @@ export function FieldGlobe({ className, active = true, staticSrc, dprCap = 1.5, 
           for (const s of shaders) g.deleteShader(s)
         } catch { /* context may be gone */ }
       }
-      const lose = gl?.getExtension('WEBGL_lose_context')
-      lose?.loseContext()
+      // NOTE: we deliberately do NOT call WEBGL_lose_context.loseContext() here.
+      // Under React 18 StrictMode (dev) the effect mounts→cleans up→remounts; a
+      // forced context-loss leaves the canvas's webgl2 context permanently lost,
+      // so the remount's getContext returns the dead context and shaders fail to
+      // compile (the globe then silently shows its static fallback). Deleting the
+      // resources above already frees the GPU memory; the context itself is
+      // released by GC when the canvas unmounts.
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reduce])
