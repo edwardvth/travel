@@ -77,6 +77,11 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
         suggestions: places,
       })
       if (!label) return
+      // Drop the mobile soft keyboard before the calendar opens — otherwise it
+      // covers the lower half of the calendar (incl. "Don't know dates yet").
+      // Blur while the input is still mounted (this handler runs in the
+      // destination phase, before setPhase unmounts it).
+      inputRef.current?.blur()
       setDestination(label)
       setAcOpen(false)
       setActive(-1)

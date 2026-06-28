@@ -97,6 +97,7 @@ export default function Dashboard() {
         focus={focus}
         units={units}
         userId={user?.id}
+        loading={!trips}
         accountControls={accountControls}
         tripActions={tripActions}
       />

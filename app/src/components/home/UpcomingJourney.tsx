@@ -9,12 +9,16 @@ import { weatherFromCode } from '../../trip/icons'
 import type { Units } from '../../data/useAccountSettings'
 import type { Trip } from '../../types'
 
-/** Top+bottom dark gradient scrims so text over the video stays legible. */
-const TOP_SCRIM = 'linear-gradient(to bottom, rgba(6,7,12,.82) 0%, rgba(6,7,12,.18) 38%, rgba(6,7,12,0) 55%)'
-const BOTTOM_SCRIM = 'linear-gradient(to top, rgba(6,7,12,.90) 0%, rgba(6,7,12,.42) 28%, rgba(6,7,12,0) 52%)'
+/** Scrims so text over the video stays legible. The top one only smooths the
+ *  seam from the hero above (text lives at the BOTTOM), so it's light + short;
+ *  the bottom one carries the title/status/button contrast. Kept restrained so
+ *  the destination photo dominates rather than the dark gradients. */
+const TOP_SCRIM = 'linear-gradient(to bottom, rgba(6,7,12,.50) 0%, rgba(6,7,12,.08) 22%, rgba(6,7,12,0) 38%)'
+const BOTTOM_SCRIM = 'linear-gradient(to top, rgba(6,7,12,.86) 0%, rgba(6,7,12,.34) 24%, rgba(6,7,12,0) 46%)'
 
-/** Mask that fades the video slightly at the very bottom for a clean section seam. */
-const SECTION_MASK = 'linear-gradient(to bottom, #000 78%, transparent 100%)'
+/** Mask that fades the video at the very bottom for a clean section seam — kept
+ *  shallow so only a thin band goes to black. */
+const SECTION_MASK = 'linear-gradient(to bottom, #000 90%, transparent 100%)'
 
 export interface UpcomingJourneyProps {
   trip: Trip
@@ -57,7 +61,7 @@ export function UpcomingJourney({ trip, units, onOpen, today, playing = true }: 
 
   return (
     <section
-      className="relative min-h-[84vh] w-full overflow-hidden"
+      className="relative min-h-[80vh] w-full overflow-hidden"
       aria-label={`Your next journey: ${city}`}
     >
       {/* Video background — masked + brightened to match CockpitHome treatment. */}
@@ -87,7 +91,7 @@ export function UpcomingJourney({ trip, units, onOpen, today, playing = true }: 
       />
 
       {/* Content — centered, pushed toward the bottom third. */}
-      <div className="relative z-20 flex h-full min-h-[84vh] flex-col items-center justify-end px-5 pb-[10vh] text-center text-white md:pb-[12vh]">
+      <div className="relative z-20 flex h-full min-h-[80vh] flex-col items-center justify-end px-5 pb-[10vh] text-center text-white md:pb-[12vh]">
         {/* Eyebrow */}
         <div
           className="font-mono text-[11px] uppercase tracking-[0.32em] md:text-[12px]"

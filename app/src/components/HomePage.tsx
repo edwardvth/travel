@@ -37,6 +37,10 @@ export interface HomePageProps {
   focus: Trip | null            // selectFocusTrip result; null → State C
   units: Units
   userId?: string
+  /** True until trips have loaded. Until then we render ONLY the hero, so the
+   *  page never briefly commits to State C (which pulls "Your travels" up into
+   *  view) before the real focus trip resolves and flips it to State B. */
+  loading?: boolean
   /** Theme + account controls from Dashboard (rendered to the right of the home-owned "New trip" button). */
   accountControls: ReactNode
   tripActions?: (t: Trip) => ReactNode
@@ -51,7 +55,7 @@ export interface HomePageProps {
  * guarantee (video plays on the hero, globe takes over once the travels sentinel
  * scrolls in).
  */
-export function HomePage({ trips, focus, units, userId, accountControls, tripActions }: HomePageProps) {
+export function HomePage({ trips, focus, units, userId, loading = false, accountControls, tripActions }: HomePageProps) {
   const nav = useNavigate()
   const location = useLocation()
   const openTrip = (id: string) => nav('/trip/' + encodeURIComponent(id))
@@ -154,40 +158,48 @@ export function HomePage({ trips, focus, units, userId, accountControls, tripAct
         }
       />
 
-      {/* Your next journey — only when a focus trip exists. */}
-      {focus && <UpcomingJourney trip={focus} units={units} onOpen={openTrip} playing={!globeActive} />}
+      {/* Below-hero content waits for trips to load — otherwise the page briefly
+          renders State C (which pulls "Your travels" up into the first viewport)
+          before flipping to State B, which reads as a flash. While loading we show
+          only the hero; the rest fades in once `loading` clears. */}
+      {!loading && (
+        <>
+          {/* Your next journey — only when a focus trip exists. */}
+          {focus && <UpcomingJourney trip={focus} units={units} onOpen={openTrip} playing={!globeActive} />}
 
-      {/* Your travels — pulled up over the globe in State C (no journey section); a normal
-          top margin when a journey precedes it (so the sections don't overlap). */}
-      <section className={`relative z-10 ${focus ? 'pt-[6vh]' : '-mt-[18vh]'}`}>
-        {/* Starfield — background of the travels section; fades in below the globe. */}
-        <StarsBackground
-          className="pointer-events-none absolute inset-0 -z-10 !bg-transparent"
-          speed={70}
-          style={{ WebkitMaskImage: STARS_MASK, maskImage: STARS_MASK }}
-        />
-        <div className="mx-auto max-w-6xl px-5 md:px-8 pt-[2vh] pb-[22vh]">
-          {/* Globe-activation sentinel — once this scrolls into the top ~45% of the
-              viewport (useInViewActive's -55% bottom margin), the globe goes live and
-              the hero video pauses. At the top (on the hero) the globe stays paused. */}
-          <div ref={globeRef} aria-hidden className="h-px w-full" />
-          <h2
-            className="mb-5 text-left font-serif text-[clamp(22px,3.2vw,30px)] font-medium tracking-tight text-white"
-            style={{ textShadow: '0 2px 24px rgba(0,0,0,.55)' }}
-          >
-            Your travels
-          </h2>
-          <TravelsList
-            trips={trips}
-            featuredId={focus?.id ?? ''}
-            onOpen={openTrip}
-            userId={userId}
-            tripActions={tripActions}
-          />
-        </div>
-      </section>
+          {/* Your travels — pulled up over the globe in State C (no journey section); a normal
+              top margin when a journey precedes it (so the sections don't overlap). */}
+          <section className={`relative z-10 ${focus ? 'pt-[6vh]' : '-mt-[18vh]'}`}>
+            {/* Starfield — background of the travels section; fades in below the globe. */}
+            <StarsBackground
+              className="pointer-events-none absolute inset-0 -z-10 !bg-transparent"
+              speed={70}
+              style={{ WebkitMaskImage: STARS_MASK, maskImage: STARS_MASK }}
+            />
+            <div className="mx-auto max-w-6xl px-5 md:px-8 pt-[2vh] pb-[22vh]">
+              {/* Globe-activation sentinel — once this scrolls into the top ~45% of the
+                  viewport (useInViewActive's -55% bottom margin), the globe goes live and
+                  the hero video pauses. At the top (on the hero) the globe stays paused. */}
+              <div ref={globeRef} aria-hidden className="h-px w-full" />
+              <h2
+                className="mb-5 text-left font-serif text-[clamp(22px,3.2vw,30px)] font-medium tracking-tight text-white"
+                style={{ textShadow: '0 2px 24px rgba(0,0,0,.55)' }}
+              >
+                Your travels
+              </h2>
+              <TravelsList
+                trips={trips}
+                featuredId={focus?.id ?? ''}
+                onOpen={openTrip}
+                userId={userId}
+                tripActions={tripActions}
+              />
+            </div>
+          </section>
 
-      <HomeCredits />
+          <HomeCredits />
+        </>
+      )}
 
       {/* Fixed "New trip" button — fades in once the hero pill scrolls out of view (spec §5.1).
           Smooth-scrolls back to the hero and focuses the pill when clicked. */}
