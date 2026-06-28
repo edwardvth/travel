@@ -95,14 +95,17 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
 
   const focusHeroPill = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' })
-    requestAnimationFrame(() => pillHandleRef.current?.focus())
+    // Focus AFTER the smooth scroll, and with preventScroll, so neither the
+    // focus's scroll-into-view nor the mobile keyboard interrupts the animation
+    // (focusing mid-scroll is what made it jump/feel choppy).
+    window.setTimeout(() => pillHandleRef.current?.focus({ preventScroll: true }), 500)
   }
 
   // Off-Home entry: /?new=1 scrolls to top and auto-focuses the pill (spec §6).
   useEffect(() => {
     if (new URLSearchParams(location.search).get('new') === '1') {
       window.scrollTo({ top: 0 })
-      requestAnimationFrame(() => pillHandleRef.current?.focus())
+      requestAnimationFrame(() => pillHandleRef.current?.focus({ preventScroll: true }))
       nav('/', { replace: true })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

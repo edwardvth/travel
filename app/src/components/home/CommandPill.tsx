@@ -32,7 +32,9 @@ export interface CommandPillProps {
 }
 
 export interface CommandPillHandle {
-  focus: () => void
+  /** `preventScroll` lets a caller focus without the browser jumping the input
+   *  into view — so a smooth scroll-to-top isn't interrupted. */
+  focus: (opts?: FocusOptions) => void
 }
 
 type Phase = 'destination' | 'dates'
@@ -54,7 +56,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
     const listId = useId()
     const optionId = (i: number) => `${listId}-opt-${i}`
 
-    useImperativeHandle(ref, () => ({ focus: () => inputRef.current?.focus() }), [])
+    useImperativeHandle(ref, () => ({ focus: (opts?: FocusOptions) => inputRef.current?.focus(opts) }), [])
 
     // Debounce text before hitting Photon — mirrors DestinationInput pattern.
     useEffect(() => {
