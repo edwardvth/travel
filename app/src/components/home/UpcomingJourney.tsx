@@ -12,17 +12,16 @@ import type { Trip } from '../../types'
 // All scrims use the EXACT page background colour (#05060a) so the section reads
 // as one continuous background with the hero above and the travels list below —
 // no two-tone seam.
-/** Top scrim — only a short whisper to ease the seam from the hero above (the
- *  text lives at the BOTTOM), so it barely touches the video. */
-const TOP_SCRIM = 'linear-gradient(to bottom, rgba(5,6,10,.38) 0%, rgba(5,6,10,0) 15%)'
-/** Bottom scrim — carries the title/status/button contrast AND fully resolves to
- *  solid #05060a at the very bottom so the video dissolves into the same black the
+// Top + bottom fades are a consistent 10% (matching the hero's bottom dissolve).
+/** Top scrim — a 10% whisper to ease the seam from the hero above. */
+const TOP_SCRIM = 'linear-gradient(to bottom, rgba(5,6,10,.40) 0%, rgba(5,6,10,0) 10%)'
+/** Bottom scrim — solid #05060a fading over the bottom 10% into the same black the
  *  "Your travels" section sits on (seamless, one background). */
-const BOTTOM_SCRIM = 'linear-gradient(to top, #05060a 0%, rgba(5,6,10,.92) 11%, rgba(5,6,10,.42) 28%, rgba(5,6,10,0) 50%)'
+const BOTTOM_SCRIM = 'linear-gradient(to top, #05060a 0%, rgba(5,6,10,0) 10%)'
 
-/** Video-layer mask — fades the footage out into the solid bottom scrim so there's
- *  no hard video edge at the seam. */
-const SECTION_MASK = 'linear-gradient(to bottom, #000 82%, transparent 98%)'
+/** Video-layer mask — fades the footage out over the same bottom 10% so there's no
+ *  hard video edge at the seam. */
+const SECTION_MASK = 'linear-gradient(to bottom, #000 90%, transparent 100%)'
 
 export interface UpcomingJourneyProps {
   trip: Trip

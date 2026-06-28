@@ -20,7 +20,7 @@ import globeStill from '../assets/globe-still.webp'
 import type { Trip } from '../types'
 import type { Units } from '../data/useAccountSettings'
 
-const VIDEO_MASK = 'linear-gradient(to bottom, #000 70%, transparent 96%)'
+const VIDEO_MASK = 'linear-gradient(to bottom, #000 90%, transparent 100%)'
 const GLOBE_MASK = 'linear-gradient(to bottom, #000 84%, transparent 100%)'
 // Travels-section starfield fades in below the globe's content (globe→stars split).
 const STARS_MASK = 'linear-gradient(to bottom, transparent 0%, #000 14%)'
