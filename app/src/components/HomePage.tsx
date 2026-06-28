@@ -64,6 +64,8 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
   const nav = useNavigate()
   const location = useLocation()
   const openTrip = (id: string) => nav('/trip/' + encodeURIComponent(id))
+  const openArrange = (id: string) => nav('/trip/' + encodeURIComponent(id) + '/trip')
+  const openGuide = (id: string) => nav('/trip/' + encodeURIComponent(id) + '/guide')
   const { globeRef, globeActive, heroActive } = useInViewActive()
   const { ref: pillSentinelRef, inView: pillInView } = useHeroPillInView<HTMLDivElement>()
 
@@ -118,22 +120,26 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
 
   return (
     <div className="relative min-h-[100svh] bg-[#05060a] text-white">
-      {/* FieldGlobe — the page-top background, behind the hero (static high-quality frame). */}
-      <div
-        className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
-        style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
-      >
-        <div className="absolute inset-x-0 top-[20vh] h-[170vh]">
-          <FieldGlobe
-            className="absolute inset-0"
-            active={globeActive}
-            staticSrc={globeStill}
-            staticFrame
-            dprCap={1.5}
-            frag={{ octaves: 6, blur: true }}
-          />
+      {/* FieldGlobe — the page-top background behind the hero, for the hero→globe
+          dissolve. State C only: in State B the UpcomingJourney sits here instead,
+          and the globe moves to behind "Your travels" (below). */}
+      {!focus && (
+        <div
+          className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
+          style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
+        >
+          <div className="absolute inset-x-0 top-[20vh] h-[170vh]">
+            <FieldGlobe
+              className="absolute inset-0"
+              active={globeActive}
+              staticSrc={globeStill}
+              staticFrame
+              dprCap={1.5}
+              frag={{ octaves: 6, blur: true }}
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Cinematic hero — masked to dissolve into the globe; pauses when the globe is active.
           The CommandPill is injected via renderPill so its typewriter still drives the video. */}
@@ -173,11 +179,39 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
       {!loading && (
         <>
           {/* Your next journey — only when a focus trip exists. */}
-          {focus && <UpcomingJourney trip={focus} units={units} onOpen={openTrip} playing={!globeActive} />}
+          {focus && (
+            <UpcomingJourney
+              trip={focus}
+              units={units}
+              onOpen={openTrip}
+              onOpenArrange={openArrange}
+              onOpenGuide={openGuide}
+              playing={!globeActive}
+            />
+          )}
 
           {/* Your travels — pulled up over the globe in State C (no journey section); a normal
               top margin when a journey precedes it (so the sections don't overlap). */}
           <section className={`relative z-10 ${focus ? 'pt-[6vh]' : '-mt-[18vh]'}`}>
+            {/* State B: the night-Earth globe lives behind the travels list here (in State C
+                it's the page-top globe above). Bleeds up into the journey's faded bottom. */}
+            {focus && (
+              <div
+                className="pointer-events-none absolute inset-x-0 -top-[10vh] -z-20 h-[190vh] overflow-hidden"
+                style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
+              >
+                <div className="absolute inset-x-0 top-[10vh] h-[170vh]">
+                  <FieldGlobe
+                    className="absolute inset-0"
+                    active={false}
+                    staticSrc={globeStill}
+                    staticFrame
+                    dprCap={1.5}
+                    frag={{ octaves: 6, blur: true }}
+                  />
+                </div>
+              </div>
+            )}
             {/* Starfield — background of the travels section; fades in below the globe. */}
             <StarsBackground
               className="pointer-events-none absolute inset-0 -z-10 !bg-transparent"
