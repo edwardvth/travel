@@ -56,8 +56,10 @@ export function CockpitCard({
 
   return (
     <div className="group h-[264px] w-full overflow-hidden rounded-[22px] shadow-[0_22px_64px_rgba(0,0,0,.5)] transition-[transform,box-shadow] duration-300 ease-out md:h-[330px] [@media(hover:hover)]:hover:-translate-y-1.5 [@media(hover:hover)]:hover:shadow-[0_34px_82px_rgba(0,0,0,.62)] motion-reduce:transition-none motion-reduce:hover:transform-none">
-      {/* Header — cover + scrim + identity. */}
-      <div className="relative h-[192px] md:h-[242px]" style={{ background: tripGradient(seed) }}>
+      {/* Header — cover + scrim + identity. `overflow-hidden` clips the cover's
+          hover scale(1.04) WITHIN the header, so its growing bottom edge can't tear
+          a seam at the boundary with the action bar (matches TravelTile). */}
+      <div className="relative h-[192px] overflow-hidden md:h-[242px]" style={{ background: tripGradient(seed) }}>
         {url && (
           <div
             className="absolute inset-0 bg-cover bg-center transition-transform duration-500 ease-out [@media(hover:hover)]:group-hover:scale-[1.04]"
