@@ -226,7 +226,7 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
               speed={70}
               style={{ WebkitMaskImage: STARS_MASK, maskImage: STARS_MASK }}
             />
-            <div className="mx-auto max-w-6xl px-5 md:px-8 pt-[2vh] pb-[22vh]">
+            <div className="mx-auto max-w-5xl px-5 md:px-8 pt-[2vh] pb-[22vh]">
               {/* Globe-activation sentinel — once this scrolls into the top ~45% of the
                   viewport (useInViewActive's -55% bottom margin), the globe goes live and
                   the hero video pauses. At the top (on the hero) the globe stays paused. */}
