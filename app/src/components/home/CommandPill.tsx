@@ -16,9 +16,10 @@ import { cn } from '../../lib/utils'
 const MIN_QUERY = 3
 /** Debounce before querying Photon (ms). */
 const DEBOUNCE_MS = 280
-/** On phones, focusing the input scrolls the pill to ~this fraction down the
- *  viewport so the soft keyboard doesn't cover it (never up to the very top). */
-const FOCUS_VIEWPORT_FRACTION = 0.15
+/** On phones, focusing the input scrolls so the hero eyebrow (PLAN · WALK ·
+ *  REMEMBER) lands ~this fraction down the viewport — a small gap below the top —
+ *  lifting the pill clear of the soft keyboard without going all the way up. */
+const EYEBROW_TOP_GAP_FRACTION = 0.06
 
 export interface CommandPillCommit {
   destination: string   // committed clean label (top-result rule)
@@ -220,17 +221,18 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
     }
 
     // On a phone, focusing the input raises the soft keyboard over the lower
-    // screen. Nudge the pill UP to a comfortable spot (never the very top) so the
-    // field + its suggestions stay visible above the keyboard. Only ever scrolls
-    // up, waits a beat for the keyboard to appear, and bails if already blurred.
+    // screen. Scroll so the hero eyebrow (PLAN · WALK · REMEMBER) sits near the
+    // top with a small gap — this lifts the pill clear of the keyboard while
+    // keeping the hero context in view. Only ever scrolls up, waits a beat for
+    // the keyboard to appear, and bails if the user already blurred.
     const nudgeAboveKeyboard = () => {
       if (typeof window === 'undefined') return
       if (!window.matchMedia('(max-width: 767px)').matches) return
       window.setTimeout(() => {
         if (document.activeElement !== inputRef.current) return
-        const el = pillBarRef.current
-        if (!el) return
-        const delta = el.getBoundingClientRect().top - window.innerHeight * FOCUS_VIEWPORT_FRACTION
+        const eyebrow = document.querySelector('[data-hero-eyebrow]')
+        if (!eyebrow) return
+        const delta = eyebrow.getBoundingClientRect().top - window.innerHeight * EYEBROW_TOP_GAP_FRACTION
         if (delta > 24) window.scrollBy({ top: delta, behavior: reduce ? 'auto' : 'smooth' })
       }, 300)
     }

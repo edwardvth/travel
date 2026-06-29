@@ -94,7 +94,7 @@ export function CinematicHero({
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
         className={`pointer-events-none absolute inset-x-0 top-0 z-20 flex h-full flex-col items-center px-5 text-center text-white ${copyPaddingClassName}`}
       >
-        <div className="font-mono text-[11px] md:text-[12px] uppercase tracking-[0.32em] text-white/85">
+        <div data-hero-eyebrow className="font-mono text-[11px] md:text-[12px] uppercase tracking-[0.32em] text-white/85">
           {eyebrow}
         </div>
         <h1
