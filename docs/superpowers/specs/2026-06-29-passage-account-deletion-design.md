@@ -37,16 +37,25 @@ Authenticated server-side from the caller's JWT → `uid` + `email`.
    - Identify **other members with a real account** — members whose `user_id` is resolvable (they actually
      signed in), excluding the departing user and excluding pending **email-only** invites.
    - **≥1 real member →** *transfer*: set `owner_id` to the **earliest-joined** such member (longest-standing
-     collaborator). The travel persists, now owned by them. (Remove that member's now-redundant `trip_members`
-     row; leave other members' rows intact.)
+     collaborator). The travel persists, now owned by them. Remove that member's now-redundant `trip_members`
+     row; leave other members' rows intact. **Then scrub departing-user metadata** from the transferred travel:
+     - **`trips.config` / `trips.data` JSON** — strip any fields that carry the deleting user's personal data
+       (e.g. name, email, author/attribution metadata, per-user preferences), **preserving the shared itinerary
+       content** remaining collaborators need. (If the JSON only holds neutral itinerary content, this is a
+       verified no-op — the implementation must check, not assume.)
+     - **Pending invites** on the transferred travel — remove or neutralize any invite rows that carry the
+       departing user as sender (`created_by` / `invited_by` / `owner_email`-type fields), so a transferred trip
+       doesn't retain the deleted user's personal metadata.
    - **No real member →** *delete* the travel; its `trip_members` + invite rows go with it.
 2. **Joined travels** (the user's `trip_members` rows on trips owned by others) → **delete those rows** (the user
    leaves; the travel stays for its owner/others). Match on the user's `user_id` **and** `email` to catch both
    accepted and email-keyed rows.
 3. **Profile** (`profiles` where `id = uid`) → delete.
 4. **Auth user** → `auth.admin.deleteUser(uid)`.
-5. **Apple-token revoke** → deferred (no Apple creds yet); the function leaves a clearly-marked hook that is a
-   no-op until `APPLE_SIGNIN_ENABLED` work lands.
+5. **Apple-token revoke** → a clearly-marked hook that is a **no-op ONLY while Sign in with Apple is disabled**
+   (`APPLE_SIGNIN_ENABLED === false`). Apple requires revoking the user's token on account deletion, so **this
+   hook must become required (not a no-op) before any Sign in with Apple login ships** — call it out in the SIWA
+   enablement checklist.
 6. **Excluded:** global caches (non-personal).
 
 **"Earliest-joined" tiebreak:** order candidate members by `trip_members.created_at` ascending if present, else
@@ -57,10 +66,21 @@ list. A "you're now the owner" email needs Resend (not deployed) → deferred.
 
 ## Architecture
 
-- **Edge Function `supabase/functions/delete-account/index.ts`** (service-role). One transactional-ish pass that
-  runs the algorithm above in FK-safe order. Service role is required because `auth.admin.deleteUser` is
-  privileged and the function must read/modify rows across users (transfer target) beyond the caller's RLS scope.
-  Mirrors the existing `ai-proxy` server-side pattern. Deployed to ref `wnpanbjzmcsvhfyjdczv`.
+Two layers — the **database work is one atomic Postgres transaction**, the Edge Function only orchestrates auth.
+
+- **Postgres RPC `delete_account_data(p_uid uuid, p_email text)`** (SECURITY DEFINER, in a migration). Runs the
+  entire DB algorithm above — owned-trip transfer/delete, JSON + invite scrub, membership removal, profile
+  delete — **inside a single transaction**, so the database portion is all-or-nothing. Written to be
+  **idempotent** (safe to re-run if a retry happens). Returns a summary `{ deleted, transferred, left }`.
+- **Edge Function `supabase/functions/delete-account/index.ts`** (service-role) — the orchestrator only:
+  1. requires `Authorization: Bearer <access_token>`; resolves the caller via `auth.getUser(token)` —
+     **never trusts a `uid`/`email` from the request body**;
+  2. calls `delete_account_data(uid, email)` (service role);
+  3. runs the Apple-revoke hook (no-op while SIWA disabled);
+  4. calls `auth.admin.deleteUser(uid)` **last** (Auth deletion can't join the Postgres transaction);
+  5. returns a structured result. Service role stays inside the function. Deployed to ref `wnpanbjzmcsvhfyjdczv`.
+
+  *(Auth deletion is last and separate because it isn't part of the DB transaction — see Failure handling.)*
 - **Client:** a `deleteAccount()` helper (in `auth/AuthProvider.tsx` or a small `auth/deleteAccount.ts`) that
   invokes the function with the user's access token, then reuses the existing `signOut` teardown (clear `sb-*`
   localStorage, route to `/`).
@@ -73,28 +93,45 @@ list. A "you're now the owner" email needs Resend (not deployed) → deferred.
 
 ## Failure handling
 
-- Function authenticates the caller; rejects unauthenticated calls (401).
-- If `auth.admin.deleteUser` or any step fails, return a non-200 so the client keeps the user signed in and shows
-  an error (don't half-delete silently). Order steps so the auth-user deletion is last.
-- Client shows an inline error on failure; only tears down the session on success.
+- Unauthenticated / invalid token → **401**, nothing runs.
+- **Database deletion is transactional and idempotent.** If the `delete_account_data` RPC fails, the transaction
+  rolls back — no partial DB changes — and the function returns an error; the client keeps the user signed in.
+- **Auth deletion happens last and is *not* part of the DB transaction.** If `auth.admin.deleteUser` fails *after*
+  the DB cleanup committed, the function returns a specific **`auth_delete_failed`** error and the operation is
+  **retryable** (the idempotent RPC makes a retry safe). It must **not** claim "no data was deleted" — the honest
+  state is "your data was removed; finishing account removal — retry." The client surfaces this accurately and
+  offers retry rather than pretending nothing happened.
+- Client only tears down the session + redirects on a clean success; on any error it stays signed in and shows
+  the specific message.
 
 ## Testing
 
-- **Client:** the delete flow — confirm-gate requires `DELETE`, calls the function, and on success runs the
-  sign-out teardown + redirect; on failure shows an error and stays signed in.
-- **Edge Function logic** (the four cases): owned + no members → deleted; owned + a real member → transferred to
-  earliest-joined; owned + only a pending email invite → deleted; member-of-another's-trip → membership row
-  removed. (Pure transfer-selection logic extracted to a testable helper where practical.)
+- **Client delete flow:** confirm-gate enables only on exact `DELETE`; calls the function with the session token;
+  on success → sign-out teardown + redirect; on **failure → shows the specific error and does NOT redirect**
+  (stays signed in); on **`auth_delete_failed` → shows the retryable message** (data removed, finish removal).
+- **Database RPC logic** (the core cases): owned + no real members → trip **deleted**; owned + a real member →
+  ownership **transferred** to the earliest-joined real member; owned + only a pending **email-only** invite →
+  trip **deleted**; user is a **member of another's trip** → membership row removed, trip remains; **transfer
+  scrub** → departing-user metadata removed from transferred `config`/`data` + pending invites, shared content
+  preserved; **idempotency** → re-running the RPC after a partial retry doesn't corrupt or double-delete.
+- **Edge Function:** wrong/no token → **401**; body-supplied `uid`/`email` are ignored (caller resolved from
+  token only). Pure transfer-selection logic extracted to a testable helper where practical.
 
-## Open questions (resolve at plan time, technical — not blocking the design)
+## Schema audit (first plan task — resolve against the live DB before writing the RPC)
 
-1. **`trip_members` columns** — does it store `user_id`, or only `email`? Drives how the transfer target's
-   `user_id` is obtained (direct column vs resolve email→`user_id` via `profiles`/`auth.users`) and how step 2
-   matches the user's rows.
-2. **`trip_members.created_at`** — present? If not, pick a deterministic fallback ordering for "earliest-joined."
-3. Whether to implement the deletion as one Edge Function doing raw table ops, or to **reuse `delete_trip` per
-   owned trip** for the delete branch (consistency vs fewer round-trips) — lean: do it in the function for one
-   atomic pass, matching `delete_trip`'s cascade.
+Confirm the real columns/relationships the RPC depends on:
+1. **`trip_members`** — `user_id`? `email`? `created_at`? `id`? (Drives transfer-target resolution + how the
+   user's own rows are matched. If no `user_id`, resolve email→`user_id` via `profiles`/`auth.users`. If no
+   `created_at`, pick a deterministic "earliest-joined" fallback.)
+2. **Is the owner also stored in `trip_members`**, or only in `trips.owner_id`? (Affects redundant-row cleanup.)
+3. **Invite table** — name, columns, and **whether it carries the inviter's personal metadata** (`created_by` /
+   `invited_by` / `owner_email`), plus FK/cascade behavior to `trips`.
+4. **`trips.config` / `trips.data`** — do they contain **user-specific** metadata (name, email, author,
+   per-user prefs), or only neutral itinerary content? Determines whether the transfer scrub is real work or a
+   verified no-op.
+
+**Done when** the exact transfer/delete/scrub algorithm is mapped to real columns. Then implement the DB work as
+the single transactional `delete_account_data` RPC (matching `delete_trip`'s cascade for the delete branch).
 
 ## Out of scope
 
