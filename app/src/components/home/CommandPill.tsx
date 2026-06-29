@@ -252,9 +252,9 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
         >
           {/* Destination chip (phase "dates") */}
           {phase === 'dates' && destination && (
-            <div className="flex shrink-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5">
+            <div className="flex min-w-0 items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5">
               <MapPin size={13} className="shrink-0 text-white/70" aria-hidden="true" />
-              <span className="max-w-[140px] truncate text-[13.5px] font-medium text-white">
+              <span className="min-w-0 max-w-[140px] truncate text-[13.5px] font-medium text-white">
                 {destination}
               </span>
               <button
@@ -322,10 +322,12 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
               disabled={pending}
               onClick={() => setCalOpen(c => !c)}
               className={cn(
-                // Fixed width: the label changes (Choose dates → Jul 14 → Jul 14 → Jul 18)
+                // Fixed width (sm+): the label changes (Choose dates → Jul 14 → Jul 14 → Jul 18)
                 // but the token must NOT resize, or the centered pill (and the anchored
                 // calendar) re-centers and visibly jumps when you pick the first date.
-                'flex w-[152px] shrink-0 items-center gap-2 text-[13.5px] font-medium',
+                // On mobile the pill is viewport-capped (can't re-center), so we let the
+                // token be content-sized there to free room for the chip + CTA.
+                'flex w-auto shrink-0 items-center gap-2 text-[13.5px] font-medium sm:w-[152px]',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:pointer-events-none disabled:opacity-50',
                 dateChipComplete ? 'text-gold' : 'text-white/60',
               )}
@@ -349,7 +351,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
             onClick={confirm}
             aria-label={pending ? 'Creating your trip…' : 'Plan it'}
             className={cn(
-              'relative inline-flex h-[46px] shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full px-5',
+              'relative inline-flex h-[46px] shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full px-3.5 sm:px-5',
               'bg-sig font-sans font-medium text-[14px] text-white',
               'shadow-[0_4px_14px_rgba(0,0,0,.25)]',
               'transition-[opacity,background-color] duration-150',
@@ -361,11 +363,11 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
             {pending ? (
               <>
                 <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-                <span>Creating…</span>
+                <span className="hidden sm:inline">Creating…</span>
               </>
             ) : (
               <>
-                <span>Plan it</span>
+                <span className="hidden sm:inline">Plan it</span>
                 <svg
                   aria-hidden="true"
                   width="14"
