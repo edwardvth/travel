@@ -11,6 +11,11 @@ export default {
       url.searchParams.forEach((v, k) => { if (k !== 'trip') dest.searchParams.set(k, v); });
       return Response.redirect(dest.toString(), 302);
     }
-    return env.ASSETS.fetch(new URL('/index.html', url.origin));
+    // Serve the SPA shell as a fresh, non-cacheable response so a new deploy is
+    // picked up immediately (the hashed JS/CSS keep their own immutable caching).
+    const res = await env.ASSETS.fetch(new URL('/index.html', url.origin));
+    const headers = new Headers(res.headers);
+    headers.set('Cache-Control', 'no-store, must-revalidate');
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
   }
 };
