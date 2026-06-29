@@ -123,7 +123,10 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
       predictionCount: places.length,
     })
 
-    const showList = acOpen && (autocompleteStatus === 'loading' || autocompleteStatus === 'ready')
+    // Keep the dropdown open during the invalid hint too, so the autofill stays
+    // visible and keeps loading toward results instead of vanishing.
+    const showList =
+      acOpen && (autocompleteStatus === 'loading' || autocompleteStatus === 'ready' || invalidMsg !== null)
 
     // Deferred submit: if the user pressed "continue" too early (pendingSubmit),
     // act the moment the already-in-flight request resolves — open the dropdown if
@@ -138,6 +141,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
         setPendingSubmit(false)
       } else if (autocompleteStatus === 'empty' || autocompleteStatus === 'idle') {
         setInvalidMsg(INVALID_PLACE_MSG)
+        setAcOpen(true)
         setPendingSubmit(false)
       }
       // 'loading' → keep waiting.
@@ -195,10 +199,13 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
         inputRef.current?.focus()
         return
       }
-      // 'invalid' — nothing resolvable (too short / no matches) → shake + hint.
+      // 'invalid' — nothing resolvable (too short / no matches): shake + hint, but
+      // keep the dropdown open and searching so results can still surface as the
+      // user adjusts the text.
       triggerShake()
       setPendingSubmit(false)
       setInvalidMsg(INVALID_PLACE_MSG)
+      setAcOpen(true)
       inputRef.current?.focus()
     }
 
@@ -408,6 +415,24 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
           </motion.div>
         )}
 
+        {/* ── "Not yet — choose a real place" hint, floating ABOVE the pill ──
+            Appears from the top so it never covers the autocomplete dropdown,
+            which stays open and searching below the pill. */}
+        {phase === 'destination' && invalidMsg && (
+          <motion.div
+            key="invalid-msg"
+            role="alert"
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reduce ? 0.12 : 0.22, ease: [0.22, 1, 0.36, 1] }}
+            className="absolute inset-x-0 bottom-full mb-2 flex justify-center"
+          >
+            <span className="rounded-full border border-white/15 bg-[rgba(20,20,26,.72)] px-3.5 py-1.5 text-[12.5px] font-medium text-white/90 shadow-[0_6px_20px_rgba(0,0,0,.3)] backdrop-blur-xl">
+              {invalidMsg}
+            </span>
+          </motion.div>
+        )}
+
         {/* ── Main pill (shakes on a "not yet" continue attempt) ──────────── */}
         <motion.div
           ref={pillBarRef}
@@ -551,7 +576,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
               'shadow-[0_18px_50px_rgba(0,0,0,.5)]',
             )}
           >
-            {autocompleteStatus === 'loading' && (
+            {autocompleteStatus !== 'ready' && (
               <li
                 className="flex min-h-[44px] items-center gap-2.5 px-4 text-[13px] text-white/50"
                 aria-hidden="true"
@@ -612,13 +637,6 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
             )}
           </AnimatePresence>,
           document.body,
-        )}
-
-        {/* ── "Not yet — choose a real place" hint (destination step) ─────── */}
-        {phase === 'destination' && invalidMsg && (
-          <p role="alert" className="mt-2 px-1 text-[12.5px] text-white/70">
-            {invalidMsg}
-          </p>
         )}
 
         {/* ── Inline error (trip-creation failure, from parent) ───────────── */}
