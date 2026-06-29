@@ -135,4 +135,7 @@ the single transactional `delete_account_data` RPC (matching `delete_trip`'s cas
 
 ## Out of scope
 
-Apple-token revocation (deferred), transfer-notification emails, data export, undo/grace-period, Android.
+**Sign in with Apple token revocation implementation is deferred only while SIWA login is disabled.** The
+delete-account function must include the revoke hook/checklist now, and real token revocation becomes required
+before any SIWA auth path ships. Transfer-notification emails, data export, undo/grace-period, and Android remain
+out of scope.
