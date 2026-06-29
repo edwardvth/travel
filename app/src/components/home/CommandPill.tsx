@@ -488,6 +488,13 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
                 <RangeCalendar
                   value={range}
                   onChange={handleRangeChange}
+                  // Picking the 2nd date completes the range → close the calendar
+                  // immediately, which surfaces the "Plan it →" CTA above the pill.
+                  // So a full range can be confirmed by selecting dates alone, without
+                  // hunting for the calendar's "Confirm dates" button (which can fall
+                  // below the fold on a short phone). React batches this with the
+                  // onChange above, so "Confirm dates" never flashes.
+                  onComplete={() => setCalOpen(false)}
                   onSkip={handleSkip}
                   onConfirm={() => setCalOpen(false)}
                 />
