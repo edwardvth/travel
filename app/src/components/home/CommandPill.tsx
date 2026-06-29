@@ -1,4 +1,5 @@
 import { forwardRef, useImperativeHandle, useRef, useState, useId, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { X, Loader2, MapPin, Calendar } from 'lucide-react'
 import { usePlaceSearch } from '../../data/usePlaceSearch'
@@ -55,6 +56,9 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
 
     const reduce = useReducedMotion()
     const inputRef = useRef<HTMLInputElement>(null)
+    const pillBarRef = useRef<HTMLDivElement>(null)
+    // Fixed-position coords for the (portaled) calendar — see the measure effect.
+    const [calPos, setCalPos] = useState<{ top: number; left: number } | null>(null)
     const listId = useId()
     const optionId = (i: number) => `${listId}-opt-${i}`
 
@@ -70,6 +74,27 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
 
     // Keep active index in range as suggestions change.
     useEffect(() => { setActive(-1) }, [places])
+
+    // The calendar is rendered in a PORTAL (document.body) so the hero's
+    // overflow-hidden can't clip it on short mobile viewports. Measure the pill
+    // while the calendar is open (and on scroll/resize) so the portal sits right
+    // below it. We keep the last position while closed so the exit animation has
+    // somewhere to play; we clear it only when leaving the dates phase.
+    useEffect(() => {
+      if (phase !== 'dates') { setCalPos(null); return }
+      if (!calOpen) return
+      const measure = () => {
+        const r = pillBarRef.current?.getBoundingClientRect()
+        if (r) setCalPos({ top: r.bottom + 8, left: r.left })
+      }
+      measure()
+      window.addEventListener('resize', measure)
+      window.addEventListener('scroll', measure, true)
+      return () => {
+        window.removeEventListener('resize', measure)
+        window.removeEventListener('scroll', measure, true)
+      }
+    }, [phase, calOpen])
 
     const showList = acOpen && text.trim().length >= MIN_QUERY && (loading || places.length > 0)
 
@@ -214,6 +239,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
       >
         {/* ── Main pill ─────────────────────────────────────────────────── */}
         <div
+          ref={pillBarRef}
           className={cn(
             'flex items-center gap-2 rounded-full p-1.5 pl-5',
             // Glassy treatment — mirrors HeroSearchPill
@@ -416,26 +442,28 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
         </AnimatePresence>
 
         {/* ── Range calendar overlay (phase "dates") — fades/scales in from the pill ── */}
-        <AnimatePresence>
-          {phase === 'dates' && calOpen && (
-            <motion.div
-              key="cal"
-              initial={reduce ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.97 }}
-              transition={{ duration: reduce ? 0.12 : 0.2, ease: [0.22, 1, 0.36, 1] }}
-              style={{ transformOrigin: 'top center' }}
-              className="absolute left-0 top-full z-20 mt-2"
-            >
-              <RangeCalendar
-                value={range}
-                onChange={handleRangeChange}
-                onSkip={handleSkip}
-                onConfirm={() => setCalOpen(false)}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {calPos && createPortal(
+          <AnimatePresence>
+            {phase === 'dates' && calOpen && (
+              <motion.div
+                key="cal"
+                initial={reduce ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8, scale: 0.97 }}
+                transition={{ duration: reduce ? 0.12 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+                style={{ position: 'fixed', top: calPos.top, left: calPos.left, zIndex: 60, transformOrigin: 'top left' }}
+              >
+                <RangeCalendar
+                  value={range}
+                  onChange={handleRangeChange}
+                  onSkip={handleSkip}
+                  onConfirm={() => setCalOpen(false)}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>,
+          document.body,
+        )}
 
         {/* ── Inline error ───────────────────────────────────────────────── */}
         {error && (
