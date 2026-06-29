@@ -253,6 +253,7 @@ export function HomePage({ trips, focus, firstName, units, userId, loading = fal
               onOpen={openTrip}
               onOpenArrange={openArrange}
               onOpenGuide={openGuide}
+              stacked={creating}
               headerRight={
                 <>
                   <Button variant="claret" onClick={openCreate} className={POP}>
