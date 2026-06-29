@@ -32,9 +32,12 @@ remains the single source of truth; iOS is a thin native host around it.
   review minimal. Paid tiers + StoreKit IAP are an explicit **future** spec, not this one.
 - **Packaging tech = Capacitor** (not React Native, not a hand-rolled WKWebView). Keeps one codebase.
 - **Build cadence = batch the Mac.** Develop on Windows; produce signed builds in 2–3 Mac sessions.
-- **OTA live updates (e.g. Capgo / Ionic Appflow) WILL be added** (Phase D) so web-only changes ship
-  without a Mac and without App Store review. After this, only *native* changes need the Mac. This is the
-  answer to "do I need a Mac for every update": **no — only for native changes.** (See §7 / Phase D.)
+- **OTA live updates = optional post-approval follow-up.** Capgo / Ionic Appflow may be added **after v1
+  approval** for safe web-bundle updates (bug fixes, copy, UI polish, small React changes) that don't change
+  Passage's primary purpose or introduce materially new functionality. Native changes, permissions, auth
+  capabilities, payment behavior, plugins, or major features still require a **new App Store build/review**.
+  This is the partial answer to "do I need a Mac for every update": once OTA is in place, *in-scope web-only*
+  changes don't — everything else does. (See §7 / Phase D2.)
 - **Bundle ID = `ai.mypassage.app`** (reverse of the owned domain `mypassage.ai`; permanent, never changes).
 - **Store listing fields** (Apple's hard limits — each field has its own job; the title is NOT a tagline):
   - **Name (≤30)** = `Passage` *(placeholder — owner to refine later).*
@@ -46,7 +49,8 @@ remains the single source of truth; iOS is a thin native host around it.
   voyager.edwardvth.workers.dev). Legal at `mypassage.ai/privacy-policy`, `/terms`, `/support` (in-app routes).
 - **Sign in with Apple = platform-adaptive:** **native Sign in with Apple sheet on iOS (in the Capacitor app)**,
   **web OAuth flow on desktop/browser**. Phase B ships the web flow first (works everywhere incl. in-shell, unblocks
-  Guideline 4.8); Phase D adds the native sheet + the platform switch (native on device, web on desktop).
+  Guideline 4.8); **Phase C/C4 adds the native sheet + the platform switch — before the TestFlight checkpoint**
+  (native on device, web on desktop).
 
 ## 3. The rejection risks we are explicitly designing against
 
@@ -75,9 +79,10 @@ A single `signInApple()` branches on `Capacitor.isNativePlatform()`.
 - **Phase B (web flow first):** `supabase.auth.signInWithOAuth({ provider: 'apple', options:{ redirectTo } })`.
   Works in the browser **and** inside the Capacitor WebView for the first submittable build. Lowest effort,
   unblocks Guideline 4.8 immediately, and is the **permanent desktop path**.
-- **Phase D (native flow — before final submit):** on iOS, the native **Sign in with Apple** sheet via
-  `@capacitor-community/apple-sign-in`, exchanged into Supabase with `signInWithIdToken({ provider:'apple', token })`
-  (the Face-ID sheet Apple expects on-device). `signInApple()` picks native vs web by platform.
+- **Phase C / C4 (native flow — before the TestFlight checkpoint):** on iOS, the native **Sign in with Apple**
+  sheet via `@capacitor-community/apple-sign-in`, exchanged into Supabase with `signInWithIdToken({ provider:'apple', token })`
+  (the Face-ID sheet Apple expects on-device). `signInApple()` picks native vs web by platform. Capturing the
+  Apple-provided name here matters because Apple returns it **only on first authorization**.
 
 **Supabase + Apple Developer setup (owner-assisted, one-time):** enable the Apple provider in Supabase;
 in the Apple Developer portal create an **App ID** with the *Sign in with Apple* capability, a **Services ID**,
@@ -153,7 +158,7 @@ Capacitor wraps the existing build. Scope for v1:
   - `@capacitor/splash-screen` + `@capacitor/status-bar` — native launch + themed status bar.
   - App **icon** + **launch screen** assets generated from the brand mark.
 - **iOS project**: generated on the Mac (`npx cap add ios`), `Info.plist` usage strings:
-  `NSLocationWhenInUseUsageDescription` ("Passage uses your location to guide you between stops on your travel.").
+  `NSLocationWhenInUseUsageDescription` ("Passage uses your location to guide you between stops during your trip.").
 - **Routing note (designed early, in B1.5 — NOT deferred to the Mac phase):** Capacitor serves the app from a
   local origin (e.g. `capacitor://localhost`). OAuth `redirectTo` + Supabase deep links must return Google/Apple/
   magic-link **into the app, not Safari** — the #1 native rejection/UX snag. A shared `getAuthRedirectTo()` helper
@@ -203,8 +208,9 @@ reads as native (splash/status-bar/permission/deep-links/spacing), not as a wrap
 4. ~~Legal hosting~~ → **`mypassage.ai/privacy-policy`, `/terms`, `/support`** (domain is live).
 5. ~~Apple flow~~ → **web flow first (B1) → platform-adaptive native sheet in C4 (before the TestFlight checkpoint)**.
 
-Remaining owner action: set up the **`support@mypassage.ai` mailbox**, and decide whether to point the Worker's
-production domain at `mypassage.ai` now (recommended) or after v1 (the domain itself is already live).
+Remaining owner action: set up the **`support@mypassage.ai` mailbox** and **point the Worker production domain at
+`mypassage.ai` before App Store submission** (not optional — the public Privacy/Terms/Support links must be
+canonical + working for review; the domain itself is already live). Tracked as plan task **E0**.
 
 ## 11. Out of scope (explicit)
 
