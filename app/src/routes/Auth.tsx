@@ -17,6 +17,15 @@ import globeStill from '../assets/globe-still.webp'
  * signature with Fraunces display type. Looping ambient motion is gated behind
  * prefers-reduced-motion per the house a11y rules.
  */
+/**
+ * Sign in with Apple is built (web flow) but OFF until we enroll in the Apple
+ * Developer Program ($99/yr) and configure the Apple provider in Supabase — until
+ * then the OAuth call errors. Flip this to `true` (one line) the moment those
+ * credentials exist to reveal the button again. Required for the App Store
+ * (Guideline 4.8) — only matters once we submit, so it stays off for now.
+ */
+export const APPLE_SIGNIN_ENABLED = false
+
 export default function Auth() {
   const { user, signIn, signUp, signInGoogle, signInApple, magicLink } = useAuth()
   const nav = useNavigate()
@@ -337,19 +346,22 @@ export default function Auth() {
                 </div>
 
                 {/* Apple — required by Guideline 4.8 (we offer Google). Listed first per
-                    Apple's convention. The native Face-ID sheet replaces this on iOS in C4. */}
-                <motion.button
-                  whileHover={reduce ? undefined : { scale: 1.02 }}
-                  whileTap={reduce ? undefined : { scale: 0.98 }}
-                  type="button"
-                  onClick={handleApple}
-                  disabled={isLoading}
-                  aria-label="Continue with Apple"
-                  className="w-full relative overflow-hidden bg-white/[0.04] text-white/80 hover:text-white h-11 rounded-btn border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center gap-2.5 disabled:opacity-60"
-                >
-                  <AppleIcon />
-                  <span className="text-[13px]">Continue with Apple</span>
-                </motion.button>
+                    Apple's convention. The native Face-ID sheet replaces this on iOS in C4.
+                    Hidden until Apple Developer creds exist (see APPLE_SIGNIN_ENABLED). */}
+                {APPLE_SIGNIN_ENABLED && (
+                  <motion.button
+                    whileHover={reduce ? undefined : { scale: 1.02 }}
+                    whileTap={reduce ? undefined : { scale: 0.98 }}
+                    type="button"
+                    onClick={handleApple}
+                    disabled={isLoading}
+                    aria-label="Continue with Apple"
+                    className="w-full relative overflow-hidden bg-white/[0.04] text-white/80 hover:text-white h-11 rounded-btn border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center gap-2.5 mb-2 disabled:opacity-60"
+                  >
+                    <AppleIcon />
+                    <span className="text-[13px]">Continue with Apple</span>
+                  </motion.button>
+                )}
 
                 {/* Google */}
                 <motion.button

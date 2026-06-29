@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi } from 'vitest'
-import Auth from './Auth'
+import Auth, { APPLE_SIGNIN_ENABLED } from './Auth'
 
 // Mock FieldGlobe so jsdom doesn't try to create a WebGL context.
 vi.mock('../home/FieldGlobe', () => ({ FieldGlobe: () => <div data-testid="field-globe" /> }))
@@ -59,12 +59,19 @@ describe('Auth', () => {
     expect(screen.getByTestId('field-globe')).toBeInTheDocument()
   })
 
-  // Guideline 4.8: offering Google requires offering Sign in with Apple too.
-  it('offers Sign in with Apple and triggers it on click', async () => {
+  // Guideline 4.8: offering Google requires offering Sign in with Apple too. The
+  // button is gated behind APPLE_SIGNIN_ENABLED (off until Apple Developer creds
+  // exist), so this test follows the flag: when on, it must render + trigger
+  // signInApple; when off, it must be hidden (no broken button live).
+  it('gates Sign in with Apple behind APPLE_SIGNIN_ENABLED', async () => {
     renderAuth()
-    const apple = screen.getByRole('button', { name: /continue with apple/i })
-    expect(apple).toBeInTheDocument()
-    fireEvent.click(apple)
-    await waitFor(() => expect(mocks.signInApple).toHaveBeenCalled())
+    const apple = screen.queryByRole('button', { name: /continue with apple/i })
+    if (APPLE_SIGNIN_ENABLED) {
+      expect(apple).toBeInTheDocument()
+      fireEvent.click(apple!)
+      await waitFor(() => expect(mocks.signInApple).toHaveBeenCalled())
+    } else {
+      expect(apple).not.toBeInTheDocument()
+    }
   })
 })
