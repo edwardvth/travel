@@ -1,13 +1,15 @@
-# Voyager — App Store Readiness (iOS) — Design Spec
+# Passage — App Store Readiness (iOS) — Design Spec
 
 > **Status:** Draft for owner approval · **Date:** 2026-06-29
-> Goal: get Voyager (Passage) submitted to and approved on the Apple App Store as a **free, no-paywall v1**.
+> Goal: get **Passage** submitted to and approved on the Apple App Store as a **free, no-paywall v1**.
+> (Product = **Passage**; "voyager" now refers only to the Cloudflare *worker* name + the legacy
+> `voyager.edwardvth.workers.dev` URL.)
 > Read `CLAUDE.md` + `handoff.md` first. This spec defines *what* and *why*; the matching plan
-> (`docs/superpowers/plans/2026-06-29-voyager-app-store-readiness.md`) defines *how / task order*.
+> (`docs/superpowers/plans/2026-06-29-passage-app-store-readiness.md`) defines *how / task order*.
 
 ## 1. The core problem this spec solves
 
-Voyager is a **web app** (React + Vite, served as a website by a Cloudflare Worker). **Apple does not
+Passage is a **web app** (React + Vite, served as a website by a Cloudflare Worker). **Apple does not
 accept websites** — only native apps built with Xcode. So shipping to the App Store is two problems, not one:
 
 1. **Packaging** — wrap the existing web app in a native iOS shell so there is a real `.ipa` to submit.

@@ -1,6 +1,6 @@
-# Voyager — App Store Readiness (iOS) — Implementation Plan
+# Passage — App Store Readiness (iOS) — Implementation Plan
 
-> Plan for spec `docs/superpowers/specs/2026-06-29-voyager-app-store-readiness-design.md`.
+> Plan for spec `docs/superpowers/specs/2026-06-29-passage-app-store-readiness-design.md`.
 > Build method: **subagent-driven-development** (opus implementer per task, spec + code-quality review,
 > commit per task, push at checkpoints, keep the suite green). v1 = **free, no paywall**.
 > 🖥️ = needs the Mac. 🪟 = Windows-only, do anytime. ⚙️ = owner action (account/portal), not code.
