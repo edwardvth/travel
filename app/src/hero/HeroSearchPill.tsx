@@ -57,6 +57,8 @@ export function HeroSearchPill({ onSubmit, onTermChange, onWordStart, className 
         e.preventDefault()
         submit()
       }}
+      // `w-full` fills the hero's pill wrapper, which CinematicHero pins to the
+      // headline width so the pill's edges line up with the headline.
       className={cn('group/pill mx-auto w-full max-w-xl', className)}
     >
       <div

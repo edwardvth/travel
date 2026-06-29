@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Mark } from './Logo'
 import { HeroSearchPill } from '../hero/HeroSearchPill'
@@ -60,6 +60,22 @@ export function CinematicHero({
     setUpcoming(upcomingClips(word, 3))
   }
 
+  // Size the landing search pill to the headline's width (its widest line) so their
+  // left/right edges line up. Measured live so it tracks font-load and responsive
+  // sizes. Only the landing pill (HeroSearchPill, w-full) consumes this — the home's
+  // CommandPill is w-fit and ignores the container width.
+  const headlineRef = useRef<HTMLHeadingElement>(null)
+  const [headlineWidth, setHeadlineWidth] = useState(0)
+  useEffect(() => {
+    const el = headlineRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const measure = () => setHeadlineWidth(el.getBoundingClientRect().width)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   const videoLayer = (
     <HeroVideoStage clip={clip} upcoming={upcoming} playing={videoPlaying} className="absolute inset-0" />
   )
@@ -98,6 +114,7 @@ export function CinematicHero({
           {eyebrow}
         </div>
         <h1
+          ref={headlineRef}
           className={headlineClassName}
           style={{ textShadow: '0 2px 30px rgba(0,0,0,.6)' }}
         >
@@ -106,7 +123,11 @@ export function CinematicHero({
         <p className="mt-4 md:mt-5 font-sans italic text-[15px] md:text-[18px] text-white/85">
           {subcopy}
         </p>
-        <div className={`pointer-events-auto ${pillMarginClassName}`}>
+        <div
+          className={`pointer-events-auto ${pillMarginClassName}`}
+          // Landing only: pin the pill's width to the headline so the edges line up.
+          style={!renderPill && headlineWidth ? { width: headlineWidth, maxWidth: 'calc(100vw - 2.5rem)' } : undefined}
+        >
           {renderPill
             ? renderPill({ onWordStart: onWord })
             : <HeroSearchPill onSubmit={onSubmit ?? (() => {})} onWordStart={onWord} />}
