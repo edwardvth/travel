@@ -291,10 +291,10 @@ export function HomePage({ trips, focus, firstName, units, userId, loading = fal
         </>
       )}
 
-      {/* State-C only: fixed "New trip" that fades in once the landing pill scrolls
-          out of view, scrolling back to it. (With a trip, the trip-nav button +
-          the rolled-down create hero handle this instead.) */}
-      {!focus && (
+      {/* Fixed "New trip" that fades in once the "Where to next?" pill scrolls out
+          of view — both on the no-trip landing AND while the create hero is rolled
+          down — and scrolls back up to the pill (focusing it). */}
+      {(!focus || creating) && (
         <div
           aria-hidden={pillInView}
           className={`fixed right-4 top-4 z-40 transition-opacity duration-300 ${pillInView ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
