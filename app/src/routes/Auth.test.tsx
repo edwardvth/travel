@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, it, expect, vi } from 'vitest'
 import Auth from './Auth'
@@ -6,13 +6,17 @@ import Auth from './Auth'
 // Mock FieldGlobe so jsdom doesn't try to create a WebGL context.
 vi.mock('../home/FieldGlobe', () => ({ FieldGlobe: () => <div data-testid="field-globe" /> }))
 
+// Hoisted so the test can assert on the same fns the component receives.
+const mocks = vi.hoisted(() => ({ signInApple: vi.fn(), signInGoogle: vi.fn() }))
+
 // Auth pulls auth actions from context; provide a minimal stub.
 vi.mock('../auth/useAuth', () => ({
   useAuth: () => ({
     user: null,
     signIn: vi.fn(),
     signUp: vi.fn(),
-    signInGoogle: vi.fn(),
+    signInGoogle: mocks.signInGoogle,
+    signInApple: mocks.signInApple,
     magicLink: vi.fn(),
   }),
 }))
@@ -53,5 +57,14 @@ describe('Auth', () => {
   it('renders the field-globe background behind the form', () => {
     renderAuth()
     expect(screen.getByTestId('field-globe')).toBeInTheDocument()
+  })
+
+  // Guideline 4.8: offering Google requires offering Sign in with Apple too.
+  it('offers Sign in with Apple and triggers it on click', async () => {
+    renderAuth()
+    const apple = screen.getByRole('button', { name: /continue with apple/i })
+    expect(apple).toBeInTheDocument()
+    fireEvent.click(apple)
+    await waitFor(() => expect(mocks.signInApple).toHaveBeenCalled())
   })
 })

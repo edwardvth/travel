@@ -18,7 +18,7 @@ import globeStill from '../assets/globe-still.webp'
  * prefers-reduced-motion per the house a11y rules.
  */
 export default function Auth() {
-  const { user, signIn, signUp, signInGoogle, magicLink } = useAuth()
+  const { user, signIn, signUp, signInGoogle, signInApple, magicLink } = useAuth()
   const nav = useNavigate()
   const reduce = useReducedMotion()
 
@@ -83,6 +83,13 @@ export default function Auth() {
   async function handleGoogle() {
     setIsLoading(true); setMsg(null)
     const r = (await signInGoogle()) || {}
+    setIsLoading(false)
+    if ('error' in r && r.error) setMsg({ text: r.error, err: true })
+  }
+
+  async function handleApple() {
+    setIsLoading(true); setMsg(null)
+    const r = (await signInApple()) || {}
     setIsLoading(false)
     if ('error' in r && r.error) setMsg({ text: r.error, err: true })
   }
@@ -329,6 +336,21 @@ export default function Auth() {
                   <div className="flex-grow border-t border-white/10" />
                 </div>
 
+                {/* Apple — required by Guideline 4.8 (we offer Google). Listed first per
+                    Apple's convention. The native Face-ID sheet replaces this on iOS in C4. */}
+                <motion.button
+                  whileHover={reduce ? undefined : { scale: 1.02 }}
+                  whileTap={reduce ? undefined : { scale: 0.98 }}
+                  type="button"
+                  onClick={handleApple}
+                  disabled={isLoading}
+                  aria-label="Continue with Apple"
+                  className="w-full relative overflow-hidden bg-white/[0.04] text-white/80 hover:text-white h-11 rounded-btn border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center gap-2.5 disabled:opacity-60"
+                >
+                  <AppleIcon />
+                  <span className="text-[13px]">Continue with Apple</span>
+                </motion.button>
+
                 {/* Google */}
                 <motion.button
                   whileHover={reduce ? undefined : { scale: 1.02 }}
@@ -336,7 +358,8 @@ export default function Auth() {
                   type="button"
                   onClick={handleGoogle}
                   disabled={isLoading}
-                  className="w-full relative overflow-hidden bg-white/[0.04] text-white/80 hover:text-white h-11 rounded-btn border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center gap-2.5 disabled:opacity-60"
+                  aria-label="Continue with Google"
+                  className="w-full relative overflow-hidden bg-white/[0.04] text-white/80 hover:text-white h-11 rounded-btn border border-white/10 hover:border-white/20 transition-all duration-300 flex items-center justify-center gap-2.5 mt-2 disabled:opacity-60"
                 >
                   <GoogleIcon />
                   <span className="text-[13px]">Continue with Google</span>
@@ -367,6 +390,15 @@ export default function Auth() {
       </motion.div>
       </div>
     </div>
+  )
+}
+
+function AppleIcon() {
+  // Apple logo glyph; inherits the button's text color via currentColor.
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M17.05 12.54c-.02-2.07 1.69-3.06 1.77-3.11-.96-1.41-2.46-1.6-2.99-1.62-1.27-.13-2.49.75-3.13.75-.65 0-1.64-.73-2.7-.71-1.39.02-2.67.81-3.38 2.05-1.44 2.5-.37 6.2 1.04 8.23.69.99 1.51 2.1 2.58 2.06 1.04-.04 1.43-.67 2.69-.67 1.25 0 1.61.67 2.7.65 1.12-.02 1.82-1.01 2.5-2.01.79-1.15 1.11-2.27 1.13-2.33-.03-.01-2.17-.83-2.19-3.31zM15.0 6.21c.57-.69.96-1.65.85-2.61-.83.03-1.83.55-2.42 1.24-.53.61-.99 1.59-.87 2.53.93.07 1.87-.47 2.44-1.16z" />
+    </svg>
   )
 }
 

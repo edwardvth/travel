@@ -1,6 +1,7 @@
 import { createContext, useEffect, useState, useCallback } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { getAuthRedirectTo } from './redirect'
 
 interface AuthState {
   user: User | null
@@ -8,12 +9,11 @@ interface AuthState {
   signIn: (email: string, password: string) => Promise<{ error?: string }>
   signUp: (email: string, password: string, name: string) => Promise<{ error?: string; needConfirm?: boolean }>
   signInGoogle: () => Promise<{ error?: string }>
+  signInApple: () => Promise<{ error?: string }>
   magicLink: (email: string) => Promise<{ error?: string }>
   signOut: () => Promise<void>
 }
 export const AuthContext = createContext<AuthState | null>(null)
-
-function redirectTo() { return window.location.origin + '/auth' }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = useCallback(async (email: string, password: string, name: string) => {
     const { data, error } = await supabase.auth.signUp({
       email: email.trim(), password,
-      options: { emailRedirectTo: redirectTo(), data: { name: name.trim() } },
+      options: { emailRedirectTo: getAuthRedirectTo(), data: { name: name.trim() } },
     })
     if (error) return { error: error.message }
     return { needConfirm: !data.session }
@@ -51,14 +51,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signInGoogle = useCallback(async () => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: redirectTo(), queryParams: { prompt: 'select_account' } },
+      options: { redirectTo: getAuthRedirectTo(), queryParams: { prompt: 'select_account' } },
+    })
+    return { error: error?.message }
+  }, [])
+
+  // Sign in with Apple — required by Guideline 4.8 because we offer Google. This is
+  // the web OAuth flow (works in the browser AND inside the Capacitor WebView, and is
+  // the permanent desktop path). Phase C/C4 adds the native Apple sheet on iOS, with
+  // `signInApple` switching by platform; the redirect target already adapts via B1.5.
+  const signInApple = useCallback(async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'apple',
+      options: { redirectTo: getAuthRedirectTo() },
     })
     return { error: error?.message }
   }, [])
 
   const magicLink = useCallback(async (email: string) => {
     const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(), options: { emailRedirectTo: redirectTo() },
+      email: email.trim(), options: { emailRedirectTo: getAuthRedirectTo() },
     })
     return { error: error?.message }
   }, [])
@@ -70,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signInGoogle, magicLink, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signInGoogle, signInApple, magicLink, signOut }}>
       {children}
     </AuthContext.Provider>
   )
