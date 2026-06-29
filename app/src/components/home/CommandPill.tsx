@@ -377,10 +377,17 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
                   'placeholder:text-white/50 disabled:opacity-50',
                 )}
               />
-              {text === '' && !focused && (
+              {text === '' && (
                 <Typewriter
                   onWordStart={onWordStart}
-                  className="pointer-events-none absolute inset-0 flex items-center text-[15px] leading-[1.4] text-white/50"
+                  // Stays mounted while the input is empty — even when focused — so it
+                  // keeps driving the hero video's crossfade (onWordStart). When focused
+                  // it's just hidden, letting the native "Where to?" placeholder show.
+                  // Unmounting it on focus is what froze the video looping one clip.
+                  className={cn(
+                    'pointer-events-none absolute inset-0 flex items-center text-[15px] leading-[1.4] text-white/50',
+                    focused && 'opacity-0',
+                  )}
                 />
               )}
             </div>

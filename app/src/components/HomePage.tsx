@@ -154,7 +154,7 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
         copyPaddingClassName="pt-[16vh] md:pt-[18vh]"
         pillMarginClassName="mt-[calc(8vh_+_2.25rem)] md:mt-10"
         renderPill={({ onWordStart }) => (
-          <div ref={pillWrapRef} className="relative w-full">
+          <div ref={pillWrapRef} className="relative w-full -translate-y-[100px] md:translate-y-0">
             <div ref={pillSentinelRef} aria-hidden className="absolute inset-x-0 top-0 h-px" />
             <CommandPill
               ref={pillHandleRef}
