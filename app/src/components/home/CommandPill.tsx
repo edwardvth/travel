@@ -1,9 +1,9 @@
 import { forwardRef, useImperativeHandle, useRef, useState, useId, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion, useAnimationControls } from 'framer-motion'
 import { X, Loader2, MapPin, Calendar } from 'lucide-react'
 import { usePlaceSearch } from '../../data/usePlaceSearch'
-import { resolveCommitLabel } from '../../lib/destination-commit'
+import { deriveAutocompleteStatus, resolveContinue } from '../../lib/pill-resolution'
 import { warmCover } from '../../lib/cover-prefetch'
 import { formatRangeChip, type DateRange } from '../../lib/range-calendar'
 import { RangeCalendar } from './RangeCalendar'
@@ -20,6 +20,8 @@ const DEBOUNCE_MS = 280
  *  REMEMBER) lands ~this fraction down the viewport — a small gap below the top —
  *  lifting the pill clear of the soft keyboard without going all the way up. */
 const EYEBROW_TOP_GAP_FRACTION = 0.06
+/** Inline hint shown when the user tries to continue without a resolvable place. */
+const INVALID_PLACE_MSG = 'Choose a valid place from the list.'
 
 export interface CommandPillCommit {
   destination: string   // committed clean label (top-result rule)
@@ -57,8 +59,15 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
     const [range, setRange] = useState<DateRange>({ start: null, end: null })
     const [calOpen, setCalOpen] = useState(false)
     const [datesTBD, setDatesTBD] = useState(false)
+    // Strict resolution gate, kept SEPARATE from the raw `text`: the flow may only
+    // advance with a real prediction, never raw text. `pendingSubmit` records an
+    // early "continue" (pressed while predictions were still loading) so the
+    // dropdown can open the moment results land; `invalidMsg` is the inline hint.
+    const [pendingSubmit, setPendingSubmit] = useState(false)
+    const [invalidMsg, setInvalidMsg] = useState<string | null>(null)
 
     const reduce = useReducedMotion()
+    const shakeControls = useAnimationControls()
     const inputRef = useRef<HTMLInputElement>(null)
     const pillBarRef = useRef<HTMLDivElement>(null)
     // Fixed-position coords for the (portaled) calendar — see the measure effect.
@@ -100,27 +109,97 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
       }
     }, [phase, calOpen])
 
-    const showList = acOpen && text.trim().length >= MIN_QUERY && (loading || places.length > 0)
+    // Resolved autocomplete state, derived and kept strictly apart from raw `text`.
+    // `settled` = the debounce has caught up to what's typed, so `places` reflects
+    // the CURRENT text rather than a mid-debounce stale query. Combined with
+    // TanStack keying on `debounced` (late responses for old queries never land in
+    // `places`), this is the stale-result guard — no request IDs needed.
+    const trimmed = text.trim()
+    const autocompleteStatus = deriveAutocompleteStatus({
+      trimmedLength: trimmed.length,
+      minQuery: MIN_QUERY,
+      settled: debounced.trim() === trimmed,
+      loading,
+      predictionCount: places.length,
+    })
 
-    // ── Destination commit ──────────────────────────────────────────────────
-    const commitDestination = (chosenLabel?: string | null) => {
-      const label = resolveCommitLabel({
-        chosen: chosenLabel ?? null,
-        raw: text,
-        suggestions: places,
-      })
-      if (!label) return
+    const showList = acOpen && (autocompleteStatus === 'loading' || autocompleteStatus === 'ready')
+
+    // Deferred submit: if the user pressed "continue" too early (pendingSubmit),
+    // act the moment the already-in-flight request resolves — open the dropdown if
+    // predictions arrived (they can press Enter again for the top result), or show
+    // the hint if none did. We don't trigger a new request; we just react.
+    useEffect(() => {
+      if (!pendingSubmit) return
+      if (autocompleteStatus === 'ready') {
+        setAcOpen(true)
+        setActive(-1)
+        inputRef.current?.focus()
+        setPendingSubmit(false)
+      } else if (autocompleteStatus === 'empty' || autocompleteStatus === 'idle') {
+        setInvalidMsg(INVALID_PLACE_MSG)
+        setPendingSubmit(false)
+      }
+      // 'loading' → keep waiting.
+    }, [pendingSubmit, autocompleteStatus])
+
+    // ── Advance to the dates step with a RESOLVED place ─────────────────────
+    // Only ever called with a real autocomplete prediction (top result, or a
+    // clicked/highlighted suggestion) — never raw typed text. Because selecting a
+    // place leaves the editable input behind, a resolved place can never go stale
+    // for new text: to change it the user clears back to an empty input.
+    const advanceWith = (label: string) => {
+      const clean = label.trim()
+      if (!clean) return
       // Drop the mobile soft keyboard before the calendar opens — otherwise it
       // covers the lower half of the calendar (incl. "Don't know dates yet").
-      // Blur while the input is still mounted (this handler runs in the
-      // destination phase, before setPhase unmounts it).
       inputRef.current?.blur()
-      setDestination(label)
+      setDestination(clean)
       setAcOpen(false)
       setActive(-1)
-      void warmCover(label)
+      setPendingSubmit(false)
+      setInvalidMsg(null)
+      void warmCover(clean)
       setPhase('dates')
       setCalOpen(true)
+    }
+
+    // A quick, subtle "not yet" shake — purely visual. It never touches the
+    // query, so the typing-triggered autocomplete request keeps flowing as if the
+    // shake never happened. Skipped under reduced motion.
+    const triggerShake = () => {
+      if (reduce) return
+      void shakeControls.start({
+        x: [0, -5, 5, -4, 4, -2, 2, 0],
+        transition: { duration: 0.35, ease: 'easeInOut' },
+      })
+    }
+
+    // ── The ONE guarded "continue" path (Enter, submit button, mobile Go) ────
+    // Raw text can never advance — `resolveContinue` only yields `advance` with a
+    // resolved prediction (highlighted, else top result).
+    const attemptContinue = () => {
+      const action = resolveContinue(autocompleteStatus, active, places)
+      if (action.kind === 'advance') {
+        advanceWith(action.label)
+        return
+      }
+      if (action.kind === 'wait') {
+        // Still resolving → "not yet": shake, keep the typed text + focus, hold the
+        // dropdown open, and remember the intent so it populates the instant
+        // results arrive. No new request is fired (the typing-triggered one runs on).
+        triggerShake()
+        setPendingSubmit(true)
+        setInvalidMsg(null)
+        setAcOpen(true)
+        inputRef.current?.focus()
+        return
+      }
+      // 'invalid' — nothing resolvable (too short / no matches) → shake + hint.
+      triggerShake()
+      setPendingSubmit(false)
+      setInvalidMsg(INVALID_PLACE_MSG)
+      inputRef.current?.focus()
     }
 
     // ── Clear back to destination entry ────────────────────────────────────
@@ -148,11 +227,10 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
     }
 
     // ── Keyboard handler for the destination input ─────────────────────────
-    // Mirrors DestinationInput exactly:
-    //   Esc priority: autocomplete open → close (stopPropagation); else blur.
-    //   ↑/↓: move active index (wrapping).
-    //   Enter: if active >= 0 commit that suggestion; else commit top result /
-    //          raw text; also handle CTA confirm when phase === 'dates'.
+    //   Esc: autocomplete open → close (stopPropagation); else blur.
+    //   ↑/↓: move the active suggestion (wrapping).
+    //   Enter: route through attemptContinue — advances ONLY with a resolved
+    //          prediction (highlighted / top result), never raw text.
     const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
       if (e.key === 'Escape') {
         if (showList) {
@@ -187,15 +265,9 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
       if (e.key === 'Enter') {
         if (phase === 'destination') {
           e.preventDefault()
-          if (showList && active >= 0 && active < places.length) {
-            // Highlighted suggestion → commit it
-            commitDestination(places[active])
-          } else {
-            // No highlight → commit top result / raw text
-            commitDestination(null)
-          }
+          attemptContinue()
         }
-        // phase === 'dates': Enter handled by CTA button naturally
+        // phase === 'dates': Enter handled by the CTA button naturally.
       }
     }
 
@@ -251,11 +323,17 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
     // pill once the calendar is dismissed in the dates step. On a narrow phone the
     // full "Plan it →" label can't share the pill's row with the destination chip
     // + date token, so giving it its own row keeps the whole label always visible.
-    const renderCta = () => (
+    const renderCta = () => {
+      // Destination step: the CTA is a guarded "continue" — same rules as Enter,
+      // so attemptContinue never advances on raw text and only enables once
+      // something is typed. Dates step: it's the trip-creating confirm.
+      const inDestination = phase === 'destination'
+      const ctaDisabled = inDestination ? pending || trimmed.length === 0 : !canConfirm || pending
+      return (
       <button
         type="button"
-        disabled={!canConfirm || pending}
-        onClick={confirm}
+        disabled={ctaDisabled}
+        onClick={inDestination ? attemptContinue : confirm}
         aria-label={pending ? 'Creating your trip…' : 'Plan it'}
         className={cn(
           'relative inline-flex h-[46px] shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full px-5',
@@ -264,7 +342,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
           'transition-[opacity,background-color] duration-150',
           'hover:brightness-110 active:translate-y-px',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent',
-          (!canConfirm || pending) && 'cursor-not-allowed opacity-50',
+          ctaDisabled && 'cursor-not-allowed opacity-50',
         )}
       >
         {pending ? (
@@ -294,7 +372,8 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
           </>
         )}
       </button>
-    )
+      )
+    }
 
     return (
       // eslint-disable-next-line jsx-a11y/no-static-element-interactions
@@ -329,9 +408,11 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
           </motion.div>
         )}
 
-        {/* ── Main pill ─────────────────────────────────────────────────── */}
-        <div
+        {/* ── Main pill (shakes on a "not yet" continue attempt) ──────────── */}
+        <motion.div
           ref={pillBarRef}
+          animate={shakeControls}
+          initial={false}
           className={cn(
             'flex items-center gap-2 rounded-full p-1.5 pl-5',
             // Glassy treatment — mirrors HeroSearchPill
@@ -382,6 +463,10 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
                   setText(e.target.value)
                   setAcOpen(true)
                   setActive(-1)
+                  // Editing supersedes any early-submit intent and clears the hint;
+                  // the new text must resolve on its own before it can advance.
+                  setPendingSubmit(false)
+                  setInvalidMsg(null)
                 }}
                 onFocus={() => {
                   setFocused(true)
@@ -435,8 +520,8 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
             </button>
           )}
 
-          {/* Loading spinner (destination phase, typing) */}
-          {phase === 'destination' && loading && (
+          {/* Loading spinner — while predictions are resolving (debounce or fetch). */}
+          {phase === 'destination' && autocompleteStatus === 'loading' && (
             <span className="shrink-0 text-white/50" aria-hidden="true">
               <Loader2 size={15} className="animate-spin" />
             </span>
@@ -445,7 +530,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
           {/* CTA — inside the pill during the destination step only. In the dates
               step it relocates to its own row ABOVE the pill (see above). */}
           {phase === 'destination' && renderCta()}
-        </div>
+        </motion.div>
 
         {/* ── Autocomplete listbox (phase "destination") — fades/scales in ── */}
         <AnimatePresence>
@@ -466,7 +551,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
               'shadow-[0_18px_50px_rgba(0,0,0,.5)]',
             )}
           >
-            {places.length === 0 && loading && (
+            {autocompleteStatus === 'loading' && (
               <li
                 className="flex min-h-[44px] items-center gap-2.5 px-4 text-[13px] text-white/50"
                 aria-hidden="true"
@@ -475,7 +560,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
                 Searching…
               </li>
             )}
-            {places.map((place, i) => (
+            {autocompleteStatus === 'ready' && places.map((place, i) => (
               <li
                 key={place}
                 id={optionId(i)}
@@ -484,7 +569,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
                 // onMouseDown fires before the input's blur — intentional (mirrors DestinationInput).
                 onMouseDown={e => {
                   e.preventDefault()
-                  commitDestination(place)
+                  advanceWith(place)
                 }}
                 onMouseEnter={() => setActive(i)}
                 className={cn(
@@ -529,7 +614,14 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
           document.body,
         )}
 
-        {/* ── Inline error ───────────────────────────────────────────────── */}
+        {/* ── "Not yet — choose a real place" hint (destination step) ─────── */}
+        {phase === 'destination' && invalidMsg && (
+          <p role="alert" className="mt-2 px-1 text-[12.5px] text-white/70">
+            {invalidMsg}
+          </p>
+        )}
+
+        {/* ── Inline error (trip-creation failure, from parent) ───────────── */}
         {error && (
           <p
             role="alert"
