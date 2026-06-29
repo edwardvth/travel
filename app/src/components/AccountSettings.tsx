@@ -1,4 +1,5 @@
 import { useId, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Sheet } from './ui/Sheet'
 import { Input } from './ui/Input'
 import { Button } from './ui/Button'
@@ -22,9 +23,14 @@ const DEFAULT_MODEL = 'claude-sonnet-4-6'
 
 const COMING_SOON: { label: string; hint: string }[] = [
   { label: 'Subscription', hint: 'Plans & billing' },
-  { label: 'Privacy', hint: 'Data & sharing controls' },
-  { label: 'Help', hint: 'Guides & support' },
 ]
+
+/** Public legal + support links, surfaced in-app (required for App Store review). */
+const LEGAL_LINKS: { label: string; to: string }[] = [
+  { label: 'Privacy Policy', to: '/privacy-policy' },
+  { label: 'Terms of Service', to: '/tos' },
+]
+const SUPPORT_EMAIL = 'support@mypassage.ai'
 
 function Field({ htmlFor, label, children }: { htmlFor: string; label: string; children: React.ReactNode }) {
   return (
@@ -267,6 +273,34 @@ export function AccountSettings({
                 </span>
               </li>
             ))}
+          </ul>
+        </div>
+
+        {/* Legal & support */}
+        <div className="pt-1">
+          <span className="block text-[12px] font-bold text-muted uppercase tracking-wide mb-2">Legal &amp; support</span>
+          <ul className="rounded-card border border-hair divide-y divide-hair overflow-hidden">
+            {LEGAL_LINKS.map(link => (
+              <li key={link.to} className="flex items-stretch">
+                <Link
+                  to={link.to}
+                  onClick={onClose}
+                  className="flex flex-1 items-center justify-between gap-3 px-4 py-3 min-h-[44px] text-[14px] font-semibold text-ink bg-base hover:bg-fill transition-colors"
+                >
+                  {link.label}
+                  <ChevronRight size={15} aria-hidden="true" className="text-muted" />
+                </Link>
+              </li>
+            ))}
+            <li className="flex items-stretch">
+              <a
+                href={`mailto:${SUPPORT_EMAIL}`}
+                className="flex flex-1 items-center justify-between gap-3 px-4 py-3 min-h-[44px] text-[14px] font-semibold text-ink bg-base hover:bg-fill transition-colors"
+              >
+                Contact support
+                <span className="text-[12px] font-normal text-muted">{SUPPORT_EMAIL}</span>
+              </a>
+            </li>
           </ul>
         </div>
       </div>

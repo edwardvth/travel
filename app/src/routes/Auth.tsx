@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform, useReducedMotion } from 'framer-motion'
 import type { TargetAndTransition, Transition } from 'framer-motion'
 import { Mail, Lock, Eye, EyeClosed, ArrowRight } from 'lucide-react'
@@ -383,6 +383,14 @@ export default function Auth() {
                   style={{ color: msg?.err ? 'var(--sig-link)' : 'rgba(255,255,255,.6)' }}>
                   {msg?.text}
                 </div>
+
+                {/* Legal footer — by signing up you accept these. */}
+                <p className="text-center text-[11px] leading-relaxed text-white/40 mt-3">
+                  By continuing you agree to our{' '}
+                  <Link to="/tos" className="text-white/60 hover:text-white underline underline-offset-2">Terms</Link>
+                  {' '}and{' '}
+                  <Link to="/privacy-policy" className="text-white/60 hover:text-white underline underline-offset-2">Privacy Policy</Link>.
+                </p>
               </form>
             </div>
           </div>

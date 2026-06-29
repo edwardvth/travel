@@ -3,6 +3,8 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Landing from './routes/Landing'
 import Auth from './routes/Auth'
 import Dashboard from './routes/Dashboard'
+import PrivacyPolicy from './routes/PrivacyPolicy'
+import Terms from './routes/Terms'
 import SplashIntro from './components/SplashIntro'
 import { ChunkErrorBoundary } from './components/ChunkErrorBoundary'
 import { RouteFallback } from './components/RouteFallbacks'
@@ -31,6 +33,11 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/tos" element={<Terms />} />
+            {/* Common aliases → canonical paths used in the App Store / consent screens. */}
+            <Route path="/privacy" element={<Navigate to="/privacy-policy" replace />} />
+            <Route path="/terms" element={<Navigate to="/tos" replace />} />
             <Route path="/trips" element={<Dashboard />} />
             <Route path="/trip/:id" element={<PlannerLayout />}>
               <Route index element={<Itinerary />} />
