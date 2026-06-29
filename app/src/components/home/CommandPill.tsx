@@ -289,21 +289,20 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
         )}
         onKeyDown={phase === 'dates' ? onContainerKeyDown : undefined}
       >
-        {/* ── Confirm CTA, ABOVE the pill (dates step, calendar dismissed) ──
-            The calendar opens BELOW the pill, so it and the CTA never share
-            vertical space: the CTA appears only once the calendar is closed, in
-            the freed space, with its own full-width row so the entire "Plan it →"
-            label fits even on a narrow phone. A plain conditional (no
-            AnimatePresence) animates the enter but unmounts SYNCHRONOUSLY, so the
-            pill is back at its measured position the instant the calendar
-            re-opens — no race with the calendar's anchor measurement. */}
-        {phase === 'dates' && !calOpen && (
+        {/* ── Confirm CTA, floating ABOVE the pill (dates step) ──────────────
+            Shown once the range is complete (canConfirm) OR the calendar is
+            closed — so after the 2nd date the user can hit "Plan it →" right
+            away while the calendar stays open beside "Confirm dates". It's
+            absolutely positioned (bottom-full) so it floats in its own space
+            and never pushes the pill or the open calendar down — the calendar's
+            anchor stays put and its "Confirm dates" button doesn't slide off. */}
+        {phase === 'dates' && (canConfirm || !calOpen) && (
           <motion.div
             key="cta-above"
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: reduce ? 0.12 : 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="mb-2.5 flex justify-center"
+            className="absolute inset-x-0 bottom-full mb-2 flex justify-center"
           >
             {renderCta()}
           </motion.div>
@@ -495,13 +494,10 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
                 <RangeCalendar
                   value={range}
                   onChange={handleRangeChange}
-                  // Picking the 2nd date completes the range → close the calendar
-                  // immediately, which surfaces the "Plan it →" CTA above the pill.
-                  // So a full range can be confirmed by selecting dates alone, without
-                  // hunting for the calendar's "Confirm dates" button (which can fall
-                  // below the fold on a short phone). React batches this with the
-                  // onChange above, so "Confirm dates" never flashes.
-                  onComplete={() => setCalOpen(false)}
+                  // No auto-close on the 2nd pick: the calendar stays open with the
+                  // range shown so the user can adjust, hit "Confirm dates", or use
+                  // the "Plan it →" CTA that now appears above the pill once the range
+                  // is complete (see the absolute CTA below).
                   onSkip={handleSkip}
                   onConfirm={() => setCalOpen(false)}
                 />
