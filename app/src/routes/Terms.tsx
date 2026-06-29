@@ -11,16 +11,18 @@ function A({ href, children }: { href: string; children: React.ReactNode }) {
 
 /**
  * Passage Terms of Service. Plain-language terms for a free, consumer travel-planning
- * app. NOTE for the owner: the bracketed items (legal entity name, governing-law
- * jurisdiction) should be filled in / reviewed by a lawyer before public launch.
+ * app operated by KOMITAS LLC (Missouri, USA). Recommend a lawyer review before a
+ * large public launch, but the entity + governing law are now set.
  */
 export default function Terms() {
   return (
     <LegalLayout title="Terms of Service" updated={UPDATED}>
       <Section heading="Acceptance of these terms">
         <p>
-          By creating an account or using Passage (the "Service"), you agree to these Terms of Service and to our
-          {' '}<A href="/privacy-policy">Privacy Policy</A>. If you don't agree, please don't use the Service.
+          Passage (the "Service") is operated by <strong>KOMITAS LLC</strong> ("we," "us"), a Missouri, USA
+          limited liability company. By creating an account or using the Service, you agree to these Terms of
+          Service and to our <A href="/privacy-policy">Privacy Policy</A>. If you don't agree, please don't use the
+          Service.
         </p>
       </Section>
 
@@ -102,8 +104,8 @@ export default function Terms() {
 
       <Section heading="Governing law">
         <p>
-          These terms are governed by the laws of [your jurisdiction], without regard to conflict-of-law rules.
-          {' '}<em>(Owner to confirm the governing-law jurisdiction and legal entity name before public launch.)</em>
+          These terms are governed by the laws of the State of Missouri, USA, without regard to its
+          conflict-of-law rules. Any disputes will be subject to the courts located in Missouri, USA.
         </p>
       </Section>
 

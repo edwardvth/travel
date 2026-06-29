@@ -21,8 +21,9 @@ export default function PrivacyPolicy() {
     <LegalLayout title="Privacy Policy" updated={UPDATED}>
       <Section heading="Summary">
         <p>
-          Passage is a travel-planning app. We collect the account details you give us and the trip content you
-          create, and we use a small set of trusted services to make features like AI suggestions, maps, photos,
+          Passage is a travel-planning app operated by <strong>KOMITAS LLC</strong> (Missouri, USA). We collect
+          the account details you give us and the trip content you create, and we use a small set of trusted
+          services to make features like AI suggestions, maps, photos,
           weather, and voice narration work. We <strong>do not</strong> use advertising, tracking, or analytics
           SDKs, and we <strong>do not</strong> sell your personal data. You can delete your account and data at any
           time. Questions: <A href={`mailto:${SUPPORT}`}>{SUPPORT}</A>.
