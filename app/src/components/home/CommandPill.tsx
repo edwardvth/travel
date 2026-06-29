@@ -203,7 +203,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
     return (
       // eslint-disable-next-line jsx-a11y/no-static-element-interactions
       <div
-        className={cn('relative mx-auto w-[30rem] max-w-[calc(100vw-2.5rem)]', className)}
+        className={cn('relative mx-auto w-full max-w-xl', className)}
         onKeyDown={phase === 'dates' ? onContainerKeyDown : undefined}
       >
         {/* ── Main pill ─────────────────────────────────────────────────── */}
