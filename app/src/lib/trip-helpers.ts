@@ -83,7 +83,7 @@ export interface NewTripPayload { id: string; title: string; subtitle: string; c
 
 export function buildNewTripPayload(input: NewTripInput): NewTripPayload {
   const { slug, title, subtitle, start, end, destination, notes } = input
-  let numDays = 4
+  let numDays = 5
   const dayLabels: string[] = []
   const dayTitles: string[] = []
   if (start && end) {

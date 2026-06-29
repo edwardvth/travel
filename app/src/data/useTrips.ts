@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import type { Trip, TripConfig, Profile } from '../types'
 import { byTripDate, isPastTrip, buildNewTripPayload, slugify, type NewTripInput } from '../lib/trip-helpers'
-import { fetchLandmarkImage } from '../trip/landmark'
+import { resolveCoverImage, COVER_LOGIC_VERSION } from '../trip/cover-image'
 import { coverImageQueries, classifyCover } from '../trip/landmark-context'
 import { inferDestination } from '../trip/destination'
 import { isFounder } from './useProfile'
@@ -105,18 +105,14 @@ export function useBackfillCoverImage() {
       const queries = coverImageQueries(trip)
       if (queries.length === 0) return false
       try {
-        let url: string | null = null
-        for (const q of queries) {
-          url = await fetchLandmarkImage(q)
-          if (url) break
-        }
-        if (!url) return false
+        const resolved = await resolveCoverImage(queries)
+        if (!resolved) return false
         const { data: row } = await supabase.from('trips').select('config').eq('id', trip.id).maybeSingle()
         const config = (row?.config ?? {}) as TripConfig
         if (config.coverImage) return false // don't clobber an existing cover
         const { error } = await supabase
           .from('trips')
-          .update({ config: { ...config, coverImage: url } })
+          .update({ config: { ...config, coverImage: resolved.url, coverSource: resolved.source, coverVersion: COVER_LOGIC_VERSION } })
           .eq('id', trip.id)
         if (error) return false
         qc.invalidateQueries({ queryKey: ['trips'] })
@@ -187,20 +183,17 @@ export function useReresolveAutoCover() {
         if (!row) return false
         const config = (row.config ?? {}) as TripConfig
         if (classifyCover(config.coverImage) !== 'auto') return false // never touch user/other
+        if (config.coverVersion === COVER_LOGIC_VERSION) return false // already on current cover logic — don't re-fetch
         const queries = coverImageQueries({
           title: (row.title as string | undefined) ?? trip.title,
           config,
           data: (row.data ?? trip.data) as Trip['data'],
         })
-        let url: string | null = null
-        for (const q of queries) {
-          url = await fetchLandmarkImage(q)
-          if (url) break
-        }
+        const resolved = await resolveCoverImage(queries)
         const next: TripConfig = { ...config }
-        if (url) next.coverImage = url
-        else delete next.coverImage
-        if (next.coverImage === config.coverImage) return false // no change — skip the write
+        if (resolved) { next.coverImage = resolved.url; next.coverSource = resolved.source; next.coverVersion = COVER_LOGIC_VERSION }
+        else { delete next.coverImage; delete next.coverSource; delete next.coverVersion }
+        if (next.coverImage === config.coverImage && next.coverSource === config.coverSource && next.coverVersion === config.coverVersion) return false
         const { error } = await supabase.from('trips').update({ config: next }).eq('id', trip.id)
         if (error) return false
         qc.invalidateQueries({ queryKey: ['trips'] })

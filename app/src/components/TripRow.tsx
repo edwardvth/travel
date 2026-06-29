@@ -1,39 +1,58 @@
-import { useState } from 'react'
 import { formatDateRange } from '../lib/trip-helpers'
-import { destinationOf } from '../trip/landmark-context'
-import { useLandmarkImage } from '../data/useLandmarkImage'
+import { cockpitModel } from '../lib/cockpit-model'
+import { useTripCover } from './useTripCover'
+import { deriveTravel } from './TravelTile'
+import { TS } from './home-style'
 import type { Trip } from '../types'
 
-export function TripRow({ trip, onOpen, actions }: { trip: Trip; onOpen: (id: string) => void; actions?: React.ReactNode }) {
-  // Cover: stored config.coverImage → on-demand destination landmark (cached,
-  // lazy; backfills older trips). Same as TripCard. No arbitrary stop `.image` —
-  // the thumbnail represents the destination and must stay stable as stops change.
-  const stored = trip.config?.coverImage ?? null
-  const landmark = useLandmarkImage(stored ? undefined : destinationOf(trip))
-  const [failed, setFailed] = useState(false)
-  const cover = !failed ? stored ?? landmark.url : null
+/**
+ * An Explorer-style detailed row for the "Your travels" list (Detailed view):
+ * thumbnail · name + dates · stops · when. The whole row is a single click/tap
+ * target that opens the trip's Plan view. `today` is a test/SSR seam.
+ */
+export function TripRow({
+  trip, onOpen, today, actions,
+}: {
+  trip: Trip
+  onOpen: (id: string) => void
+  today?: string
+  actions?: React.ReactNode
+}) {
+  const { kind, when } = deriveTravel(trip, today)
+  const { url, loading } = useTripCover(trip)
+  const m = cockpitModel(trip, today)
+  const upcoming = kind === 'upcoming' || kind === 'planning'
+
   return (
-    <div className="flex w-full items-center gap-3.5 p-4 border border-hair rounded-card hover:bg-fill transition-colors">
-      <button onClick={() => onOpen(trip.id)} className="flex flex-1 items-center gap-3.5 text-left min-w-0" aria-label={`Open ${trip.title}`}>
-        <span className="relative h-[54px] w-[54px] flex-none overflow-hidden rounded-[12px] bg-raised">
-          {cover && (
-            <img
-              src={cover}
-              alt=""
-              loading="lazy"
-              onError={() => setFailed(true)}
-              className="absolute inset-0 h-full w-full object-cover"
-            />
-          )}
-        </span>
-        <span className="min-w-0">
-          <span className="block font-sans font-semibold text-[15.5px] truncate">{trip.title}</span>
-          <span className="block font-mono text-[11px] uppercase tracking-wide text-muted">{formatDateRange(trip)}</span>
-        </span>
-      </button>
-      {actions
-        ? <div className="flex gap-1.5">{actions}</div>
-        : <svg className="text-muted" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 6l6 6-6 6" strokeLinecap="round" /></svg>}
+    <div className="group relative flex w-full items-center gap-3.5 rounded-xl border border-white/12 bg-white/[0.05] px-3 py-2.5 backdrop-blur-xl transition-colors hover:bg-white/[0.09]">
+      {/* Whole-row open target, beneath the columns + actions. */}
+      <button
+        type="button"
+        onClick={() => onOpen(trip.id)}
+        aria-label={`Open ${trip.title}`}
+        className="absolute inset-0 z-0 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+      />
+
+      <div className="pointer-events-none relative z-10 flex min-w-0 flex-1 items-center gap-3.5">
+        <div className="relative h-12 w-16 shrink-0 overflow-hidden rounded-lg bg-white/[0.04] ring-1 ring-white/10">
+          {url && <img src={url} alt="" loading="lazy" className="h-full w-full object-cover" />}
+          {loading && <span className="absolute inset-0 animate-pulse bg-white/[0.04]" />}
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate font-serif text-[17px] text-white" style={{ textShadow: TS }}>{trip.title}</div>
+          <div className="truncate font-mono text-[11px] uppercase tracking-wide text-white/60">{formatDateRange(trip)}</div>
+        </div>
+        <div className="hidden w-20 shrink-0 text-center font-mono text-[12px] text-white/65 sm:block">
+          {m.stopCount > 0 ? `${m.stopCount} stops` : '—'}
+        </div>
+        <div className={`w-24 shrink-0 text-right font-mono text-[12px] ${upcoming ? 'text-sig-link' : 'text-white/55'}`}>{when}</div>
+      </div>
+
+      {actions && (
+        <div className="relative z-20 flex shrink-0 items-center gap-1.5 opacity-100 transition-opacity duration-200 lg:opacity-0 lg:group-hover:opacity-100 lg:focus-within:opacity-100">
+          {actions}
+        </div>
+      )}
     </div>
   )
 }

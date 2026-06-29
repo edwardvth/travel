@@ -123,9 +123,10 @@ describe('classifyCover', () => {
   it('treats a data: URL as a user upload (never auto-touch)', () => {
     expect(classifyCover('data:image/jpeg;base64,abc123')).toBe('user')
   })
-  it('treats Wikimedia / Wikipedia hotlinks as auto', () => {
+  it('treats Wikimedia / Wikipedia / Unsplash hotlinks as auto', () => {
     expect(classifyCover('https://upload.wikimedia.org/wikipedia/commons/thumb/x.jpg')).toBe('auto')
     expect(classifyCover('https://en.wikipedia.org/wiki/Gateway_Arch')).toBe('auto')
+    expect(classifyCover('https://images.unsplash.com/photo-123?w=1600')).toBe('auto')
   })
   it('treats other URLs, junk and empty as other', () => {
     expect(classifyCover('https://example.com/photo.jpg')).toBe('other')
@@ -133,5 +134,11 @@ describe('classifyCover', () => {
     expect(classifyCover('')).toBe('other')
     expect(classifyCover(undefined)).toBe('other')
     expect(classifyCover(null)).toBe('other')
+  })
+  it('never throws on a non-string (legacy/corrupt JSONB) cover — treats it as other', () => {
+    expect(classifyCover({ url: 'x' })).toBe('other')
+    expect(classifyCover(123)).toBe('other')
+    expect(classifyCover(true)).toBe('other')
+    expect(classifyCover([])).toBe('other')
   })
 })

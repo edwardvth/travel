@@ -9,7 +9,7 @@ describe('landmarkSearchUrl', () => {
     expect(url).toContain('generator=search')
     expect(url).toContain('prop=pageimages')
     expect(url).toContain('piprop=thumbnail')
-    expect(url).toContain('pithumbsize=800')
+    expect(url).toContain('pithumbsize=1600')
     expect(url).toContain('format=json')
     // CORS opener (URLSearchParams encodes * as %2A — both forms accepted by the API).
     expect(url).toMatch(/origin=(\*|%2A)/)

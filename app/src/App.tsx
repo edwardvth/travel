@@ -6,6 +6,7 @@ import Dashboard from './routes/Dashboard'
 import SplashIntro from './components/SplashIntro'
 import { ChunkErrorBoundary } from './components/ChunkErrorBoundary'
 import { RouteFallback } from './components/RouteFallbacks'
+import { MaterializeOverlay } from './components/home/MaterializeOverlay'
 import {
   importPlannerLayout,
   importItinerary,
@@ -49,6 +50,7 @@ export default function App() {
         </Suspense>
       </ChunkErrorBoundary>
       <SplashIntro />
+      <MaterializeOverlay />
     </>
   )
 }

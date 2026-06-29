@@ -573,7 +573,7 @@ export default function Guide() {
       <DayNav
         dayIndex={dayIndex}
         dayCount={dayCount}
-        dayLabels={trip.config?.dayLabels}
+        dayLabels={Array.from({ length: dayCount }, (_, i) => dayLabelOf(trip, i))}
         onPrev={onPrevDay}
         onNext={onNextDay}
         onPickDay={onPickDay}

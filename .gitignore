@@ -1,6 +1,9 @@
 # brainstorming visual companion
 .superpowers/
 
+# claude code worktrees / scratch
+.claude/
+
 # wrangler files
 .wrangler
 .dev.vars*

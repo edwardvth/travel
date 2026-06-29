@@ -13,6 +13,8 @@ export interface HeroClip {
   season?: Season[]              // optional season eligibility (omit = all seasons)
   poster: string                 // always-rendered fallback image (instant paint)
   sources: { src: string; type: 'video/webm' | 'video/mp4' }[] // ordered: webm first
+  posterMobile?: string          // optional portrait poster (subject-framed for narrow screens)
+  sourcesMobile?: { src: string; type: 'video/webm' | 'video/mp4' }[] // optional portrait crop
   dominantColor: string          // hex — tunes crossfade bg + text scrim for legibility
   focalPoint?: { x: number; y: number }  // object-position 0..1 (default 0.5/0.5)
   durationSec?: number

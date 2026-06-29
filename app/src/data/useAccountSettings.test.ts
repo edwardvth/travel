@@ -38,6 +38,13 @@ describe('parseAccountSettings voiceId', () => {
   })
 })
 
+describe('parseAccountSettings — homeTravelsViewMode', () => {
+  it('keeps a valid mode and drops an invalid one', () => {
+    expect(parseAccountSettings('{"homeTravelsViewMode":"detailed"}').homeTravelsViewMode).toBe('detailed')
+    expect(parseAccountSettings('{"homeTravelsViewMode":"bogus"}').homeTravelsViewMode).toBeUndefined()
+  })
+})
+
 describe('mergeAccountSettings voiceId', () => {
   it('clears voiceId on empty', () => {
     expect(mergeAccountSettings({ voiceId: 'abc' }, { voiceId: '' }).voiceId).toBeUndefined()

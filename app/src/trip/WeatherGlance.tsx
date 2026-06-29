@@ -1,20 +1,8 @@
 import type { Trip } from '../types'
 import { useWeather } from './useWeather'
-import { dayDate, formatDayDate } from './helpers'
+import { useUnits } from '../data/useUnits'
+import { dayDate, formatDayDate, dayAnchorCoords } from './helpers'
 import { weatherFromCode } from './icons'
-
-/** Pull the day's anchor coords: the first stop with finite lat/lng, else null. */
-function anchorCoords(trip: Trip, day: number): { lat: number; lng: number } | null {
-  const stops = trip.data?.days?.[day]?.stops ?? []
-  for (const stop of stops) {
-    const lat = stop.lat ?? stop.coords?.lat
-    const lng = stop.lng ?? stop.coords?.lng
-    if (typeof lat === 'number' && typeof lng === 'number' && Number.isFinite(lat) && Number.isFinite(lng)) {
-      return { lat, lng }
-    }
-  }
-  return null
-}
 
 /**
  * Slim weather glance atop a day's Plan: weekday · date · temp range · condition.
@@ -23,9 +11,10 @@ function anchorCoords(trip: Trip, day: number): { lat: number; lng: number } | n
  * Never an error or a blank gap; the row height is reserved to avoid layout shift.
  */
 export function WeatherGlance({ trip, day }: { trip: Trip; day: number }) {
+  const units = useUnits()
   const date = dayDate(trip, day)
-  const coords = anchorCoords(trip, day)
-  const { tempMax, tempMin, code, loading } = useWeather(coords, date)
+  const coords = dayAnchorCoords(trip, day)
+  const { tempMax, tempMin, code, loading } = useWeather(coords, date, units)
 
   const dateLabel = formatDayDate(date)
   const hasWeather = tempMax !== null && tempMin !== null && code !== null
@@ -45,7 +34,7 @@ export function WeatherGlance({ trip, day }: { trip: Trip; day: number }) {
         <>
           <span aria-hidden="true" className="opacity-50">·</span>
           <span>
-            {max}° / {min}°
+            {max}° / {min}°{units === 'imperial' ? 'F' : 'C'}
           </span>
           <span aria-hidden="true" className="opacity-50">·</span>
           <span className="capitalize">{label}</span>

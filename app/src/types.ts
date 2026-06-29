@@ -112,6 +112,20 @@ export interface TripConfig {
    * URL — see `landmark.ts`). Stored as a plain hotlink string, never a data URL.
    */
   coverImage?: string
+  /**
+   * Which source resolved `coverImage` ('wiki' | 'unsplash'). Set the first time
+   * a cover is machine-resolved; its presence marks the cover as settled so the
+   * Dashboard backfill never re-fetches it on subsequent loads. Absent on legacy
+   * covers (which get re-resolved once to migrate them).
+   */
+  coverSource?: 'wiki' | 'unsplash'
+  /**
+   * The cover-resolution logic version this cover was produced by. When the
+   * logic changes (e.g. a new landmark override), bumping the current version
+   * re-resolves each cover ONCE on the next load, then it settles again — so a
+   * logic change rolls out without re-fetching on every page load.
+   */
+  coverVersion?: number
   // Legacy config keys that may exist on imported/older trips; preserved on save.
   [key: string]: unknown
 }
