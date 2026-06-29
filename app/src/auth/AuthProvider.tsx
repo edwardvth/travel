@@ -2,6 +2,7 @@ import { createContext, useEffect, useState, useCallback } from 'react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { getAuthRedirectTo } from './redirect'
+import { requestAccountDeletion } from './deleteAccount'
 
 interface AuthState {
   user: User | null
@@ -12,6 +13,7 @@ interface AuthState {
   signInApple: () => Promise<{ error?: string }>
   magicLink: (email: string) => Promise<{ error?: string }>
   signOut: () => Promise<void>
+  deleteAccount: () => Promise<import('./deleteAccount').DeleteAccountResult>
 }
 export const AuthContext = createContext<AuthState | null>(null)
 
@@ -81,8 +83,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     location.assign('/auth')
   }, [])
 
+  // Delete the account, then reuse the signOut teardown on success but land on the
+  // public landing ('/') rather than '/auth'. On failure, return the result so the
+  // UI can show the (possibly retryable) error and keep the user signed in.
+  const deleteAccount = useCallback(async () => {
+    const r = await requestAccountDeletion()
+    if (r.ok) {
+      Object.keys(localStorage).forEach(k => { if (k.startsWith('sb-')) localStorage.removeItem(k) })
+      location.assign('/')
+    }
+    return r
+  }, [])
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signInGoogle, signInApple, magicLink, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signInGoogle, signInApple, magicLink, signOut, deleteAccount }}>
       {children}
     </AuthContext.Provider>
   )
