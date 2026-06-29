@@ -101,7 +101,7 @@ Write content for this place:
 - "history" = Story: why this place matters — its significance, character, and the story behind it (2-3 short plain-text paragraphs).
 - "facts" = Interesting Facts: an array of 2-4 short, standalone FACTUAL details — dates, architecture, history, or little-known trivia that are simply true about the place. These are facts, not advice; visiting/experience tips do NOT belong here.
 - "tips" = Experience: how to actually experience it on the ground — the best time of day or season to come, what to look for, the atmosphere, where to stand, what to do nearby. Write 1-3 sentences of genuinely useful, evocative guidance. Almost every place warrants this — write it.
-- "goodFor" = a short audience/occasion tag (2-4 words, e.g. "Architecture lovers", "Romantic dinner", "Family-friendly") if one is genuinely characteristic of this place — else omit.
+- "goodFor" = a short audience/occasion tag (2-4 words, e.g. "Architecture lovers", "Romantic dinner", "Nightlife", "Families") capturing who would most enjoy this place or the occasion it suits. Almost every place suits someone — provide one; omit only if truly generic.
 
 SECTION DISCIPLINE: keep "facts" purely factual and "tips" purely experiential. If a detail is about visiting or experiencing the place (e.g. "visit on a warm summer evening"), it belongs in Experience, NOT in Interesting Facts. Never drop a useful detail — move it to the right section rather than omitting it.
 

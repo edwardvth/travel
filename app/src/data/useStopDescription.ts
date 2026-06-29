@@ -191,7 +191,7 @@ export function applyStopDescription(
       if (stopDescriptionKey(s, destination) !== key) return s
       dayChanged = true
       changed = true
-      return { ...s, history: content.history, facts: content.facts, tips: content.tips, notice: content.notice }
+      return { ...s, history: content.history, facts: content.facts, tips: content.tips, notice: content.notice, ...(content.goodFor ? { goodFor: content.goodFor } : {}) }
     })
     return dayChanged ? { ...d, stops } : d
   })
