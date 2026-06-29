@@ -62,7 +62,7 @@ export function CockpitCard({
       <div className="relative h-[192px] overflow-hidden md:h-[242px]" style={{ background: tripGradient(seed) }}>
         {url && (
           <div
-            className="absolute inset-0 bg-cover bg-center transition-transform duration-500 ease-out [@media(hover:hover)]:group-hover:scale-[1.04]"
+            className="absolute inset-0 transform-gpu bg-cover bg-center transition-transform duration-500 ease-out will-change-transform [@media(hover:hover)]:group-hover:scale-[1.04]"
             style={{ backgroundImage: `url('${url}')` }}
           />
         )}
