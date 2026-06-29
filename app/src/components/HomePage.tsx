@@ -152,9 +152,11 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
         videoPlaying={heroActive}
         headlineClassName="mt-4 font-serif font-medium tracking-tight text-[44px] leading-[1.02] md:text-[70px]"
         copyPaddingClassName="pt-[16vh] md:pt-[18vh]"
-        pillMarginClassName="mt-[calc(8vh_+_2.25rem)] md:mt-10"
+        // Mobile lifts the pill 30px (and its caption below, which follows in flow)
+        // without moving the headline/subcopy above. Desktop (md:) unchanged.
+        pillMarginClassName="mt-[calc(8vh_+_2.25rem_-_30px)] md:mt-10"
         renderPill={({ onWordStart }) => (
-          <div ref={pillWrapRef} className="relative w-full -translate-y-[30px] md:translate-y-0">
+          <div ref={pillWrapRef} className="relative w-full">
             <div ref={pillSentinelRef} aria-hidden className="absolute inset-x-0 top-0 h-px" />
             <CommandPill
               ref={pillHandleRef}
