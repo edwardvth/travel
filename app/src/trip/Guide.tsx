@@ -3,7 +3,7 @@ import { AnimatePresence, motion, useReducedMotion, useMotionValue, useTransform
 import { Check, Undo2 } from 'lucide-react'
 import { useNavigate, useOutletContext } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
-import type { Stop, TripData } from '../types'
+import type { Stop } from '../types'
 import { useAuth } from '../auth/useAuth'
 import { useAccountSettings } from '../data/useAccountSettings'
 import { useHeroImage } from '../data/useLandmarkImage'
@@ -27,7 +27,12 @@ import { SWIPE, clamp, swipeCommit, type EnterFrom } from './guide/swipe'
 import { walkMinutes, haversineKm, stopCoords } from './walk'
 import { coverPhoto } from './photo'
 import { destinationOf } from './landmark-context'
-import { generateStopDetail } from './enrich'
+import {
+  useStopDescription,
+  usePrefetchStopDescriptions,
+  stopDescriptionKey,
+  applyStopDescription,
+} from '../data/useStopDescription'
 import { toggleCompleted } from './itinerary-helpers'
 import { dayLabel as dayLabelOf, dayDate, formatDayDate } from './helpers'
 import { applyTripBasics } from './settings-helpers'
@@ -315,50 +320,33 @@ export default function Guide() {
   // Clean up the timer on unmount.
   useEffect(() => clearTimer, [clearTimer])
 
-  // ── Enrichment on demand for the focused stop ─────────────────────────────
-  const needsEnrich = !!stop && !stop.history
-  const enrichingRef = useRef<string | null>(null)
-  const [enriching, setEnriching] = useState(false)
+  // ── Lazy, per-stop description loading (cache-aware, swipe-safe) ───────────
+  // Replaces the old global `enriching` boolean + index-keyed ref. State is keyed
+  // by stop IDENTITY (placeId-preferred), so a request resolving for a previous
+  // stop can never leave the next one stuck, and a stop that already has content
+  // renders instantly. Only generates when editable (the old enrichment gate).
+  const desc = useStopDescription(stop, { tripTitle: trip.title, destination, enabled: canEdit })
 
+  // Prefetch ahead of the traveller: warm the focused stop + the next three so a
+  // forward swipe usually lands on already-loaded content. Bounded, deduped, and
+  // cache-first (skips stops that already have content); re-runs only when the
+  // window's identity set changes.
+  usePrefetchStopDescriptions(
+    [stops[stopIndex], stops[stopIndex + 1], stops[stopIndex + 2], stops[stopIndex + 3]],
+    { tripTitle: trip.title, destination, enabled: canEdit },
+  )
+
+  // Persist freshly-generated content back onto the stop (by identity, edit-gated)
+  // so it survives reload and appears on the Plan / StopDetail surfaces. Matching
+  // by identity (not a day/stop index) means a result that resolves after a swipe
+  // still lands on the correct stop. A no-op save is skipped (same data ref).
   useEffect(() => {
-    if (!stop || !needsEnrich || !canEdit) return
-    if (enrichingRef.current === stopKey) return
-    enrichingRef.current = stopKey
-    let cancelled = false
-    setEnriching(true)
-    void (async () => {
-      try {
-        const detail = await generateStopDetail(stop, trip.title, destination)
-        if (cancelled) return
-        // Re-clone from the freshest cache and patch this stop immutably.
-        const fresh = trip.data
-        const next: TripData = {
-          ...fresh,
-          days: fresh.days.map((d, i) =>
-            i === dayIndex
-              ? {
-                  ...d,
-                  stops: d.stops.map((s, j) =>
-                    j === stopIndex
-                      ? { ...s, history: detail.history, facts: detail.facts, tips: detail.tips, notice: detail.notice }
-                      : s,
-                  ),
-                }
-              : d,
-          ),
-        }
-        save({ data: next })
-      } catch {
-        /* leave the stop un-enriched; the tabs show their empty state */
-      } finally {
-        if (!cancelled) setEnriching(false)
-      }
-    })()
-    return () => {
-      cancelled = true
-    }
+    if (!stop || !canEdit) return
+    if (desc.fromStop || !desc.content) return
+    const next = applyStopDescription(trip.data, stopDescriptionKey(stop, destination), destination, desc.content)
+    if (next !== trip.data) save({ data: next })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stopKey, needsEnrich, canEdit])
+  }, [desc.content, desc.fromStop, canEdit])
 
   // ── Hero photo: stored cover → on-demand chain → striped placeholder ──────
   // The on-demand chain runs in priority order, advancing only on a miss:
@@ -392,10 +380,15 @@ export default function Guide() {
   const prevCompleted = prevStop != null && (data?.completed ?? []).includes(`${dayIndex}-${stopIndex - 1}`)
 
   // ── Content mapped to tabs ────────────────────────────────────────────────
-  const story = stop?.history ?? ''
-  const notice = stop?.notice ?? ''
-  const facts = stop?.facts ?? []
-  const experience = stop?.tips ?? ''
+  // Sourced from the description layer: the stop's persisted content if present,
+  // otherwise the freshly-generated result (shown the moment it resolves, before
+  // the persist save round-trips). Empty while loading → the card shows the
+  // in-body loader, never a stuck full card.
+  const descContent = desc.content
+  const story = descContent?.history ?? ''
+  const notice = descContent?.notice ?? ''
+  const facts = descContent?.facts ?? []
+  const experience = descContent?.tips ?? ''
 
   // ── Actions ───────────────────────────────────────────────────────────────
   const onDirections = useCallback(() => {
@@ -614,8 +607,8 @@ export default function Guide() {
       />
       <ConfirmDialog
         open={addOpen}
-        title="Add a day to this trip?"
-        body={nextDayLabel ? `This adds ${nextDayLabel} to the end of your trip.` : 'This adds a new empty day to the end of your trip.'}
+        title="Add a day to this travel?"
+        body={nextDayLabel ? `This adds ${nextDayLabel} to the end of your travel.` : 'This adds a new empty day to the end of your travel.'}
         confirmLabel="Add day"
         onCancel={() => setAddOpen(false)}
         onConfirm={onConfirmAddDay}
@@ -678,6 +671,8 @@ export default function Guide() {
           notice={notice}
           experience={experience}
           facts={facts}
+          descriptionStatus={desc.status}
+          onRetryDescription={desc.refetch}
           voiceId={voiceId}
           onComplete={onComplete}
           activeTab={activeTab}
@@ -808,32 +803,30 @@ export default function Guide() {
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={reduce ? { duration: SWIPE.reducedFadeSec } : { duration: SWIPE.enterSec, ease: SWIPE.enterEase, delay: SWIPE.enterDelaySec }}
         >
-          {enriching && !stop.history ? (
-            <CardSkeleton />
-          ) : (
-            <CurrentStopCard
-              stop={stop}
-              heroUrl={heroUrl}
-              distanceM={focusedCompleted ? null : distanceM}
-              etaMin={focusedCompleted ? null : etaMin ?? staticEta}
-              headingLabel={focusedCompleted ? null : headingLabel}
-              story={story}
-              notice={notice}
-              experience={experience}
-              facts={facts}
-              voiceId={voiceId}
-              onDirections={onDirections}
-              onComplete={onComplete}
-              completed={focusedCompleted}
-              canComplete={canEdit}
-              stopNumber={stopIndex + 1}
-              activeTab={activeTab}
-              onTabChange={setActiveTab}
-              enableMinimap
-              userPos={geo.pos}
-              onMinimapInteracting={setMapLock}
-            />
-          )}
+          <CurrentStopCard
+            stop={stop}
+            heroUrl={heroUrl}
+            distanceM={focusedCompleted ? null : distanceM}
+            etaMin={focusedCompleted ? null : etaMin ?? staticEta}
+            headingLabel={focusedCompleted ? null : headingLabel}
+            story={story}
+            notice={notice}
+            experience={experience}
+            facts={facts}
+            descriptionStatus={desc.status}
+            onRetryDescription={desc.refetch}
+            voiceId={voiceId}
+            onDirections={onDirections}
+            onComplete={onComplete}
+            completed={focusedCompleted}
+            canComplete={canEdit}
+            stopNumber={stopIndex + 1}
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+            enableMinimap
+            userPos={geo.pos}
+            onMinimapInteracting={setMapLock}
+          />
         </motion.div>
 
         {canEdit && (
@@ -930,21 +923,6 @@ export default function Guide() {
         />
         </motion.div>
         </AnimatePresence>
-      </div>
-    </div>
-  )
-}
-
-/** A tasteful skeleton for the current-stop card while enrichment loads. */
-function CardSkeleton() {
-  return (
-    <div className="rounded-[18px] overflow-hidden bg-raised border border-hair animate-pulse">
-      <div className="h-[160px] bg-skeleton" />
-      <div className="px-[17px] pt-4 pb-[15px] space-y-3">
-        <div className="h-8 w-2/3 rounded-md bg-skeleton" />
-        <div className="h-3 w-1/3 rounded-md bg-skeleton" />
-        <div className="h-10 w-full rounded-[12px] bg-skeleton mt-4" />
-        <div className="h-24 w-full rounded-md bg-skeleton" />
       </div>
     </div>
   )

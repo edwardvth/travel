@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { Stop } from '../../types'
+import type { DescriptionStatus } from '../../data/useStopDescription'
 import { ListenButton } from './ListenButton'
 import { StoryTabs, type StoryTab } from './StoryTabs'
 import { Check } from 'lucide-react'
@@ -36,6 +37,8 @@ export function ArrivalView({
   notice,
   experience,
   facts = [],
+  descriptionStatus = 'ready',
+  onRetryDescription,
   voiceId,
   onComplete,
   activeTab,
@@ -50,6 +53,9 @@ export function ArrivalView({
   experience: string
   /** Structured interesting facts — rendered as a list in the Facts tab. */
   facts?: string[]
+  /** Loading/error state for the description body (only shown when empty). */
+  descriptionStatus?: DescriptionStatus
+  onRetryDescription?: () => void
   voiceId: string
   onComplete: () => void
   activeTab: StoryTab
@@ -126,6 +132,8 @@ export function ArrivalView({
           facts={facts}
           active={activeTab}
           onChange={onTabChange}
+          status={descriptionStatus}
+          onRetry={onRetryDescription}
         />
       </div>
 

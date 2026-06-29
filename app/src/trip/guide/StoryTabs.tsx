@@ -1,6 +1,8 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { ChevronDown, Lightbulb } from 'lucide-react'
 import { renderProse, formatInline } from '../richtext'
+import { DescriptionLoading } from './DescriptionLoading'
+import type { DescriptionStatus } from '../../data/useStopDescription'
 
 export type StoryTab = 'story' | 'notice' | 'experience'
 
@@ -35,6 +37,8 @@ export function StoryTabs({
   facts = [],
   active,
   onChange,
+  status = 'ready',
+  onRetry,
 }: {
   story: string
   notice: string
@@ -44,6 +48,10 @@ export function StoryTabs({
   facts?: string[]
   active: StoryTab
   onChange: (tab: StoryTab) => void
+  /** Drives the in-body state when there's no content yet: `loading` shows the
+   *  fun loader, `error` shows a graceful fallback + retry. Default `ready`. */
+  status?: DescriptionStatus
+  onRetry?: () => void
 }) {
   const bodies: Record<StoryTab, string> = { story, notice, experience }
   const paragraphs = renderProse(bodies[active])
@@ -115,7 +123,24 @@ export function StoryTabs({
           style={clamp ? { maxHeight: CLAMP_PX, overflow: 'hidden', maskImage: fadeMask, WebkitMaskImage: fadeMask } : undefined}
         >
           {isEmpty ? (
-            <p className="text-muted italic">Nothing here yet.</p>
+            status === 'loading' ? (
+              <DescriptionLoading />
+            ) : status === 'error' ? (
+              <div className="space-y-2.5">
+                <p className="text-muted">We couldn’t load this description yet.</p>
+                {onRetry && (
+                  <button
+                    type="button"
+                    onClick={onRetry}
+                    className="inline-flex items-center gap-1 font-mono text-[10.5px] tracking-[0.08em] uppercase text-sig-link hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link rounded-sm"
+                  >
+                    Try again
+                  </button>
+                )}
+              </div>
+            ) : (
+              <p className="text-muted italic">Nothing here yet.</p>
+            )
           ) : (
             <>
               {showFacts && (

@@ -5,8 +5,10 @@ import { DayRail } from './DayRail'
 import { StopList } from './StopList'
 import { AddStop } from './AddStop'
 import TripMapView, { type MapSelection } from './TripMapView'
+import { useQueryClient } from '@tanstack/react-query'
 import { suggestDay } from './suggest'
 import { useLandmarkBackfill } from '../data/useLandmarkBackfill'
+import { prefetchStopDescription } from '../data/useStopDescription'
 import { destinationOf, stopLandmarkQuery } from './landmark-context'
 import { dayCount as countDays, dayLabel, stopCount, isAutoDayTitle } from './helpers'
 import { WeatherGlance } from './WeatherGlance'
@@ -27,6 +29,7 @@ export default function Itinerary() {
   const { trip, canEdit, save, activeDay, setActiveDay } = useOutletContext<PlannerOutletContext>()
   const { backfillStop } = useLandmarkBackfill(trip.id, save)
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const [selected, setSelected] = useState<MapSelection | null>(null)
   const [adding, setAdding] = useState(false)
   const [suggestingDay, setSuggestingDay] = useState(false)
@@ -96,6 +99,12 @@ export default function Itinerary() {
         if (!s.image && !(s.photos && s.photos.length)) {
           backfillStop(day, s.name, s.address, stopLandmarkQuery(s.name, dest))
         }
+      }
+      // Fire-and-forget: warm descriptions for the opening of the day so Guide
+      // feels instant when the traveller switches over. Bounded to the first few;
+      // deduped + cache-first inside prefetchStopDescription; never blocks here.
+      for (const s of stops.slice(0, 3)) {
+        prefetchStopDescription(qc, s, { tripTitle: trip.title, destination: dest, enabled: canEdit })
       }
     } catch (e) {
       setSuggestError(
@@ -253,7 +262,7 @@ export default function Itinerary() {
                   title="No stops yet"
                   body={
                     canEdit
-                      ? 'Start shaping this day — add a place you want to visit, or let Voyager suggest a full day for you.'
+                      ? 'Start shaping this day — add a place you want to visit, or let Passage suggest a full day for you.'
                       : 'This day doesn’t have any stops yet.'
                   }
                   action={

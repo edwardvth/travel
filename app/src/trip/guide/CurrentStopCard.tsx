@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { motion, useReducedMotion } from 'framer-motion'
 import type { Stop } from '../../types'
+import type { DescriptionStatus } from '../../data/useStopDescription'
 import { ListenButton } from './ListenButton'
 import { StoryTabs, type StoryTab } from './StoryTabs'
 import { Check, Map as MapIcon, Image as ImageIcon, Plus, Minus } from 'lucide-react'
@@ -50,6 +51,8 @@ export function CurrentStopCard({
   notice,
   experience,
   facts = [],
+  descriptionStatus = 'ready',
+  onRetryDescription,
   voiceId,
   onDirections,
   onComplete,
@@ -74,6 +77,9 @@ export function CurrentStopCard({
   experience: string
   /** Structured interesting facts — rendered as a list in the Facts tab. */
   facts?: string[]
+  /** Loading/error state for the description body (only shown when empty). */
+  descriptionStatus?: DescriptionStatus
+  onRetryDescription?: () => void
   voiceId: string
   onDirections: () => void
   onComplete: () => void
@@ -267,6 +273,8 @@ export function CurrentStopCard({
           facts={facts}
           active={activeTab}
           onChange={onTabChange}
+          status={descriptionStatus}
+          onRetry={onRetryDescription}
         />
 
         <div className="flex gap-[9px] mt-3.5">
