@@ -13,6 +13,7 @@ export default function PlaceIdAdmin() {
   const [pending, setPending] = useState<number | null>(null)
   const [rows, setRows] = useState<ReviewRow[]>([])
   const [busyId, setBusyId] = useState<number | null>(null)
+  const [bulk, setBulk] = useState<{ running: boolean; done: number } | null>(null)
 
   if (!profile) return null // wait for the profile query before deciding access (no flash of the admin UI)
   if (!isFounder(profile)) return <Navigate to="/trips" replace />
@@ -44,6 +45,29 @@ export default function PlaceIdAdmin() {
     try { await fn() } finally { setBusyId(null); await Promise.all([loadMetrics(), loadList()]) }
   }
 
+  // Bulk-accept the TOP candidate (candidates[0]) for every pending row, paging
+  // through the whole queue. Rows with no candidate are left for manual handling
+  // (tracked in `seen` so the loop can't spin on them).
+  const acceptAllFirst = async () => {
+    setBulk({ running: true, done: 0 })
+    const seen = new Set<number>()
+    let done = 0
+    try {
+      for (let guard = 0; guard < 500; guard++) {
+        const batch = (await placeIdAdmin.list()).rows.filter((r) => !seen.has(r.id))
+        if (batch.length === 0) break // queue empty, or only un-attachable rows remain
+        for (const row of batch) {
+          seen.add(row.id)
+          const first = row.candidates?.[0]
+          if (!first) continue // no candidate to accept → leave for manual review
+          try { await placeIdAdmin.attach(row.id, first.placeId); done++; setBulk({ running: true, done }) } catch { /* skip on error */ }
+        }
+      }
+    } catch { /* stop on error */ }
+    setBulk({ running: false, done })
+    await Promise.all([loadMetrics(), loadList()])
+  }
+
   return (
     <div className="mx-auto max-w-3xl p-6 space-y-6 text-ink">
       <header className="space-y-1">
@@ -66,10 +90,14 @@ export default function PlaceIdAdmin() {
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center justify-between">
-          <h2 className="font-serif text-lg">Review queue</h2>
-          <Button onClick={loadList} variant="ghost">Load</Button>
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="font-serif text-lg">Review queue {rows.length > 0 && <span className="text-muted font-mono text-sm">({rows.length})</span>}</h2>
+          <div className="flex items-center gap-2">
+            <Button onClick={loadList} variant="ghost" disabled={bulk?.running}>Load</Button>
+            <Button onClick={acceptAllFirst} disabled={bulk?.running}>{bulk?.running ? `Accepting… ${bulk.done}` : 'Accept top match for all'}</Button>
+          </div>
         </div>
+        {bulk && !bulk.running && <p className="text-sm text-muted font-mono">accepted {bulk.done} top matches</p>}
         {rows.length === 0 && <p className="text-muted text-sm">No pending rows loaded.</p>}
         {rows.map((row) => (
           <div key={row.id} className="rounded-xl border border-hair bg-base p-4 space-y-2">
