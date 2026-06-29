@@ -36,6 +36,9 @@ export interface CommandPillProps {
   error?: string | null // parent-driven inline error
   /** Forwarded to the Typewriter placeholder so the cinematic hero background cycles. */
   onWordStart?: (word: string) => void
+  /** Skip the focus scroll-into-view nudge (e.g. inside a fixed overlay where a
+   *  window scroll can't move the pill anyway). */
+  noNudge?: boolean
   className?: string
 }
 
@@ -48,7 +51,7 @@ export interface CommandPillHandle {
 type Phase = 'destination' | 'dates'
 
 export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
-  function CommandPill({ onCommit, pending = false, error = null, onWordStart, className }, ref) {
+  function CommandPill({ onCommit, pending = false, error = null, onWordStart, noNudge = false, className }, ref) {
     const [phase, setPhase] = useState<Phase>('destination')
     const [text, setText] = useState('')
     const [focused, setFocused] = useState(false)
@@ -305,6 +308,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
     // keeping the hero context in view. Only ever scrolls up, waits a beat for
     // the keyboard to appear, and bails if the user already blurred.
     const nudgeAboveKeyboard = () => {
+      if (noNudge) return
       if (typeof window === 'undefined') return
       if (!window.matchMedia('(max-width: 767px)').matches) return
       window.setTimeout(() => {
