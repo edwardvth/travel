@@ -325,11 +325,10 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
 
     const dateChipComplete = datesTBD || (!!range.start && !!range.end)
 
-    // The primary confirm CTA. Defined once, rendered in two places: INSIDE the
-    // pill during the destination step, and RELOCATED to its own row ABOVE the
-    // pill once the calendar is dismissed in the dates step. On a narrow phone the
-    // full "Plan it →" label can't share the pill's row with the destination chip
-    // + date token, so giving it its own row keeps the whole label always visible.
+    // The primary confirm CTA. Defined once, rendered wherever it's needed: INSIDE
+    // the pill on the destination step (all sizes) and the dates step on desktop,
+    // but floating ABOVE the pill on the dates step on MOBILE — where the full
+    // "Plan it →" label can't share the row with the chip + date token.
     const renderCta = () => {
       // Destination step: the CTA is a guarded "continue" — same rules as Enter,
       // so attemptContinue never advances on raw text and only enables once
@@ -387,29 +386,28 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
       <div
         className={cn(
           // Content-sized so the pill fits each phase. ~400px min on the destination
-          // step (room for the input); on the dates step the CTA lives ABOVE the pill,
-          // so the bar is content-sized around [chip + date token] with no trailing
-          // gap. Capped to the viewport throughout.
+          // step (room for the input); the dates step is content-sized around its
+          // contents — [chip + token] on mobile (CTA floats above) or
+          // [chip + token + CTA] on desktop. Capped to the viewport throughout.
           'relative mx-auto w-fit max-w-[calc(100vw_-_2.5rem)]',
           phase === 'destination' && 'min-w-[min(400px,calc(100vw_-_2.5rem))]',
           className,
         )}
         onKeyDown={phase === 'dates' ? onContainerKeyDown : undefined}
       >
-        {/* ── Confirm CTA, floating ABOVE the pill (dates step) ──────────────
-            Shown once the range is complete (canConfirm) OR the calendar is
-            closed — so after the 2nd date the user can hit "Plan it →" right
-            away while the calendar stays open beside "Confirm dates". It's
-            absolutely positioned (bottom-full) so it floats in its own space
-            and never pushes the pill or the open calendar down — the calendar's
-            anchor stays put and its "Confirm dates" button doesn't slide off. */}
+        {/* ── Confirm CTA, floating ABOVE the pill — MOBILE ONLY (sm:hidden) ──
+            On a narrow phone "Plan it →" can't share the pill row with the chip
+            + date token, so it floats above (absolute, bottom-full → never pushes
+            the pill or the open calendar down). Shown once the range is complete
+            (canConfirm) or the calendar is closed. On desktop it lives inside the
+            pill instead (there's room) — see the in-pill CTA below. */}
         {phase === 'dates' && (canConfirm || !calOpen) && (
           <motion.div
             key="cta-above"
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: reduce ? 0.12 : 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute inset-x-0 bottom-full mb-2 flex justify-center"
+            className="absolute inset-x-0 bottom-full mb-2 flex justify-center sm:hidden"
           >
             {renderCta()}
           </motion.div>
@@ -552,9 +550,11 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
             </span>
           )}
 
-          {/* CTA — inside the pill during the destination step only. In the dates
-              step it relocates to its own row ABOVE the pill (see above). */}
+          {/* CTA inside the pill — destination step (all sizes), and the dates step
+              on DESKTOP (sm+) where there's room beside the chip + token. On mobile
+              the dates-step CTA floats above instead (see the cta-above block). */}
           {phase === 'destination' && renderCta()}
+          {phase === 'dates' && <div className="hidden shrink-0 sm:flex">{renderCta()}</div>}
         </motion.div>
 
         {/* ── Autocomplete listbox (phase "destination") — fades/scales in ── */}
