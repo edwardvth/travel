@@ -151,11 +151,8 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
         videoMask={VIDEO_MASK}
         videoPlaying={heroActive}
         headlineClassName="mt-4 font-serif font-medium tracking-tight text-[44px] leading-[1.02] md:text-[70px]"
-        // Mobile sits the pill higher (smaller top padding + pill gap) so the
-        // calendar — which opens BELOW the pill — clears the fold; desktop keeps
-        // its roomier metrics. (md: values unchanged.)
-        copyPaddingClassName="pt-[7vh] md:pt-[18vh]"
-        pillMarginClassName="mt-[calc(2.5vh_+_1.25rem)] md:mt-10"
+        copyPaddingClassName="pt-[16vh] md:pt-[18vh]"
+        pillMarginClassName="mt-[calc(8vh_+_2.25rem)] md:mt-10"
         renderPill={({ onWordStart }) => (
           <div ref={pillWrapRef} className="relative w-full">
             <div ref={pillSentinelRef} aria-hidden className="absolute inset-x-0 top-0 h-px" />
