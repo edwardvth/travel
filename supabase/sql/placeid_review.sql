@@ -34,9 +34,16 @@ alter table public.placeid_review enable row level security;
 
 -- Optimistic-concurrency token: ensure trips.updated_at auto-bumps on every
 -- UPDATE so the backfill's conditional writes can detect a concurrent user edit.
--- (Supabase ships the moddatetime extension.)
-create extension if not exists moddatetime schema extensions;
+-- Self-contained trigger function (no extension dependency — moddatetime is not
+-- reliably present in the `extensions` schema on every Supabase project).
+create or replace function public.set_updated_at() returns trigger as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$ language plpgsql;
+
 drop trigger if exists trips_set_updated_at on public.trips;
 create trigger trips_set_updated_at
   before update on public.trips
-  for each row execute function extensions.moddatetime(updated_at);
+  for each row execute function public.set_updated_at();
