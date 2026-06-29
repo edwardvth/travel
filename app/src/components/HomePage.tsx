@@ -255,10 +255,10 @@ export function HomePage({ trips, focus, firstName, units, userId, loading = fal
               onOpenGuide={openGuide}
               headerRight={
                 <>
-                  {accountControls}
                   <Button variant="claret" onClick={openCreate} className={POP}>
                     <Plus size={16} strokeWidth={2.5} />New trip
                   </Button>
+                  {accountControls}
                 </>
               }
               playing={!globeActive}
