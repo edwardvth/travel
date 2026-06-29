@@ -88,6 +88,7 @@ export default function Dashboard() {
   ) : undefined
 
   const focus = useMemo(() => selectFocusTrip(trips ?? []), [trips])
+  const firstName = (profile?.name || user?.email?.split('@')[0] || 'traveler').split(/\s+/)[0]
   const accountControls = <AccountMenu email={user?.email ?? ''} profile={profile} />
 
   return (
@@ -95,6 +96,7 @@ export default function Dashboard() {
       <HomePage
         trips={trips ?? []}
         focus={focus}
+        firstName={firstName}
         units={units}
         userId={user?.id}
         loading={!trips}

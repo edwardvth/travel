@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Plus, X } from 'lucide-react'
 import { CinematicHero } from './CinematicHero'
-import { Mark } from './Logo'
 import { FieldGlobe } from '../home/FieldGlobe'
 import { useInViewActive } from '../home/useInViewActive'
 import { TravelsList } from './TravelsList'
@@ -55,6 +54,7 @@ const REASONS: Record<string, string> = {
 export interface HomePageProps {
   trips: Trip[]
   focus: Trip | null            // selectFocusTrip result; null → "Where to next?" landing
+  firstName: string             // greeting on the trip landing ("Welcome back, …")
   units: Units
   userId?: string
   /** True until trips have loaded. Until then we render only the dark base, so the
@@ -74,7 +74,7 @@ export interface HomePageProps {
  * next?" is the landing as before. Trip creation flows through the pill →
  * useCreateTrip → navigate, with the seed-card materialization flight.
  */
-export function HomePage({ trips, focus, units, userId, loading = false, accountControls, tripActions }: HomePageProps) {
+export function HomePage({ trips, focus, firstName, units, userId, loading = false, accountControls, tripActions }: HomePageProps) {
   const nav = useNavigate()
   const location = useLocation()
   const openTrip = (id: string) => nav('/trip/' + encodeURIComponent(id))
@@ -242,32 +242,25 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
             </AnimatePresence>
           )}
 
-          {/* Trip-landing top bar — only while the journey leads (not while the
-              create hero is rolled down, which has its own nav). */}
-          {focus && !creating && (
-            <nav className="absolute top-0 inset-x-0 z-30 flex items-center justify-between px-6 md:px-10 py-5 md:py-6 text-white">
-              <span className="inline-flex items-center gap-2 font-sans font-extrabold tracking-tight">
-                <span className="text-sig-link"><Mark size={30} /></span>
-                <span className="font-serif text-[20px] md:text-[23px]">Voyager</span>
-              </span>
-              <div className="flex items-center gap-2.5 text-white [&_button]:text-white">
-                {accountControls}
-                <Button variant="claret" onClick={openCreate} className={POP}>
-                  <Plus size={16} strokeWidth={2.5} />New trip
-                </Button>
-              </div>
-            </nav>
-          )}
-
-          {/* Your next journey — the trip landing (sits below the create hero when
-              it's rolled down). */}
+          {/* Your next journey — the trip landing (former State B), with its own
+              brand header + "Welcome back". Sits below the create hero when it's
+              rolled down. */}
           {focus && (
             <UpcomingJourney
               trip={focus}
+              firstName={firstName}
               units={units}
               onOpen={openTrip}
               onOpenArrange={openArrange}
               onOpenGuide={openGuide}
+              headerRight={
+                <>
+                  {accountControls}
+                  <Button variant="claret" onClick={openCreate} className={POP}>
+                    <Plus size={16} strokeWidth={2.5} />New trip
+                  </Button>
+                </>
+              }
               playing={!globeActive}
             />
           )}
