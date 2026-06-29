@@ -569,6 +569,8 @@ export default function Guide() {
   }, [canEdit, trip, dayCount, save, navigate])
 
   const dayLabelText = dayLabelOf(trip, dayIndex)
+  // ISO date of the focused day — drives weekday-aware opening-hours chips.
+  const focusedDayDate = dayDate(trip, dayIndex) ?? undefined
   // Completed stops in original itinerary order (drives both the progress line
   // and the Completed Stops section). Collapsing/expanding never reorders these.
   const completed = completedStops(dayIndex, stopNames, data?.completed)
@@ -743,6 +745,7 @@ export default function Guide() {
         >
           <CurrentStopCard
             stop={peekStop}
+            stopDate={focusedDayDate}
             heroUrl={peekHeroUrl}
             distanceM={null}
             etaMin={null}
@@ -770,6 +773,7 @@ export default function Guide() {
         >
           <CurrentStopCard
             stop={prevStop}
+            stopDate={focusedDayDate}
             heroUrl={prevHeroUrl}
             distanceM={null}
             etaMin={null}
@@ -805,6 +809,7 @@ export default function Guide() {
         >
           <CurrentStopCard
             stop={stop}
+            stopDate={focusedDayDate}
             heroUrl={heroUrl}
             distanceM={focusedCompleted ? null : distanceM}
             etaMin={focusedCompleted ? null : etaMin ?? staticEta}

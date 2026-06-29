@@ -4,9 +4,10 @@ import type { Stop } from '../../types'
 import type { DescriptionStatus } from '../../data/useStopDescription'
 import { ListenButton } from './ListenButton'
 import { StoryTabs, type StoryTab } from './StoryTabs'
-import { Check, Map as MapIcon, Image as ImageIcon, Plus, Minus } from 'lucide-react'
+import { Check, Map as MapIcon, Image as ImageIcon, Plus, Minus, Clock, Heart } from 'lucide-react'
 import { StopMinimap, type StopMinimapHandle } from './StopMinimap'
 import { stopCoords, type LatLng } from '../walk'
+import { stopHoursLabel } from '../stop-hours'
 
 /** "480 m" / "1.2 km" from a distance in metres; null when unknown. */
 function formatDistance(m: number | null | undefined): string | null {
@@ -43,6 +44,7 @@ function HeroPlaceholder() {
  */
 export function CurrentStopCard({
   stop,
+  stopDate,
   heroUrl,
   distanceM,
   etaMin,
@@ -66,6 +68,8 @@ export function CurrentStopCard({
   onMinimapInteracting,
 }: {
   stop: Stop
+  /** ISO YYYY-MM-DD of the day this stop sits on — drives weekday-aware hours. */
+  stopDate?: string
   heroUrl?: string | null
   distanceM?: number | null
   etaMin?: number | null
@@ -137,6 +141,8 @@ export function CurrentStopCard({
 
   // Subtitle: type (heading lives in the chip). Keep it calm; fall back gracefully.
   const subtitleParts = [stop.type].filter(Boolean) as string[]
+  const hoursLabel = stopHoursLabel(stop.hours, stopDate)
+  const hasChips = !!(hoursLabel || stop.price || stop.goodFor)
 
   const listenText = story || notice || experience || stop.name
 
@@ -262,6 +268,30 @@ export function CurrentStopCard({
         </h2>
         {subtitleParts.length > 0 && (
           <p className="text-[12.5px] text-muted mt-[5px]">{subtitleParts.join(' · ')}</p>
+        )}
+        {hasChips && (
+          <div className="flex flex-wrap items-center gap-1.5 mt-2" aria-label="Place details">
+            {hoursLabel && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-fill px-2 py-0.5 text-[11.5px] font-semibold text-muted">
+                <Clock size={12} aria-hidden="true" />
+                {hoursLabel}
+              </span>
+            )}
+            {stop.price && (
+              <span
+                className="inline-flex items-center gap-1 rounded-full bg-fill px-2 py-0.5 text-[11.5px] font-mono font-semibold text-muted"
+                aria-label={`Price level ${stop.price}`}
+              >
+                {stop.price}
+              </span>
+            )}
+            {stop.goodFor && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-fill px-2 py-0.5 text-[11.5px] font-semibold text-muted">
+                <Heart size={12} aria-hidden="true" />
+                {stop.goodFor}
+              </span>
+            )}
+          </div>
         )}
 
         <ListenButton text={listenText} voiceId={voiceId} variant="pill" />
