@@ -1,11 +1,9 @@
 import { useId, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Sheet } from './ui/Sheet'
-import { Input } from './ui/Input'
-import { Button } from './ui/Button'
 import { Segmented } from './ui/Segmented'
 import { ThemeToggle } from './ThemeToggle'
-import { AlertTriangle, Check, ChevronRight, Loader2, Play } from 'lucide-react'
+import { Check, ChevronRight, Loader2, Play } from 'lucide-react'
 import { useAccountSettings, type Units } from '../data/useAccountSettings'
 import { NARRATION_VOICES, DEFAULT_VOICE_ID, voiceLabel } from '../trip/guide/voices'
 import { fetchNarrationUrl, speakFallback } from '../trip/guide/narrate'
@@ -55,24 +53,9 @@ export function AccountSettings({
   const { settings, setSettings } = useAccountSettings(userId)
   const titleId = useId()
   const modelId = useId()
-  const keyId = useId()
 
   const model = settings.aiModel || DEFAULT_MODEL
   const units: Units = settings.units === 'imperial' ? 'imperial' : 'metric'
-  const hasKey = !!settings.aiKey
-
-  const [keyDraft, setKeyDraft] = useState('')
-
-  const saveKey = () => {
-    const v = keyDraft.trim()
-    if (!v) return
-    setSettings({ aiKey: v })
-    setKeyDraft('')
-  }
-  const clearKey = () => {
-    setSettings({ aiKey: undefined })
-    setKeyDraft('')
-  }
 
   const voiceId = settings.voiceId ?? DEFAULT_VOICE_ID
   // null = nothing playing; otherwise the voice id whose preview is loading/playing.
@@ -157,28 +140,6 @@ export function AccountSettings({
             {AI_MODELS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
           </select>
           <p className="text-muted text-[12.5px] mt-1.5">Used for stop facts, suggestions and trip generation. Sonnet is the recommended balance.</p>
-        </Field>
-
-        {/* Personal API key */}
-        <Field htmlFor={keyId} label="Personal API key (optional)">
-          <Input
-            id={keyId}
-            type="password"
-            value={keyDraft}
-            onChange={e => setKeyDraft(e.target.value)}
-            placeholder={hasKey ? '•••••••• (a key is saved)' : 'sk-ant-…'}
-            autoComplete="off"
-            className="min-h-[44px]"
-          />
-          <p className="flex items-start gap-1.5 text-muted text-[12px] mt-1.5">
-            <AlertTriangle size={13} aria-hidden="true" className="flex-none mt-0.5" />
-            <span>Stored on this device for your account. Leave blank to use the built-in AI.</span>
-          </p>
-          <div className="flex gap-3 mt-3">
-            <Button variant="soft" onClick={saveKey} disabled={!keyDraft.trim()}>Save key</Button>
-            <Button variant="ghost" onClick={clearKey} disabled={!hasKey}>Clear key</Button>
-          </div>
-          {hasKey && <p className="text-sig-link text-[12.5px] mt-2">A personal key is currently saved.</p>}
         </Field>
 
         {/* Units */}
