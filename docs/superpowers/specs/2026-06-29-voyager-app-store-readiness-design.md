@@ -34,14 +34,17 @@ remains the single source of truth; iOS is a thin native host around it.
   without a Mac and without App Store review. After this, only *native* changes need the Mac. This is the
   answer to "do I need a Mac for every update": **no — only for native changes.** (See §7 / Phase D.)
 - **Bundle ID = `ai.mypassage.app`** (reverse of the owned domain `mypassage.ai`; permanent, never changes).
-- **Store name = `Passage: AI Travel Planner`** (≤30 chars). Subtitle + keywords carry the rest of the ASO
-  (set in Phase E) — NOT crammed into the title.
-- **Support = `support@mypassage.ai`.**
-- **Legal hosting = on `mypassage.ai`** (`/privacy-policy`, `/terms`, `/support`). **Recommended:** point the
-  production app at `mypassage.ai` too (custom domain on the Cloudflare Worker) so app + site + legal are one
-  branded domain (helps R5 "website matches the app"). The legal *content* may render as in-app routes that
-  also live at those paths.
-- **Sign in with Apple = web flow first (Phase B), upgrade to native sheet before final submit (Phase D).**
+- **Store listing fields** (Apple's hard limits — each field has its own job; the title is NOT a tagline):
+  - **Name (≤30)** = `Passage` *(placeholder — owner to refine later).*
+  - **Subtitle (≤30)** = `Plan trips day-by-day with AI` (29 chars).
+  - **Keywords (≤100, hidden)** = comma-list, set in Phase E (trip planner, itinerary, travel guide, vacation, AI, maps…).
+  - **Description line 1 / promo** = `Passage — Plan personalized trips day-by-day with AI` (the owner's full tagline lives here, where length is fine).
+- **Support = `support@mypassage.ai`** (chosen; owner to set up the mailbox).
+- **Domain = `mypassage.ai` is LIVE** (the app was renamed Passage; worker still named `voyager`; also at
+  voyager.edwardvth.workers.dev). Legal at `mypassage.ai/privacy-policy`, `/terms`, `/support` (in-app routes).
+- **Sign in with Apple = platform-adaptive:** **native Sign in with Apple sheet on iOS (in the Capacitor app)**,
+  **web OAuth flow on desktop/browser**. Phase B ships the web flow first (works everywhere incl. in-shell, unblocks
+  Guideline 4.8); Phase D adds the native sheet + the platform switch (native on device, web on desktop).
 
 ## 3. The rejection risks we are explicitly designing against
 
@@ -65,14 +68,14 @@ These are the guidelines most likely to reject a first wrapped-web-app submissio
 matching the existing glass-card aesthetic (claret/gold tokens, ≥44px, aria-labelled, the Apple logo mark
 as SVG — never emoji, per anti-slop). Visual parity with the Google button.
 
-**Two flows, sequenced:**
-- **Phase C (now, web flow):** `supabase.auth.signInWithOAuth({ provider: 'apple', options:{ redirectTo } })`.
+**Final behaviour = platform-adaptive** (locked): **native Apple sheet on iOS device, web OAuth on desktop.**
+A single `signInApple()` branches on `Capacitor.isNativePlatform()`.
+- **Phase B (web flow first):** `supabase.auth.signInWithOAuth({ provider: 'apple', options:{ redirectTo } })`.
   Works in the browser **and** inside the Capacitor WebView for the first submittable build. Lowest effort,
-  unblocks R2.
-- **Phase C+ (polish, native flow — recommended before final submit):** native **Sign in with Apple** sheet
-  via `@capacitor-community/apple-sign-in`, exchanged into Supabase with `signInWithIdToken({ provider:'apple', token })`.
-  This is the UX Apple expects on-device (the native sheet, Face ID) and reads as most "legit." Treated as a
-  follow-up task within this initiative, not a separate spec.
+  unblocks Guideline 4.8 immediately, and is the **permanent desktop path**.
+- **Phase D (native flow — before final submit):** on iOS, the native **Sign in with Apple** sheet via
+  `@capacitor-community/apple-sign-in`, exchanged into Supabase with `signInWithIdToken({ provider:'apple', token })`
+  (the Face-ID sheet Apple expects on-device). `signInApple()` picks native vs web by platform.
 
 **Supabase + Apple Developer setup (owner-assisted, one-time):** enable the Apple provider in Supabase;
 in the Apple Developer portal create an **App ID** with the *Sign in with Apple* capability, a **Services ID**,

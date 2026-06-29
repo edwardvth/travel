@@ -14,7 +14,8 @@ Legend for each task: **Goal · Files · Done-when**. Commit message ends with t
 ### A1 ⚙️ Apple Developer + IDs  — *(decisions locked)*
 - **Goal:** unblock everything downstream.
 - **Do:** enroll in Apple Developer Program ($99/yr). Create the App ID with **bundle ID `ai.mypassage.app`**;
-  store display name **`Passage: AI Travel Planner`**. Confirm `mypassage.ai` DNS is owned + `support@mypassage.ai` is monitored.
+  store name **`Passage`** (placeholder), subtitle **`Plan trips day-by-day with AI`**. (`mypassage.ai` is live;
+  owner to set up the `support@mypassage.ai` mailbox.)
 - **Done-when:** developer account active; App ID `ai.mypassage.app` created.
 
 ### A2 🪟 Capacitor scaffolding (no Mac)
@@ -92,10 +93,12 @@ Legend for each task: **Goal · Files · Done-when**. Commit message ends with t
 
 ## Phase D — Polish
 
-### D1 🪟/🖥️ Native Sign in with Apple (recommended before final submit)
+### D1 🪟/🖥️ Native Sign in with Apple — platform-adaptive (before final submit)
+- **Goal:** native Apple sheet on iOS, web OAuth on desktop (locked decision).
 - **Do:** `@capacitor-community/apple-sign-in` → `supabase.auth.signInWithIdToken({provider:'apple',token})`;
-  fall back to the B1 web flow on web. Store the Apple-provided name on first sign-in only (R6).
-- **Done-when:** the native Apple sheet (Face ID) signs the user in on device.
+  `signInApple()` branches on `Capacitor.isNativePlatform()` → native sheet on device, the B1 web flow on
+  desktop/browser. Store the Apple-provided name on first sign-in only (R6 — Apple sends name once).
+- **Done-when:** the native Apple sheet (Face ID) signs the user in on a device; desktop still uses the web flow.
 
 ### D2 🪟/🖥️ OTA live updates (removes the Mac for web-only changes)
 - **Goal:** ship web/React changes to installed apps **without a Mac and without App Store review** — only
