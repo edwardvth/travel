@@ -62,15 +62,19 @@ Legend for each task: **Goal · Files · Done-when**. Commit message ends with t
   `trips` · `trip_members` · `profiles` · user-owned **storage** assets (cover images / uploaded photos) ·
   **invite** rows · onboarding / preference rows · any AI- or user-generated rows tied to the account.
   **Exclude** shared global caches that are not personal (e.g. `video_cache`, trip-agnostic enrichment cache).
-  Define the **Apple token revocation** step (`https://appleid.apple.com/auth/revoke`, when provider==apple).
+  Define the **Apple token revocation** step: **if a valid Apple token/code is available** (refresh token,
+  access token, or authorization code — capture it at C4 native sign-in), revoke via
+  `https://appleid.apple.com/auth/revoke` before deletion; **else** document the fallback (delete all
+  developer-held data anyway — revoke is only possible with a valid token, per Apple).
 - **Files:** `docs/superpowers/notes/delete-account-data-map.md` (artifact B2 implements).
-- **Done-when:** the inventory is reviewed + complete; deletion order + Apple-revoke path documented.
+- **Done-when:** the inventory is reviewed + complete; deletion order + the conditional Apple-revoke path
+  (with fallback) documented.
 
 ### B2 🪟 Delete account (R3)
 - **Goal:** satisfy Guideline 5.1.1(v) — full account-record removal, not deactivation.
 - **Do:**
   1. New Edge Function `supabase/functions/delete-account/index.ts` (service-role): auth caller from JWT →
-     **if the user signed in with Apple, revoke the Apple token** (`auth/revoke`) where available →
+     **if a valid Apple token/code is available, revoke it** (`auth/revoke`) first, else fall through →
      delete **all rows/assets from the B2.5 inventory** (FK-safe order) → `auth.admin.deleteUser(uid)`.
   2. Client: "Delete account" action in `AccountSettings.tsx` behind a `ConfirmDialog`; on confirm call the
      function, then reuse `signOut` teardown (clear `sb-*`, route to `/`).
@@ -78,7 +82,8 @@ Legend for each task: **Goal · Files · Done-when**. Commit message ends with t
   `app/src/auth/AuthProvider.tsx` (export a small `deleteAccount()` helper).
 - **⚙️ deploy:** `supabase functions deploy delete-account` against ref `wnpanbjzmcsvhfyjdczv`.
 - **Done-when:** a test user deletes their account in-app; cannot sign back in; **every B2.5 table/asset is gone**
-  (verified by query); **Apple token revoked** for Apple-auth users; tests cover the client branch.
+  (verified by query); **Apple token revoked when one was available** (else fallback path exercised); tests cover
+  the client branch.
 
 ### B3.5 🪟 Privacy data inventory (do BEFORE generating any copy)
 - **Why:** Apple requires the privacy policy + App Privacy labels to identify **what data is collected, its
@@ -164,25 +169,34 @@ with Apple (first-auth name capture) and full account deletion (with Apple token
 - **Done-when:** a compliant web-only change deployed to the channel appears on a device build without an Xcode
   rebuild. (One-time native plugin setup needs the Mac; after that, in-scope releases are Mac-free.)
 
-### D3 🪟 QA sweep (R5)
+### D3 🪟/🖥️ QA sweep — incl. explicit "not a website wrapper" gate (R5 + R1)
 - **Do:** walk every screen for empty states, broken links, dead ends; verify reduced-motion, a11y, light/dark.
-- **Done-when:** no broken/empty/placeholder states; checklist in handoff ticked.
+  **Then run the anti-wrapper checklist** (native geolocation is the hero, but NOT a magic shield against 4.2.3):
+  branded **splash** shows, **status bar** themed, **native location permission** prompt fires, **deep links**
+  return into the app (not Safari), **iOS spacing/safe-areas** respected (notch/home-indicator), no browser chrome,
+  no web-style dead ends, all public links use `mypassage.ai` (never `*.workers.dev`).
+- **Done-when:** no broken/empty/placeholder states; the anti-wrapper checklist passes on a device; ticked in handoff.
 
 ---
 
 ## Phase E — Submit (🖥️ Mac session #2–3, ⚙️ owner)
 
+### E0 ⚙️ Production domain (blocker before E1/E2)
+- Point production at **`mypassage.ai`** so `https://mypassage.ai/privacy-policy`, `/terms`, `/support` resolve
+  (200). These are the only URLs that may appear in the listing — never `*.workers.dev`.
+
 ### E1 ⚙️ App Store Connect record + privacy labels
-- App record, category Travel, age rating; privacy "Nutrition Label": declare **location**, **account/contact
-  info**, **user content**; **no tracking**.
+- App record (name `Passage`, subtitle `Plan trips day-by-day with AI`), category Travel, age rating; privacy
+  "Nutrition Label" **driven by the B3.5 map**: declare **location**, **account/contact info**, **user content**;
+  **no tracking**. Privacy Policy URL = `https://mypassage.ai/privacy-policy`.
 
 ### E2 ⚙️ Screenshots + description
-- Real-app screenshots (required iPhone sizes): Home, Plan, a rich Stop, Guide. Accurate description; links to
-  Privacy/Terms/Support.
+- Real-app screenshots (required iPhone sizes): Home, Plan, a rich Stop, Guide. Accurate description (opening line
+  `Passage — Plan personalized trips day-by-day with AI`); support/marketing/EULA links → **`mypassage.ai` only**.
 
 ### E3 🖥️ Build, upload, TestFlight, submit
-- Archive in Xcode → upload → TestFlight self-test (sign up, **every** sign-in provider, create travel, plan,
-  Guide+location, **delete account**, sign out) → submit for review.
+- Archive in Xcode → upload → TestFlight self-test (sign up, **every** sign-in provider incl. **native Apple**,
+  create travel, plan, Guide+location, **delete account (Apple revoke / fallback)**, sign out) → submit for review.
 - **Review notes:** provide a **founder/credited demo account** so AI ("Suggest a day") works for the reviewer.
 
 ---

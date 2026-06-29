@@ -96,11 +96,16 @@ privilege-locked (`revoke update (role,credits)`).
 **typed/confirm `ConfirmDialog`** ("This permanently deletes your account, travels, and data. This cannot be
 undone."). On confirm:
 
-1. Client calls a new **`delete_account` Supabase Edge Function** (service-role; the client cannot delete an
+1. Client calls a new **`delete-account` Supabase Edge Function** (service-role; the client cannot delete an
    auth user directly, and `auth.admin.deleteUser` must run server-side). The function:
    - authenticates the caller from their JWT,
-   - deletes the caller's `trips` (or transfers/cascades `trip_members`), their `profiles` row, and any owned
-     rows keyed to their `user_id`,
+   - **if an Apple authorization token/code is available** (the user signed in with Apple and we hold a valid
+     refresh token / access token / authorization code), **revokes it** via `https://appleid.apple.com/auth/revoke`
+     **before** deletion; **otherwise** proceeds to delete all developer-held account data and **documents the
+     fallback** (revoke is only possible with a valid Apple token — Apple's own constraint),
+   - deletes **every user-owned row/asset from the B2.5 inventory** in FK-safe order (`trips`, `trip_members`,
+     `profiles`, storage assets, invites, onboarding/preference rows, account-tied AI/user-generated rows;
+     excludes shared global caches),
    - calls `auth.admin.deleteUser(uid)`.
 2. Client signs out + clears `sb-*` localStorage (reuse `signOut`'s teardown) → routes to `/`.
 
@@ -128,12 +133,14 @@ map the real data flows before writing any copy. Three public, working URLs, lin
 - **Permission strings** — `NSLocationWhenInUseUsageDescription` must clearly + completely explain *why* location
   is used (see §7).
 
-**Hosting (locked):** in-app routes at `/privacy-policy`, `/terms`, `/support` (token-themed Markdown),
-served from the production domain (`mypassage.ai` once migrated; `voyager.edwardvth.workers.dev` until then).
-Listing + in-app links point at one canonical place and ship with the binary.
+**Hosting (locked):** in-app routes at `/privacy-policy`, `/terms`, `/support` (token-themed Markdown).
+**The App Store listing + in-app links MUST use `mypassage.ai` only** (`https://mypassage.ai/privacy-policy`,
+`/terms`, `/support`) so the reviewer sees one polished brand — **never** the `voyager.edwardvth.workers.dev`
+worker URL in public-facing links. **Blocker before submission:** point production at `mypassage.ai` so those
+canonical URLs resolve. (`workers.dev` may remain an internal alias, never a listed link.)
 
-**Acceptance:** all three URLs return 200, contain no placeholder/"lorem ipsum", and are reachable from inside
-the app (no dead ends — addresses R5).
+**Acceptance:** the three `mypassage.ai/*` URLs return 200, contain no placeholder/"lorem ipsum", are reachable
+from inside the app (no dead ends — R5), and no public link anywhere points at `*.workers.dev`.
 
 ## 7. Native shell (R1) — design
 
@@ -155,8 +162,14 @@ Capacitor wraps the existing build. Scope for v1:
 - **Out of v1:** push notifications, offline tile bundling / Service Worker, App Tracking Transparency (no
   tracking SDKs), Android. All are explicit follow-ups.
 
+**On app-likeness (R1):** the Guide/location flow is the App Store "native value" hero — but native geolocation
+alone is **not a magic shield** against the 4.2.3 "just a website" rejection. The whole shell must *feel* native:
+branded splash, themed status bar, native permission prompt, working deep links, iOS-appropriate spacing/safe-areas,
+and **no browser-chrome or web-style dead ends**. This is gated explicitly in the QA pass (plan D3).
+
 **Acceptance:** the app runs in the iOS Simulator and on a device; location permission prompts and the Guide
-gets a fix; sign-in (all methods) completes inside the native shell and returns the user to `/trips`.
+gets a fix; sign-in (all methods) completes inside the native shell and returns the user to `/trips`; the app
+reads as native (splash/status-bar/permission/deep-links/spacing), not as a wrapped web page.
 
 ## 8. Listing + submission (R5) — design
 
