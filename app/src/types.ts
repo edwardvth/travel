@@ -1,6 +1,9 @@
 /** Coarse category for a stop, biasing the Add suggest + driving the row icon. */
 export type StopKind = 'do' | 'eat' | 'stay'
 
+/** Canonical normalized price level for a stop (rendered as a chip). */
+export type PriceLevel = '$' | '$$' | '$$$' | '$$$$'
+
 export interface Stop {
   name: string
   type?: string
@@ -56,6 +59,16 @@ export interface Stop {
   placeSource?: 'google'
   placeName?: string
   placeTypes?: string[]
+  /**
+   * Opening hours as Google `regularOpeningHours.weekdayDescriptions` — seven
+   * strings like "Monday: 9:30 AM – 11:45 PM". From the Places API at generate
+   * time. Optional/additive; rendered via `stopHoursLabel`.
+   */
+  hours?: string[]
+  /** Normalized price level from Google `priceLevel`. Optional/additive. */
+  price?: PriceLevel
+  /** AI-derived audience/occasion tag, e.g. "Romantic dinner". Optional/additive. */
+  goodFor?: string
   note?: string
   /** Reservation tracking for this stop. Absent until the user marks it. */
   reservation?: { status: 'to_reserve' | 'reserved'; time?: string; confirmation?: string; note?: string }
