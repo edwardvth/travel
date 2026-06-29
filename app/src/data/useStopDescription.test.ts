@@ -4,7 +4,7 @@ import type { Stop, TripData } from '../types'
 import type { StopDetailContent } from '../trip/enrich'
 
 const stop = (p: Partial<Stop>): Stop => ({ name: 'Place', ...p })
-const content: StopDetailContent = { history: 'H', facts: ['f1'], tips: 'T', notice: '' }
+const content: StopDetailContent = { history: 'H', facts: ['f1'], tips: 'T', notice: '', goodFor: '' }
 
 describe('stopHasDescription', () => {
   it('is false when the stop has no content', () => expect(stopHasDescription(stop({}))).toBe(false))
@@ -55,6 +55,6 @@ describe('applyStopDescription', () => {
   it('never overwrites a stop that already has content', () => {
     const d = data()
     const key = stopDescriptionKey(stop({ name: 'Eiffel' }), 'Paris')
-    expect(applyStopDescription(d, key, 'Paris', { history: 'NEW', facts: [], tips: '', notice: '' })).toBe(d)
+    expect(applyStopDescription(d, key, 'Paris', { history: 'NEW', facts: [], tips: '', notice: '', goodFor: '' })).toBe(d)
   })
 })

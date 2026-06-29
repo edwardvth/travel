@@ -27,6 +27,7 @@ export function stopDescriptionContent(stop: Stop): StopDetailContent | null {
     facts: stop.facts ?? [],
     tips: stop.tips ?? '',
     notice: stop.notice ?? '',
+    goodFor: stop.goodFor ?? '',
   }
 }
 
