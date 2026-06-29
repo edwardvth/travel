@@ -7,6 +7,8 @@ import { Check, ChevronRight, Loader2, Play } from 'lucide-react'
 import { useAccountSettings, type Units } from '../data/useAccountSettings'
 import { NARRATION_VOICES, DEFAULT_VOICE_ID, voiceLabel } from '../trip/guide/voices'
 import { fetchNarrationUrl, speakFallback } from '../trip/guide/narrate'
+import { DangerConfirm } from './DangerConfirm'
+import { useAuth } from '../auth/useAuth'
 
 /** One-line sample narrated when previewing a voice. */
 const VOICE_SAMPLE = 'This is how your tour guide will sound as you explore each stop.'
@@ -61,6 +63,18 @@ export function AccountSettings({
   // null = nothing playing; otherwise the voice id whose preview is loading/playing.
   const [previewing, setPreviewing] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  const { deleteAccount } = useAuth()
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteErr, setDeleteErr] = useState<string | undefined>(undefined)
+
+  const onDeleteAccount = async () => {
+    setDeleting(true); setDeleteErr(undefined)
+    const r = await deleteAccount()
+    setDeleting(false)
+    if (!r.ok) setDeleteErr(r.message)  // on success the app redirects to '/'
+  }
 
   const stopPreview = () => {
     if (audioRef.current) {
@@ -264,7 +278,31 @@ export function AccountSettings({
             </li>
           </ul>
         </div>
+
+        {/* Danger zone */}
+        <div className="pt-1">
+          <span className="block text-[12px] font-bold text-muted uppercase tracking-wide mb-2">Danger zone</span>
+          <button
+            type="button"
+            onClick={() => { setDeleteErr(undefined); setConfirmDelete(true) }}
+            className="w-full flex items-center justify-between gap-3 px-4 py-3 min-h-[44px] rounded-card border border-sig-link/40 text-[14px] font-semibold text-sig-link hover:bg-sig-link/5 transition-colors"
+          >
+            Delete account
+          </button>
+        </div>
       </div>
+
+      <DangerConfirm
+        open={confirmDelete}
+        title="Delete account"
+        body="Permanently deletes your account and personal data. Travels you own alone will be deleted. Shared travels you own will move to a collaborator. Travels you joined will stay with their owner, and you'll be removed. This can't be undone."
+        confirmWord="DELETE"
+        confirmLabel="Delete account"
+        busy={deleting}
+        error={deleteErr}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={onDeleteAccount}
+      />
     </Sheet>
   )
 }
