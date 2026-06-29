@@ -33,13 +33,16 @@ const POP =
   '[@media(hover:hover)]:hover:-translate-y-1 [@media(hover:hover)]:hover:shadow-[0_16px_38px_rgba(0,0,0,.45)] motion-reduce:hover:transform-none'
 
 /** Common "Where to next?" hero copy/metrics — shared by the State-C landing and
- *  the "+ New trip" create overlay so they read as the same surface. */
+ *  the "+ New trip" create hero so they read as the same surface. */
 const HERO_SHARED = {
   headline: 'Where to next?',
   subcopy: "Name a city and we'll start the itinerary, day by day.",
   brightness: 1.8,
   videoMask: VIDEO_MASK,
   headlineClassName: 'mt-4 font-serif font-medium tracking-tight text-[44px] leading-[1.02] md:text-[70px]',
+  copyPaddingClassName: 'pt-[16vh] md:pt-[18vh]',
+  // Mobile lifts the pill 30px (and its caption below) without moving the copy above.
+  pillMarginClassName: 'mt-[calc(8vh_+_2.25rem_-_30px)] md:mt-10',
 } as const
 
 const REASONS: Record<string, string> = {
@@ -54,9 +57,8 @@ export interface HomePageProps {
   focus: Trip | null            // selectFocusTrip result; null → "Where to next?" landing
   units: Units
   userId?: string
-  /** True until trips have loaded. Until then we render nothing but the dark base,
-   *  so the page never briefly commits to the wrong landing (e.g. flashing "Where
-   *  to next?" before the focus trip resolves). */
+  /** True until trips have loaded. Until then we render only the dark base, so the
+   *  page never briefly commits to the wrong landing before `focus` resolves. */
   loading?: boolean
   /** Theme + account controls from Dashboard. */
   accountControls: ReactNode
@@ -65,13 +67,12 @@ export interface HomePageProps {
 
 /**
  * The logged-in home. With an upcoming/occurring trip (`focus`) it LANDS on that
- * trip — the `UpcomingJourney` screen over its destination video, then "Your
- * travels". "Where to next?" is no longer the landing in that case: tapping
- * "+ New trip" drops the full cinematic create hero (the `CommandPill`) down from
- * the top as a dismissible overlay. With no trip, "Where to next?" is the landing
- * as before. Trip creation flows through the pill → useCreateTrip → navigate, with
- * the seed-card materialization flight; `useInViewActive` keeps one animated
- * background (lead video at top, globe once the travels sentinel scrolls in).
+ * trip — the `UpcomingJourney` screen over its video, then "Your travels". Tapping
+ * "+ New trip" rolls the full cinematic "Where to next?" hero (the `CommandPill`)
+ * down from the top INTO the page, so it becomes the stacked layout you can scroll
+ * down past to reach the trip; the ✕ rolls it back up. With no trip, "Where to
+ * next?" is the landing as before. Trip creation flows through the pill →
+ * useCreateTrip → navigate, with the seed-card materialization flight.
  */
 export function HomePage({ trips, focus, units, userId, loading = false, accountControls, tripActions }: HomePageProps) {
   const nav = useNavigate()
@@ -86,10 +87,14 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
   const backfillCover = useBackfillCoverImage()
   const backfillGeo = useBackfillDestinationGeo()
   const [createErr, setCreateErr] = useState<string | null>(null)
-  // State-B "+ New trip" → the create hero drops in over the trip landing.
+  // With a trip, "+ New trip" rolls the create hero down over the top of the page.
   const [creating, setCreating] = useState(false)
   const pillWrapRef = useRef<HTMLDivElement>(null)
   const pillHandleRef = useRef<CommandPillHandle>(null)
+
+  // The create hero sits ABOVE the journey only in this state; that's the one case
+  // where the globe must drop a viewport so it stays behind journey + travels.
+  const heroAboveJourney = !!focus && creating
 
   const handleCommit = async (c: CommandPillCommit) => {
     setCreateErr(null)
@@ -115,9 +120,8 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
     }
   }
 
-  // The pill slot — used by whichever hero is mounted (landing OR overlay; never
-  // both). `noNudge` for the overlay, where a window scroll can't move a fixed pill.
-  const renderPillSlot = (noNudge: boolean) => ({ onWordStart }: { onWordStart: (w: string) => void }) => (
+  // The pill slot — used by whichever hero is mounted (landing OR create; never both).
+  const renderPill = ({ onWordStart }: { onWordStart: (w: string) => void }) => (
     <div ref={pillWrapRef} className="relative w-full">
       <div ref={pillSentinelRef} aria-hidden className="absolute inset-x-0 top-0 h-px" />
       <CommandPill
@@ -126,7 +130,6 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
         onCommit={handleCommit}
         pending={create.isPending}
         error={createErr}
-        noNudge={noNudge}
       />
     </div>
   )
@@ -137,36 +140,42 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
     window.setTimeout(() => pillHandleRef.current?.focus({ preventScroll: true }), 500)
   }
 
-  // Focus the create-overlay pill once it has dropped in.
+  // "+ New trip" on the trip landing: be at the top so the hero rolls in on screen,
+  // then focus the pill once it has settled.
+  const openCreate = () => {
+    window.scrollTo({ top: 0 })
+    setCreating(true)
+  }
   useEffect(() => {
     if (!creating) return
-    const t = window.setTimeout(() => pillHandleRef.current?.focus({ preventScroll: true }), 480)
+    const t = window.setTimeout(() => pillHandleRef.current?.focus({ preventScroll: true }), 560)
     return () => window.clearTimeout(t)
   }, [creating])
 
-  // Off-Home entry: /?new=1 opens the create surface — the overlay when a trip is
-  // the landing, the landing pill otherwise. Waits for `loading` so we know which.
+  // Off-Home entry: /?new=1 opens the create surface — rolls the hero down with a
+  // trip, focuses the landing pill otherwise. Waits for `loading` so we know which.
   const [wantNew, setWantNew] = useState(() => new URLSearchParams(location.search).get('new') === '1')
   useEffect(() => {
     if (!wantNew || loading) return
     setWantNew(false)
     nav('/', { replace: true })
     if (focus) {
-      setCreating(true)
+      openCreate()
     } else {
       window.scrollTo({ top: 0 })
       requestAnimationFrame(() => pillHandleRef.current?.focus({ preventScroll: true }))
     }
-  }, [wantNew, loading, focus, nav])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantNew, loading, focus])
 
   return (
     <div className="relative min-h-[100svh] bg-[#05060a] text-white">
-      {/* Night-Earth globe — top-0, behind the lead (trip OR hero) and the travels
-          list. The lead always occupies the first ~100svh; the globe's Earth sits
-          at top-20vh so its lit lower limb shows behind "Your travels" (-18vh up). */}
+      {/* Night-Earth globe — behind the lead and "Your travels". It sits at top-0,
+          except when the create hero is rolled down ABOVE the journey, where it
+          drops a viewport so its lit Earth limb stays behind the travels. */}
       {!loading && (
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-0 h-[185vh] overflow-hidden"
+          className={`pointer-events-none absolute inset-x-0 z-0 h-[185vh] overflow-hidden ${heroAboveJourney ? 'top-[100svh]' : 'top-0'}`}
           style={{ WebkitMaskImage: GLOBE_MASK, maskImage: GLOBE_MASK }}
         >
           <div className="absolute inset-x-0 top-[20vh] h-[170vh]">
@@ -182,52 +191,84 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
         </div>
       )}
 
-      {/* While trips load we render only the dark base — no lead — so we never flash
-          the wrong landing before `focus` resolves. */}
+      {/* While trips load we render only the dark base, so the wrong landing never
+          flashes before `focus` resolves. */}
       {!loading && (
         <>
-          {/* LEAD — the trip screen when there's an upcoming/occurring trip; the
-              "Where to next?" hero otherwise. */}
-          {focus ? (
-            <>
-              {/* Trip-landing top bar (the hero owns its own nav, so the trip
-                  landing needs one: logo + account controls + "New trip"). */}
-              <nav className="absolute top-0 inset-x-0 z-30 flex items-center justify-between px-6 md:px-10 py-5 md:py-6 text-white">
-                <span className="inline-flex items-center gap-2 font-sans font-extrabold tracking-tight">
-                  <span className="text-sig-link"><Mark size={30} /></span>
-                  <span className="font-serif text-[20px] md:text-[23px]">Voyager</span>
-                </span>
-                <div className="flex items-center gap-2.5 text-white [&_button]:text-white">
-                  {accountControls}
-                  <Button variant="claret" onClick={() => setCreating(true)} className={POP}>
-                    <Plus size={16} strokeWidth={2.5} />New trip
-                  </Button>
-                </div>
-              </nav>
-              <UpcomingJourney
-                trip={focus}
-                units={units}
-                onOpen={openTrip}
-                onOpenArrange={openArrange}
-                onOpenGuide={openGuide}
-                playing={!globeActive && !creating}
-              />
-            </>
-          ) : (
+          {/* "Where to next?" hero — the landing with no trip; with a trip it rolls
+              down from the top (in flow) when "+ New trip" is tapped, pushing the
+              journey below so you can scroll on to it. */}
+          {!focus ? (
             <CinematicHero
               {...HERO_SHARED}
               className="relative z-10 h-[100svh] min-h-[620px] overflow-hidden"
               videoPlaying={heroActive}
-              copyPaddingClassName="pt-[16vh] md:pt-[18vh]"
-              // Mobile lifts the pill 30px (and its caption below, which follows in
-              // flow) without moving the headline/subcopy above. Desktop unchanged.
-              pillMarginClassName="mt-[calc(8vh_+_2.25rem_-_30px)] md:mt-10"
-              renderPill={renderPillSlot(false)}
+              renderPill={renderPill}
               headerRight={
                 <div className="flex items-center gap-2.5 text-white [&_button]:text-white">
                   {accountControls}
                 </div>
               }
+            />
+          ) : (
+            <AnimatePresence initial={false}>
+              {creating && (
+                <motion.div
+                  key="create-hero"
+                  initial={{ height: 0 }}
+                  animate={{ height: 'auto' }}
+                  exit={{ height: 0 }}
+                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  className="relative z-20 overflow-hidden"
+                >
+                  <CinematicHero
+                    {...HERO_SHARED}
+                    className="relative h-[100svh] min-h-[620px] overflow-hidden"
+                    videoPlaying={heroActive}
+                    renderPill={renderPill}
+                    headerRight={
+                      <button
+                        type="button"
+                        onClick={() => setCreating(false)}
+                        aria-label="Close"
+                        className="grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                      >
+                        <X size={18} />
+                      </button>
+                    }
+                  />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          )}
+
+          {/* Trip-landing top bar — only while the journey leads (not while the
+              create hero is rolled down, which has its own nav). */}
+          {focus && !creating && (
+            <nav className="absolute top-0 inset-x-0 z-30 flex items-center justify-between px-6 md:px-10 py-5 md:py-6 text-white">
+              <span className="inline-flex items-center gap-2 font-sans font-extrabold tracking-tight">
+                <span className="text-sig-link"><Mark size={30} /></span>
+                <span className="font-serif text-[20px] md:text-[23px]">Voyager</span>
+              </span>
+              <div className="flex items-center gap-2.5 text-white [&_button]:text-white">
+                {accountControls}
+                <Button variant="claret" onClick={openCreate} className={POP}>
+                  <Plus size={16} strokeWidth={2.5} />New trip
+                </Button>
+              </div>
+            </nav>
+          )}
+
+          {/* Your next journey — the trip landing (sits below the create hero when
+              it's rolled down). */}
+          {focus && (
+            <UpcomingJourney
+              trip={focus}
+              units={units}
+              onOpen={openTrip}
+              onOpenArrange={openArrange}
+              onOpenGuide={openGuide}
+              playing={!globeActive}
             />
           )}
 
@@ -258,7 +299,7 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
 
       {/* State-C only: fixed "New trip" that fades in once the landing pill scrolls
           out of view, scrolling back to it. (With a trip, the trip-nav button +
-          the create overlay handle this instead.) */}
+          the rolled-down create hero handle this instead.) */}
       {!focus && (
         <div
           aria-hidden={pillInView}
@@ -267,42 +308,6 @@ export function HomePage({ trips, focus, units, userId, loading = false, account
           <Button variant="claret" onClick={focusHeroPill} className={POP}><Plus size={16} strokeWidth={2.5} />New trip</Button>
         </div>
       )}
-
-      {/* CREATE OVERLAY — the full "Where to next?" hero drops in from the top when
-          "+ New trip" is tapped on the trip landing. Fixed + full-screen; the ✕
-          slides it back up to reveal the trip underneath. The pill sits a touch
-          higher here (keyboard-friendly) and skips the scroll nudge (fixed). */}
-      <AnimatePresence>
-        {creating && (
-          <motion.div
-            key="create-overlay"
-            className="fixed inset-0 z-50 overflow-hidden bg-[#05060a]"
-            initial={{ y: '-100%' }}
-            animate={{ y: 0 }}
-            exit={{ y: '-100%' }}
-            transition={{ type: 'spring', stiffness: 260, damping: 32 }}
-          >
-            <CinematicHero
-              {...HERO_SHARED}
-              className="relative h-[100svh] min-h-[620px] overflow-hidden"
-              videoPlaying={creating}
-              copyPaddingClassName="pt-[9vh] md:pt-[16vh]"
-              pillMarginClassName="mt-[calc(4vh_+_1.25rem)] md:mt-10"
-              renderPill={renderPillSlot(true)}
-              headerRight={
-                <button
-                  type="button"
-                  onClick={() => setCreating(false)}
-                  aria-label="Close"
-                  className="grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-                >
-                  <X size={18} />
-                </button>
-              }
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   )
 }
