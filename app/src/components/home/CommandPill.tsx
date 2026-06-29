@@ -225,18 +225,90 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
 
     const dateChipComplete = datesTBD || (!!range.start && !!range.end)
 
+    // The primary confirm CTA. Defined once, rendered in two places: INSIDE the
+    // pill during the destination step, and RELOCATED to its own row ABOVE the
+    // pill once the calendar is dismissed in the dates step. On a narrow phone the
+    // full "Plan it →" label can't share the pill's row with the destination chip
+    // + date token, so giving it its own row keeps the whole label always visible.
+    const renderCta = () => (
+      <button
+        type="button"
+        disabled={!canConfirm || pending}
+        onClick={confirm}
+        aria-label={pending ? 'Creating your trip…' : 'Plan it'}
+        className={cn(
+          'relative inline-flex h-[46px] shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full px-5',
+          'bg-sig font-sans font-medium text-[14px] text-white',
+          'shadow-[0_4px_14px_rgba(0,0,0,.25)]',
+          'transition-[opacity,background-color] duration-150',
+          'hover:brightness-110 active:translate-y-px',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent',
+          (!canConfirm || pending) && 'cursor-not-allowed opacity-50',
+        )}
+      >
+        {pending ? (
+          <>
+            <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+            <span>Creating…</span>
+          </>
+        ) : (
+          <>
+            <span>Plan it</span>
+            <svg
+              aria-hidden="true"
+              width="14"
+              height="14"
+              viewBox="0 0 16 16"
+              fill="none"
+              className="shrink-0"
+            >
+              <path
+                d="M3 8h9M8.5 4l4 4-4 4"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </>
+        )}
+      </button>
+    )
+
     return (
       // eslint-disable-next-line jsx-a11y/no-static-element-interactions
       <div
         className={cn(
-          // Content-sized so the pill GROWS to fit each phase (CTA always inside):
-          // ~400px on the destination step (min-width), wider on the dates step
-          // where the chip + date token + CTA need more room. Capped to the viewport.
-          'relative mx-auto w-fit min-w-[min(400px,calc(100vw_-_2.5rem))] max-w-[calc(100vw_-_2.5rem)]',
+          // Content-sized so the pill fits each phase. ~400px min on the destination
+          // step (room for the input); on the dates step the CTA lives ABOVE the pill,
+          // so the bar is content-sized around [chip + date token] with no trailing
+          // gap. Capped to the viewport throughout.
+          'relative mx-auto w-fit max-w-[calc(100vw_-_2.5rem)]',
+          phase === 'destination' && 'min-w-[min(400px,calc(100vw_-_2.5rem))]',
           className,
         )}
         onKeyDown={phase === 'dates' ? onContainerKeyDown : undefined}
       >
+        {/* ── Confirm CTA, ABOVE the pill (dates step, calendar dismissed) ──
+            The calendar opens BELOW the pill, so it and the CTA never share
+            vertical space: the CTA appears only once the calendar is closed, in
+            the freed space, with its own full-width row so the entire "Plan it →"
+            label fits even on a narrow phone. A plain conditional (no
+            AnimatePresence) animates the enter but unmounts SYNCHRONOUSLY, so the
+            pill is back at its measured position the instant the calendar
+            re-opens — no race with the calendar's anchor measurement. */}
+        {phase === 'dates' && !calOpen && (
+          <motion.div
+            key="cta-above"
+            initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: reduce ? 0.12 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="mb-2.5 flex justify-center"
+          >
+            {renderCta()}
+          </motion.div>
+        )}
+
         {/* ── Main pill ─────────────────────────────────────────────────── */}
         <div
           ref={pillBarRef}
@@ -322,12 +394,10 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
               disabled={pending}
               onClick={() => setCalOpen(c => !c)}
               className={cn(
-                // Fixed width (sm+): the label changes (Choose dates → Jul 14 → Jul 14 → Jul 18)
+                // Fixed width: the label changes (Choose dates → Jul 14 → Jul 14 → Jul 18)
                 // but the token must NOT resize, or the centered pill (and the anchored
                 // calendar) re-centers and visibly jumps when you pick the first date.
-                // On mobile the pill is viewport-capped (can't re-center), so we let the
-                // token be content-sized there to free room for the chip + CTA.
-                'flex w-auto shrink-0 items-center gap-2 text-[13.5px] font-medium sm:w-[152px]',
+                'flex w-[152px] shrink-0 items-center gap-2 text-[13.5px] font-medium',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:pointer-events-none disabled:opacity-50',
                 dateChipComplete ? 'text-gold' : 'text-white/60',
               )}
@@ -344,49 +414,9 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
             </span>
           )}
 
-          {/* CTA button */}
-          <button
-            type="button"
-            disabled={!canConfirm || pending}
-            onClick={confirm}
-            aria-label={pending ? 'Creating your trip…' : 'Plan it'}
-            className={cn(
-              'relative inline-flex h-[46px] shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full px-3.5 sm:px-5',
-              'bg-sig font-sans font-medium text-[14px] text-white',
-              'shadow-[0_4px_14px_rgba(0,0,0,.25)]',
-              'transition-[opacity,background-color] duration-150',
-              'hover:brightness-110 active:translate-y-px',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent',
-              (!canConfirm || pending) && 'cursor-not-allowed opacity-50',
-            )}
-          >
-            {pending ? (
-              <>
-                <Loader2 size={14} className="animate-spin" aria-hidden="true" />
-                <span className="hidden sm:inline">Creating…</span>
-              </>
-            ) : (
-              <>
-                <span className="hidden sm:inline">Plan it</span>
-                <svg
-                  aria-hidden="true"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  className="shrink-0"
-                >
-                  <path
-                    d="M3 8h9M8.5 4l4 4-4 4"
-                    stroke="currentColor"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </>
-            )}
-          </button>
+          {/* CTA — inside the pill during the destination step only. In the dates
+              step it relocates to its own row ABOVE the pill (see above). */}
+          {phase === 'destination' && renderCta()}
         </div>
 
         {/* ── Autocomplete listbox (phase "destination") — fades/scales in ── */}
