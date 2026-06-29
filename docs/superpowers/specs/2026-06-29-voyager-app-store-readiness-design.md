@@ -111,14 +111,20 @@ back in to the same account; their trips are gone; the flow is edit-gated, confi
 
 ## 6. Legal + support assets (R4) — design
 
-Three public, working URLs, linked **in-app** (account surface + auth screen footer) **and** in the App Store listing:
+**Data-inventory-FIRST (B3.5), then copy (B3).** Apple requires the policy + App Privacy labels to identify
+collected data, its uses, third-party processors, retention/deletion, and the deletion/revocation path — so we
+map the real data flows before writing any copy. Three public, working URLs, linked **in-app** (account surface
++ auth footer) **and** in the listing:
 
-- **Privacy Policy** — must disclose: account data (email, name), trip content, **location** use (Guide), AI
-  processing (prompts sent to Anthropic via `ai-proxy`), third-party processors (Supabase, Anthropic, Pexels,
-  Photon/OSM, Resend, ElevenLabs), and analytics if any. Generate a first draft with **Termly**, then review
-  for accuracy against what the app actually does (do not claim data we don't collect, don't omit location/AI).
+- **Privacy Policy** — driven by the B3.5 map: account data (email, name, **auth provider**), trip/user content +
+  prompts/preferences, **foreground location** (Guide), AI processing (prompts → Anthropic via `ai-proxy`),
+  **only the processors actually live in prod** (Supabase, Anthropic, Pexels, Photon/OSM, Resend, ElevenLabs),
+  the in-app **deletion + Apple token revoke** path, and **no tracking** (confirm: no ad/tracking SDKs). Generate
+  a Termly draft, then reconcile line-by-line against the map — never claim data we don't collect or omit location/AI.
 - **Terms of Service** — Termly draft, reviewed.
-- **Support** — a real, monitored email (e.g. `support@…`) and/or a simple support page.
+- **Support** — `support@mypassage.ai` (monitored).
+- **Permission strings** — `NSLocationWhenInUseUsageDescription` must clearly + completely explain *why* location
+  is used (see §7).
 
 **Hosting (locked):** in-app routes at `/privacy-policy`, `/terms`, `/support` (token-themed Markdown),
 served from the production domain (`mypassage.ai` once migrated; `voyager.edwardvth.workers.dev` until then).
@@ -132,16 +138,18 @@ the app (no dead ends — addresses R5).
 Capacitor wraps the existing build. Scope for v1:
 
 - **Add Capacitor** to `app/`: `@capacitor/core`, `@capacitor/cli`, `@capacitor/ios`; `capacitor.config.ts`
-  with `appId` (e.g. `com.edwardvth.voyager` — owner confirms), `appName "Passage"`, `webDir: 'dist'`.
+  with `appId: 'ai.mypassage.app'`, `appName: 'Passage'`, `webDir: 'dist'`.
 - **Native plugins for "app-likeness" (directly answers R1):**
   - `@capacitor/geolocation` — the Guide's live companion uses real native location (with permission prompt).
   - `@capacitor/splash-screen` + `@capacitor/status-bar` — native launch + themed status bar.
   - App **icon** + **launch screen** assets generated from the brand mark.
 - **iOS project**: generated on the Mac (`npx cap add ios`), `Info.plist` usage strings:
   `NSLocationWhenInUseUsageDescription` ("Passage uses your location to guide you between stops on your travel.").
-- **Routing note:** Capacitor serves the app from a local origin (e.g. `capacitor://localhost`). OAuth redirects
-  (`redirectTo`) and Supabase deep links must be reviewed so Google/Apple/magic-link return into the app — this
-  is the main integration gotcha and gets its own task (custom URL scheme / universal link or in-app browser).
+- **Routing note (designed early, in B1.5 — NOT deferred to the Mac phase):** Capacitor serves the app from a
+  local origin (e.g. `capacitor://localhost`). OAuth `redirectTo` + Supabase deep links must return Google/Apple/
+  magic-link **into the app, not Safari** — the #1 native rejection/UX snag. A shared `getAuthRedirectTo()` helper
+  (web vs native) is built in B1.5 so Supabase URL config + the Apple Services ID return URL are settled before
+  the native build; on-device verification is C3 (custom scheme `ai.mypassage.app://` for v1, Universal Link later).
 - **Out of v1:** push notifications, offline tile bundling / Service Worker, App Tracking Transparency (no
   tracking SDKs), Android. All are explicit follow-ups.
 
@@ -164,24 +172,24 @@ gets a fix; sign-in (all methods) completes inside the native shell and returns 
 
 - **Phase A — Foundations (owner + light code):** Apple Developer enrollment; bundle ID; Capacitor scaffolding
   + config committed (no Mac needed for scaffolding).
-- **Phase B — Apple compliance in-app (Windows, no Mac):** Sign in with Apple (web flow); Delete account
-  (Edge Function + UI); Privacy/Terms/Support pages; remove placeholder "coming soon" UI.
+- **Phase B — Apple compliance in-app (Windows, no Mac):** Sign in with Apple (web flow) **+ `getAuthRedirectTo()`
+  redirect abstraction (B1.5)**; Delete account **(B2.5 data inventory + Apple token revoke, then B2 build)**;
+  Privacy/Terms/Support pages **(B3.5 data inventory first, then B3 copy)**; remove placeholder "coming soon" UI.
 - **Phase C — Native build (Mac session #1):** `npx cap add ios`; icons/splash; Info.plist; geolocation;
-  fix OAuth-return-into-app; run in Simulator/device.
-- **Phase D — Polish (Windows + Mac):** native Sign in with Apple flow; QA empty-states/links sweep.
+  OAuth-return-into-app (C3); **native Sign in with Apple (C4) — before the TestFlight checkpoint**; run on device.
+- **Phase D — Polish:** **OTA live updates (OPTIONAL, post-approval, scope-limited)**; QA empty-states/links sweep.
 - **Phase E — Submit (Mac session #2–3):** listing, screenshots, privacy labels, TestFlight, submit.
 
 ## 10. Open questions — RESOLVED 2026-06-29
 
 1. ~~Bundle ID~~ → **`ai.mypassage.app`**.
-2. ~~Display name~~ → **`Passage: AI Travel Planner`** (name) + subtitle/keywords for ASO.
-3. ~~Support email~~ → **`support@mypassage.ai`** (owner to confirm it's monitored).
-4. ~~Legal hosting~~ → **`mypassage.ai/privacy-policy`, `/terms`, `/support`**; recommend moving the
-   production app to `mypassage.ai` (custom domain on the Worker).
-5. ~~Apple flow~~ → **web flow first (Phase B) → native sheet before final submit (Phase D)**.
+2. ~~Display name~~ → name **`Passage`** (placeholder) + subtitle **`Plan trips day-by-day with AI`** + keywords (ASO).
+3. ~~Support email~~ → **`support@mypassage.ai`** (owner to set up the mailbox).
+4. ~~Legal hosting~~ → **`mypassage.ai/privacy-policy`, `/terms`, `/support`** (domain is live).
+5. ~~Apple flow~~ → **web flow first (B1) → platform-adaptive native sheet in C4 (before the TestFlight checkpoint)**.
 
-Remaining owner action: **acquire/confirm `mypassage.ai` DNS** and decide whether to migrate the Worker to it
-now (recommended) or after v1.
+Remaining owner action: set up the **`support@mypassage.ai` mailbox**, and decide whether to point the Worker's
+production domain at `mypassage.ai` now (recommended) or after v1 (the domain itself is already live).
 
 ## 11. Out of scope (explicit)
 
