@@ -4,7 +4,7 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const slug = url.pathname.match(/^\/([A-Za-z0-9_-]+)\/?$/);
-    const reserved = new Set(['auth', 'trips', 'trip']);
+    const reserved = new Set(['auth', 'trips', 'trip', 'privacy-policy', 'tos', 'privacy', 'terms']);
     if (slug && !slug[1].includes('.') && !reserved.has(slug[1].toLowerCase())) {
       const dest = new URL('/Trip.html', url.origin);
       dest.searchParams.set('trip', slug[1].toLowerCase());
