@@ -8,6 +8,7 @@ export interface StopDetailContent {
   facts: string[]
   tips: string
   notice: string
+  goodFor: string
 }
 
 /** Optional grounding passed into the enrich prompt (Group E layered chain). */
@@ -96,10 +97,11 @@ export function buildEnrichPrompt(
 
   return `You are an expert, engaging tour guide. Write rich, accurate content for "${placeRef}"${typeHint}${cityHint}.${tripHint}${coordHint}${sourceBlock}${contextBlock}
 
-Write three sections for this place:
+Write content for this place:
 - "history" = Story: why this place matters — its significance, character, and the story behind it (2-3 short plain-text paragraphs).
 - "facts" = Interesting Facts: an array of 2-4 short, standalone FACTUAL details — dates, architecture, history, or little-known trivia that are simply true about the place. These are facts, not advice; visiting/experience tips do NOT belong here.
 - "tips" = Experience: how to actually experience it on the ground — the best time of day or season to come, what to look for, the atmosphere, where to stand, what to do nearby. Write 1-3 sentences of genuinely useful, evocative guidance. Almost every place warrants this — write it.
+- "goodFor" = a short audience/occasion tag (2-4 words, e.g. "Architecture lovers", "Romantic dinner", "Family-friendly") if one is genuinely characteristic of this place — else omit.
 
 SECTION DISCIPLINE: keep "facts" purely factual and "tips" purely experiential. If a detail is about visiting or experiencing the place (e.g. "visit on a warm summer evening"), it belongs in Experience, NOT in Interesting Facts. Never drop a useful detail — move it to the right section rather than omitting it.
 
@@ -109,7 +111,7 @@ GROUNDING RULES (accuracy over completeness):
 
 CRITICAL: Respond with ONLY valid JSON starting with { and ending with }. No markdown, no code fences, no preamble.
 
-{"history":"Story — why it matters, plain-text paragraphs separated by \\n\\n (or empty).","facts":["interesting factual detail with a date or number","little-known true detail"],"tips":"Experience — how to experience it on the ground: best time, what to look for, the atmosphere."}`
+{"history":"Story — why it matters, plain-text paragraphs separated by \\n\\n (or empty).","facts":["interesting factual detail with a date or number","little-known true detail"],"tips":"Experience — how to experience it on the ground: best time, what to look for, the atmosphere.","goodFor":"Architecture lovers"}`
 }
 
 /** Coerce an unknown `facts` value into a clean string array (legacy guards against a bare string). */
@@ -134,7 +136,7 @@ export function coerceFacts(value: unknown): string[] {
  * no JSON is present. Always returns the right shape (facts coerced to array).
  */
 export function parseStopDetail(text: string): StopDetailContent {
-  const fallback: StopDetailContent = { history: '', facts: [], tips: '', notice: '' }
+  const fallback: StopDetailContent = { history: '', facts: [], tips: '', notice: '', goodFor: '' }
   const raw = (text || '').trim()
   if (!raw) return fallback
 
@@ -150,6 +152,7 @@ export function parseStopDetail(text: string): StopDetailContent {
         facts: coerceFacts(info.facts),
         tips: typeof info.tips === 'string' ? info.tips.trim() : '',
         notice: typeof info.notice === 'string' ? info.notice.trim() : '',
+        goodFor: typeof info.goodFor === 'string' ? info.goodFor.trim() : '',
       }
     } catch {
       /* fall through to plain-text handling */
@@ -157,7 +160,7 @@ export function parseStopDetail(text: string): StopDetailContent {
   }
 
   // No usable JSON — use the plain text as history so we never show blank.
-  return { history: raw, facts: [], tips: '', notice: '' }
+  return { history: raw, facts: [], tips: '', notice: '', goodFor: '' }
 }
 
 /**
@@ -177,7 +180,7 @@ export function parseStopDetail(text: string): StopDetailContent {
  *     We never hallucinate.
  */
 export async function generateStopDetail(stop: Stop, tripTitle: string, destination = ''): Promise<StopDetailContent> {
-  const empty: StopDetailContent = { history: '', facts: [], tips: '', notice: '' }
+  const empty: StopDetailContent = { history: '', facts: [], tips: '', notice: '', goodFor: '' }
 
   // 1. Wikipedia grounding (Name + Destination), guarded — never throws.
   const source = (await fetchWikiExtract(stopLandmarkQuery(stop.name, destination))) ?? ''
