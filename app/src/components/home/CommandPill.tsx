@@ -203,7 +203,13 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
     return (
       // eslint-disable-next-line jsx-a11y/no-static-element-interactions
       <div
-        className={cn('relative mx-auto w-[400px] max-w-[calc(100vw-2.5rem)]', className)}
+        className={cn(
+          // Content-sized so the pill GROWS to fit each phase (CTA always inside):
+          // ~400px on the destination step (min-width), wider on the dates step
+          // where the chip + date token + CTA need more room. Capped to the viewport.
+          'relative mx-auto w-fit min-w-[min(400px,calc(100vw_-_2.5rem))] max-w-[calc(100vw_-_2.5rem)]',
+          className,
+        )}
         onKeyDown={phase === 'dates' ? onContainerKeyDown : undefined}
       >
         {/* ── Main pill ─────────────────────────────────────────────────── */}
