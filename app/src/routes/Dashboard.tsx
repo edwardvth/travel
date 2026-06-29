@@ -78,10 +78,10 @@ export default function Dashboard() {
   const canManage = (t: NonNullable<typeof trips>[number]) => isFounder(profile) || (!!t.owner_id && t.owner_id === user?.id)
   const tripActions = (t: NonNullable<typeof trips>[number]) => canManage(t) ? (
     <>
-      <IconButton label="Share trip" onClick={() => setShareId(t.id)}>
+      <IconButton label="Share travel" onClick={() => setShareId(t.id)}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" strokeLinecap="round"/></svg>
       </IconButton>
-      <IconButton label="Delete trip" onClick={() => setDeleteId(t.id)}>
+      <IconButton label="Delete travel" onClick={() => setDeleteId(t.id)}>
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13" strokeLinecap="round" strokeLinejoin="round"/></svg>
       </IconButton>
     </>
@@ -104,8 +104,8 @@ export default function Dashboard() {
         tripActions={tripActions}
       />
       {shareId && <ShareSheet tripId={shareId} open onClose={() => setShareId(null)} />}
-      <ConfirmDialog open={!!deleteId} title="Delete this trip?"
-        body="This removes the trip and all its stops. This can't be undone."
+      <ConfirmDialog open={!!deleteId} title="Delete this travel?"
+        body="This removes the travel and all its stops. This can't be undone."
         confirmLabel="Delete" busy={del.isPending}
         onCancel={() => setDeleteId(null)}
         onConfirm={async () => { if (deleteId) { try { await del.mutateAsync(deleteId) } catch { /* ignore */ } setDeleteId(null) } }} />

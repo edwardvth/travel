@@ -85,17 +85,17 @@ export function TravelsList({
         <Search size={17} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-white/45" />
         <input
           type="search"
-          aria-label="Search your trips"
+          aria-label="Search your travels"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Escape') setQuery('') }}
-          placeholder="Search your trips…"
+          placeholder="Search your travels…"
           className="w-full rounded-full border border-white/15 bg-white/[0.06] py-2.5 pl-10 pr-10 text-[14px] text-white placeholder-white/40 outline-none backdrop-blur transition-colors focus:border-white/30 focus:bg-white/[0.09] [&::-webkit-search-cancel-button]:appearance-none"
         />
         {query && (
           <button
             type="button"
-            aria-label="Clear trip search"
+            aria-label="Clear travel search"
             onClick={() => setQuery('')}
             className="absolute right-2.5 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-full text-white/55 transition-colors hover:bg-white/10 hover:text-white"
           >
@@ -109,7 +109,7 @@ export function TravelsList({
       <div className="relative">
         {empty ? (
           <p className="py-12 text-center text-[14px] text-white/55">
-            {query.trim() ? `No trips match “${query}”.` : 'Your other trips will appear here.'}
+            {query.trim() ? `No travels match “${query}”.` : 'Your other travels will appear here.'}
           </p>
         ) : (
           <AnimatePresence mode="wait" initial={false}>
@@ -133,7 +133,7 @@ export function TravelsList({
                       <div className="flex flex-col gap-2">
                         <div className="hidden items-center gap-3.5 px-3 pb-1 text-[10.5px] uppercase tracking-[0.16em] text-white/40 md:flex">
                           <span className="w-16 shrink-0" />
-                          <span className="flex-1">Trip</span>
+                          <span className="flex-1">Travel</span>
                           <span className="w-20 shrink-0 text-center">Stops</span>
                           <span className="w-24 shrink-0 text-right">When</span>
                         </div>

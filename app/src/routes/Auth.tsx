@@ -196,7 +196,7 @@ export default function Auth() {
                   transition={{ delay: 0.15 }}
                   className="font-serif text-2xl font-semibold text-[#F4F3F0] tracking-tight"
                 >
-                  {mode === 'signin' ? 'Welcome back' : 'Start your voyage'}
+                  {mode === 'signin' ? 'Welcome back' : 'Start your travels'}
                 </motion.h1>
 
                 <motion.p
@@ -205,7 +205,7 @@ export default function Auth() {
                   transition={{ delay: 0.25 }}
                   className="text-white/55 text-[13px]"
                 >
-                  {mode === 'signin' ? 'Sign in to continue to Voyager' : 'Create your account to begin planning'}
+                  {mode === 'signin' ? 'Sign in to continue to Passage' : 'Create your account to begin planning'}
                 </motion.p>
               </div>
 

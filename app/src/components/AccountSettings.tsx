@@ -125,7 +125,7 @@ export function AccountSettings({
       <div className="flex items-start justify-between gap-4">
         <div>
           <h2 id={titleId} className="font-serif text-2xl leading-tight">Account settings</h2>
-          <p className="text-muted text-[13px] mt-0.5">Applies across all your Voyages.</p>
+          <p className="text-muted text-[13px] mt-0.5">Applies across all your travels.</p>
         </div>
         <button
           type="button"
@@ -186,7 +186,7 @@ export function AccountSettings({
               { value: 'imperial', label: '°F / mi' },
             ]}
           />
-          <p className="text-muted text-[12.5px] mt-1.5">Controls temperature and distance display across your trips.</p>
+          <p className="text-muted text-[12.5px] mt-1.5">Controls temperature and distance display across your travels.</p>
         </div>
 
         {/* Narration voice */}

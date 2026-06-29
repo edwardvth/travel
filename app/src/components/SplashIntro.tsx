@@ -31,7 +31,7 @@ import { Mark } from './Logo'
  * `window`/`document` are feature-detected for SSR/jsdom.
  */
 
-const WORD = 'VOYAGER'
+const WORD = 'PASSAGE'
 
 /* ---- timing (ms) ---- */
 const MIN_VISIBLE_MS = 350 // floor so the moment registers before dismiss

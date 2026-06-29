@@ -13,7 +13,7 @@ export function HomeCredits() {
     <footer className="relative z-10 px-5 pb-9 pt-2 text-center font-mono text-[10.5px] tracking-wide text-white/35">
       Destination videos from{' '}
       <a href="https://www.pexels.com" target="_blank" rel="noreferrer" className={link}>Pexels</a>
-      {' · '}Trip photos from{' '}
+      {' · '}Travel photos from{' '}
       <a href="https://unsplash.com" target="_blank" rel="noreferrer" className={link}>Unsplash</a>
     </footer>
   )

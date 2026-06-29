@@ -215,7 +215,7 @@ export function AddStop({ open, onClose, trip, day, save }: AddStopProps) {
       </div>
       {dupNotice && (
         <p role="status" className="mb-3 text-[13px] text-muted bg-fill border border-hair rounded-card px-3.5 py-2">
-          "{dupNotice}" is already in your trip.
+          "{dupNotice}" is already in your travel.
         </p>
       )}
       <p className="text-[12px] text-muted mb-2">Or describe what you want and let AI suggest:</p>

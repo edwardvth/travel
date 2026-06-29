@@ -89,7 +89,7 @@ export default function Trip() {
 
   return (
     <div className="px-5 md:px-8 py-8 max-w-3xl mx-auto">
-      <h2 className="font-serif text-2xl">Trip</h2>
+      <h2 className="font-serif text-2xl">Manage</h2>
       <p className="text-muted text-[13.5px] mt-1.5">
         Your stay and reservations, in one place.
       </p>
@@ -554,7 +554,7 @@ function TripDetailsSection({ trip, canEdit, save }: {
 
   return (
     <section aria-labelledby="trip-details-h">
-      <SectionHeader id="trip-details-h" icon={FileText} title="Trip details" />
+      <SectionHeader id="trip-details-h" icon={FileText} title="Travel details" />
 
       <div className="mt-3 rounded-card border border-hair bg-base px-4 py-4 space-y-4">
         {/* Dates + length — read-only projection of config. */}
@@ -612,7 +612,7 @@ function TripDetailsSection({ trip, canEdit, save }: {
         {canEdit && (
           <div className="pt-0.5">
             <Button variant="soft" onClick={() => setEditing(true)}>
-              <Pencil size={15} aria-hidden="true" /> Edit trip…
+              <Pencil size={15} aria-hidden="true" /> Edit travel…
             </Button>
           </div>
         )}
@@ -683,9 +683,9 @@ function TripBasicsEditor({ trip, save, onClose }: {
 
   return (
     <Sheet open onClose={onClose} labelledBy="trip-basics-h">
-      <h2 id="trip-basics-h" className="font-serif text-2xl">Edit trip</h2>
+      <h2 id="trip-basics-h" className="font-serif text-2xl">Edit travel</h2>
       <p className="text-muted text-[13.5px] mt-1.5">
-        Title, destination and dates. These live on the trip itself.
+        Title, destination and dates. These live on the travel itself.
       </p>
 
       <div className="mt-5 space-y-4">
@@ -716,13 +716,13 @@ function TripBasicsEditor({ trip, save, onClose }: {
 
       <div className="mt-6 flex gap-2.5">
         <Button variant="soft" className="flex-1" onClick={onClose}>Cancel</Button>
-        <Button variant="claret" className="flex-1" onClick={onSave}>Save trip</Button>
+        <Button variant="claret" className="flex-1" onClick={onSave}>Save travel</Button>
       </div>
 
       <ConfirmDialog
         open={confirm}
         title="Remove days with stops?"
-        body="Shortening the trip will drop the last day(s), and some of them still have stops. Those stops will be deleted."
+        body="Shortening the travel will drop the last day(s), and some of them still have stops. Those stops will be deleted."
         confirmLabel="Remove days"
         onCancel={() => setConfirm(false)}
         onConfirm={() => { setConfirm(false); persist() }}
@@ -776,7 +776,7 @@ function ManageSection({ trip, canEdit, canDelete, save }: {
       try {
         const raw = JSON.parse(String(e.target?.result ?? ''))
         const parsed = parseImportedTrip(raw, trip)
-        if (!window.confirm('Import this file? It will replace the current trip’s days, stay and completed state.')) return
+        if (!window.confirm('Import this file? It will replace the current travel’s days, stay and completed state.')) return
         save({ title: parsed.title, subtitle: parsed.subtitle, config: parsed.config, data: parsed.data })
         setMsg({ tone: 'ok', text: 'Imported successfully.' })
       } catch (err) {
@@ -826,7 +826,7 @@ function ManageSection({ trip, canEdit, canDelete, save }: {
               'flex-none text-sig transition-transform duration-200 ' + (open ? 'rotate-90' : '')
             }
           />
-          Manage this trip
+          Manage this travel
         </button>
       </h3>
 
@@ -836,7 +836,7 @@ function ManageSection({ trip, canEdit, canDelete, save }: {
               because config.coverImage is top-priority in useTripCover/TripRow. */}
           {canEdit && (
             <div className="rounded-card border border-hair bg-base px-4 py-4 space-y-3">
-              <p className="text-muted text-[13px]">Set the photo shown for this trip on the dashboard, or let it pick one from your destination.</p>
+              <p className="text-muted text-[13px]">Set the photo shown for this travel on the dashboard, or let it pick one from your destination.</p>
               <div className="flex items-center gap-3.5">
                 {/* Reserve a fixed box so a loading/late thumbnail never shifts layout. */}
                 <span className="relative h-[54px] w-[54px] flex-none overflow-hidden rounded-[12px] bg-raised grid place-items-center">
@@ -871,7 +871,7 @@ function ManageSection({ trip, canEdit, canDelete, save }: {
 
           {/* Export / Import — verbatim from the old Settings Data tab. */}
           <div className="rounded-card border border-hair bg-base px-4 py-4 space-y-3">
-            <p className="text-muted text-[13px]">Back up this trip to a file, or restore from one.</p>
+            <p className="text-muted text-[13px]">Back up this travel to a file, or restore from one.</p>
             <div className="flex flex-wrap gap-3">
               <Button variant="soft" onClick={onExport}>
                 <Upload size={16} aria-hidden="true" /> Export JSON
@@ -919,20 +919,20 @@ function ManageSection({ trip, canEdit, canDelete, save }: {
                     className="border-red-300 dark:border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
                     onClick={() => setResetOpen(true)}
                   >
-                    <Trash2 size={16} aria-hidden="true" /> Reset trip
+                    <Trash2 size={16} aria-hidden="true" /> Reset travel
                   </Button>
                 </div>
               )}
 
               {canDelete && (
                 <div className="space-y-2">
-                  <p className="text-muted text-[13px]">Permanently delete this trip for everyone it’s shared with. This can’t be undone.</p>
+                  <p className="text-muted text-[13px]">Permanently delete this travel for everyone it’s shared with. This can’t be undone.</p>
                   <Button
                     variant="ghost"
                     className="border-red-300 dark:border-red-500/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"
                     onClick={() => setDeleteOpen(true)}
                   >
-                    <Trash2 size={16} aria-hidden="true" /> Delete trip
+                    <Trash2 size={16} aria-hidden="true" /> Delete travel
                   </Button>
                 </div>
               )}
@@ -943,22 +943,22 @@ function ManageSection({ trip, canEdit, canDelete, save }: {
 
       <ConfirmDialog
         open={resetOpen}
-        title="Reset this trip?"
+        title="Reset this travel?"
         body="This empties every day (stops, stay and completed marks) for all your devices. The day count and titles are kept. This can’t be undone."
-        confirmLabel="Reset trip"
+        confirmLabel="Reset travel"
         onCancel={() => setResetOpen(false)}
         onConfirm={() => {
           save({ data: resetTripData(trip) })
           setResetOpen(false)
-          setMsg({ tone: 'ok', text: 'Trip data reset.' })
+          setMsg({ tone: 'ok', text: 'Travel data reset.' })
         }}
       />
 
       <ConfirmDialog
         open={deleteOpen}
-        title="Delete this trip?"
-        body="This permanently deletes the trip and removes it for everyone it’s shared with. This can’t be undone."
-        confirmLabel="Delete trip"
+        title="Delete this travel?"
+        body="This permanently deletes the travel and removes it for everyone it’s shared with. This can’t be undone."
+        confirmLabel="Delete travel"
         busy={del.isPending}
         onCancel={() => setDeleteOpen(false)}
         onConfirm={async () => {
@@ -968,7 +968,7 @@ function ManageSection({ trip, canEdit, canDelete, save }: {
             navigate('/trips')
           } catch {
             setDeleteOpen(false)
-            setMsg({ tone: 'err', text: 'Couldn’t delete this trip. Please try again.' })
+            setMsg({ tone: 'err', text: 'Couldn’t delete this travel. Please try again.' })
           }
         }}
       />

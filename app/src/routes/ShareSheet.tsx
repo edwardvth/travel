@@ -10,13 +10,13 @@ export function ShareSheet({ tripId, open, onClose }: { tripId: string; open: bo
   useEffect(() => { if (open) listMembers(tripId).then(setMembers).catch(() => {}) }, [open, tripId])
 
   const copyLink = async () => {
-    try { await navigator.clipboard.writeText(await createInviteLink(tripId)); setMsg('Link copied — anyone who opens it joins the trip.') }
+    try { await navigator.clipboard.writeText(await createInviteLink(tripId)); setMsg('Link copied — anyone who opens it joins the travel.') }
     catch { setMsg("Couldn't create a link. Try again.") }
   }
   const send = async () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setMsg('Enter a valid email address.')
     try { await inviteByEmail(tripId, email); setEmail(''); setMsg('Invited.'); setMembers(await listMembers(tripId)) }
-    catch { setMsg("Couldn't share this trip. Only the owner can.") }
+    catch { setMsg("Couldn't share this travel. Only the owner can.") }
   }
   const remove = async (e: string) => { try { await removeMember(tripId, e); setMembers(await listMembers(tripId)) } catch { /* ignore */ } }
 

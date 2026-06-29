@@ -51,7 +51,7 @@ interface SectionItem {
 function sectionItems(id: string): SectionItem[] {
   return [
     { to: `/trip/${id}/guide`, label: 'Guide', Icon: Compass, preload: importGuide },
-    { to: `/trip/${id}/trip`, label: 'Trip', Icon: Briefcase, preload: importTrip },
+    { to: `/trip/${id}/trip`, label: 'Manage', Icon: Briefcase, preload: importTrip },
   ]
 }
 
@@ -106,12 +106,12 @@ export default function PlannerLayout() {
     return (
       <div className="min-h-screen bg-base text-ink grid place-items-center px-6">
         <div className="text-center max-w-sm">
-          <h1 className="font-serif text-2xl">We couldn’t find that trip</h1>
+          <h1 className="font-serif text-2xl">We couldn’t find that travel</h1>
           <p className="text-muted text-[14px] mt-2">
             It may have been deleted, or you might not have access to it.
           </p>
           <div className="mt-6">
-            <Link to="/trips"><Button variant="claret">Back to your trips</Button></Link>
+            <Link to="/trips"><Button variant="claret">Back to your travels</Button></Link>
           </div>
         </div>
       </div>
@@ -168,7 +168,7 @@ export default function PlannerLayout() {
       <div className="flex-1 min-h-0 flex">
         {/* Desktop sidebar — Day list (top, nested under Plan) → hairline → Guide · Trip */}
         <nav
-          aria-label="Voyage navigation"
+          aria-label="Travel navigation"
           className="hidden md:flex flex-col w-[200px] flex-none border-r border-hair overflow-y-auto py-3 px-2.5"
         >
           <div className="flex flex-col gap-0.5">
@@ -240,7 +240,7 @@ export default function PlannerLayout() {
 
       {/* Mobile bottom tab bar — Plan · Guide · Trip */}
       <nav
-        aria-label="Voyage navigation"
+        aria-label="Travel navigation"
         className="md:hidden fixed bottom-0 inset-x-0 z-30 border-t border-hair bg-base/95 backdrop-blur"
       >
         <div className="flex items-stretch">

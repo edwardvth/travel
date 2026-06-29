@@ -257,7 +257,7 @@ export function HomePage({ trips, focus, firstName, units, userId, loading = fal
               headerRight={
                 <>
                   <Button variant="claret" onClick={openCreate} className={POP}>
-                    <Plus size={16} strokeWidth={2.5} />New trip
+                    <Plus size={16} strokeWidth={2.5} />New travel
                   </Button>
                   {accountControls}
                 </>
@@ -299,7 +299,7 @@ export function HomePage({ trips, focus, firstName, units, userId, loading = fal
           aria-hidden={pillInView}
           className={`fixed right-4 top-4 z-40 transition-opacity duration-300 ${pillInView ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
         >
-          <Button variant="claret" onClick={focusHeroPill} className={POP}><Plus size={16} strokeWidth={2.5} />New trip</Button>
+          <Button variant="claret" onClick={focusHeroPill} className={POP}><Plus size={16} strokeWidth={2.5} />New travel</Button>
         </div>
       )}
     </div>

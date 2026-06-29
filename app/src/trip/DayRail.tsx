@@ -64,7 +64,7 @@ export function DayRail({ trip, activeDay, onSelect, canEdit = false, onReorder,
 
   if (!canEdit) {
     return (
-      <nav aria-label="Trip days" className={railClass}>
+      <nav aria-label="Travel days" className={railClass}>
         {days.map(day => <DayChip key={day} trip={trip} day={day} active={day === activeDay} onSelect={onSelect} />)}
       </nav>
     )
@@ -72,7 +72,7 @@ export function DayRail({ trip, activeDay, onSelect, canEdit = false, onReorder,
 
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-      <nav aria-label="Trip days" className={railClass}>
+      <nav aria-label="Travel days" className={railClass}>
         <SortableContext items={days} strategy={horizontalListSortingStrategy}>
           {days.map(day => <SortableDayChip key={day} trip={trip} day={day} active={day === activeDay} onSelect={onSelect} exiting={day === exitingDay} />)}
         </SortableContext>

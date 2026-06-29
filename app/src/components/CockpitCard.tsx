@@ -69,7 +69,7 @@ export function CockpitCard({
         <div className="absolute inset-0" style={{ background: HEADER_SCRIM }} />
         <div className="relative flex h-full flex-col p-5 md:p-6">
           <div className="font-mono text-[14px] font-semibold uppercase tracking-[0.26em] text-white md:text-[16px]" style={{ textShadow: TS_STRONG }}>
-            {m.countdownLabel ?? 'Planning trip'}
+            {m.countdownLabel ?? 'Planning travel'}
           </div>
           <div className="mt-auto">
             <div className="font-serif text-[36px] leading-[0.96] tracking-tight text-white md:text-[48px]" style={{ textShadow: TS_STRONG }}>

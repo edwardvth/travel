@@ -340,7 +340,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
         type="button"
         disabled={ctaDisabled}
         onClick={inDestination ? attemptContinue : confirm}
-        aria-label={pending ? 'Creating your trip…' : 'Plan it'}
+        aria-label={pending ? 'Creating your travel…' : 'Plan it'}
         className={cn(
           'relative inline-flex h-[46px] shrink-0 items-center justify-center gap-1.5 overflow-hidden rounded-full px-5',
           'bg-sig font-sans font-medium text-[14px] text-white',

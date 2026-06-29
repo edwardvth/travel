@@ -28,7 +28,7 @@ function renderAuth(initialEntries: string[] = ['/auth']) {
 describe('Auth', () => {
   it('defaults to sign-up (account creation)', () => {
     renderAuth(['/auth'])
-    expect(screen.getByText('Start your voyage')).toBeInTheDocument()
+    expect(screen.getByText('Start your travels')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /create account/i })).toBeInTheDocument()
   })
 

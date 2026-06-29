@@ -57,7 +57,7 @@ describe('TravelsList', () => {
     expect(screen.queryByText('Tokyo')).not.toBeInTheDocument()
     expect(screen.queryByText('Rome')).not.toBeInTheDocument()
 
-    await userEvent.click(screen.getByRole('button', { name: 'Clear trip search' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Clear travel search' }))
     expect(screen.getByText('Tokyo')).toBeInTheDocument()
     expect(screen.getByText('Rome')).toBeInTheDocument()
   })
@@ -84,7 +84,7 @@ describe('TravelsList', () => {
   it('shows an empty state when nothing matches', async () => {
     renderList([FEATURED, PARIS, TOKYO, ROME])
     await userEvent.type(screen.getByRole('searchbox'), 'zzzznotrip')
-    expect(screen.getByText(/no trips match/i)).toBeInTheDocument()
+    expect(screen.getByText(/no travels match/i)).toBeInTheDocument()
     expect(screen.queryByRole('heading', { name: 'Upcoming' })).not.toBeInTheDocument()
   })
 

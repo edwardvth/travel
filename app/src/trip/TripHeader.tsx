@@ -37,7 +37,7 @@ export function TripHeader({
     <header className="flex items-center gap-3 px-4 md:px-8 py-3 border-b border-hair bg-base">
       <Link
         to="/trips"
-        aria-label="Back to your trips"
+        aria-label="Back to your travels"
         className="grid place-items-center w-11 h-11 -ml-2 rounded-btn text-muted hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -63,7 +63,7 @@ export function TripHeader({
         <button
           type="button"
           onClick={() => setShareOpen(true)}
-          aria-label="Share trip"
+          aria-label="Share travel"
           className="grid place-items-center w-11 h-11 rounded-btn text-muted hover:text-ink transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sig-link"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

@@ -1,11 +1,11 @@
-# Voyager — Project Guide (CLAUDE.md)
+# Passage — Project Guide (CLAUDE.md)
 
 > This file is auto-loaded by Claude Code. It's the evergreen guide to the project.
 > For "what's done / what's next right now," read **`handoff.md`** (next to this file).
 
 ## What this is
 
-**Voyager** is a premium consumer **travel-planning PWA** (plan a trip day-by-day, with AI place suggestions, maps, photos, weather, walking times, and reservations). It was forked from a generic travel-itinerary app and rebuilt into a polished product. Design north stars: Uber's interaction quality + an editorial/aspirational travel brand.
+**Passage** is a premium consumer **travel-planning PWA** (plan a travel day-by-day, with AI place suggestions, maps, photos, weather, walking times, and reservations). The user-facing journey object is called a **travel** (plural **travels**); note the code identifiers — the `Trip` type, `useTrips`, `/trips` routes, etc. — keep the legacy "trip" name. It was forked from a generic travel-itinerary app and rebuilt into a polished product. Design north stars: Uber's interaction quality + an editorial/aspirational travel brand.
 
 - **Repo:** `github.com/edwardvth/travel` (a **fork** of `magakh/travel` — never push to `upstream`) · **Active branch:** `main` (the `voyager-redesign` branch was consolidated into `main` and deleted; all work is on `origin/main`).
 - **Local path:** `C:\Users\edwar\travel` (Windows; shell is Git Bash / PowerShell).
@@ -14,12 +14,12 @@
 
 ## North star & product principles (don't violate these)
 
-> **A Voyage is a collection of stops. Plan builds them, Guide brings them to life, and Trip manages the commitments attached to them.**
+> **A travel is a collection of stops. Plan builds them, Guide brings them to life, and Manage keeps the commitments attached to them.**
 
-In-Voyage navigation is **three intent-tabs**, each a traveler *mindset*, not a feature:
+In-travel navigation is **three intent-tabs**, each a traveler *mindset*, not a feature (visible labels: **Plan · Guide · Manage**):
 - **Plan** — build the itinerary (day-by-day split view: stops list + map).
-- **Guide** — live the trip (Phase-3 live walking companion; currently an aspirational *teaser* only).
-- **Trip** — manage commitments (Stay · Upcoming · Still to arrange · Trip Details · Manage).
+- **Guide** — live the travel (Phase-3 live walking companion; currently an aspirational *teaser* only).
+- **Manage** — manage commitments (Stay · Upcoming · Still to arrange · Travel details · Manage). NOTE: this tab's route is still `/trip/:id/trip` and its component is `Trip.tsx` — only the visible label changed.
 
 Principles:
 1. A tab is a mindset, not a feature.

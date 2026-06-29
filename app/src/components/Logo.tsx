@@ -16,7 +16,7 @@ export function Logo({ className = '' }: { className?: string }) {
   return (
     <span className={`inline-flex items-center gap-2 font-sans font-extrabold tracking-tight ${className}`}>
       <span className="text-sig-link"><Mark size={26} /></span>
-      <span className="text-[17px]">Voyager</span>
+      <span className="text-[17px]">Passage</span>
     </span>
   )
 }

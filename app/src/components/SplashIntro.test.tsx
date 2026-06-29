@@ -33,11 +33,11 @@ afterEach(() => {
 })
 
 describe('SplashIntro', () => {
-  it('renders the VOYAGER wordmark and the overlay is aria-hidden', () => {
+  it('renders the PASSAGE wordmark and the overlay is aria-hidden', () => {
     act(() => {
       render(<SplashIntro />)
     })
-    expect(document.body.textContent).toContain('VOYAGER')
+    expect(document.body.textContent).toContain('PASSAGE')
     expect(overlay()).not.toBeNull()
     expect(overlay()!.getAttribute('aria-hidden')).toBe('true')
   })
@@ -110,7 +110,7 @@ describe('SplashIntro', () => {
     reducedMotion.value = true
     const { container } = render(<SplashIntro />)
 
-    expect(document.body.textContent).toContain('VOYAGER')
+    expect(document.body.textContent).toContain('PASSAGE')
 
     act(() => {
       signalHeroReady()

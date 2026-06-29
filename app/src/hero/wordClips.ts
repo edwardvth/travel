@@ -44,7 +44,7 @@ function clip(
       : {}),
     dominantColor,
     focalPoint: { x: 0.5, y: 0.5 },
-    credit: { author: source === 'Pexels' ? 'Pexels' : 'Voyager', source, url: '', license: source === 'Pexels' ? 'Pexels' : 'Provided' },
+    credit: { author: source === 'Pexels' ? 'Pexels' : 'Passage', source, url: '', license: source === 'Pexels' ? 'Pexels' : 'Provided' },
     weight: 1,
   }
 }

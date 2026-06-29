@@ -41,11 +41,11 @@ describe('CockpitCard', () => {
     expect(onOpenGuide).toHaveBeenCalledWith('t1')
   })
 
-  it('undated trip shows "Planning trip" countdown', () => {
+  it('undated trip shows "Planning travel" countdown', () => {
     render(
       <CockpitCard trip={baseTrip({ startDate: undefined })} onOpen={noop} onOpenArrange={noop} onOpenGuide={noop} units="metric" today="2026-06-01" />,
     )
-    expect(screen.getByText('Planning trip')).toBeInTheDocument()
+    expect(screen.getByText('Planning travel')).toBeInTheDocument()
   })
 
   it('shows a "N to arrange" deep-link that fires onOpenArrange without onOpen', () => {

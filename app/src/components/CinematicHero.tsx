@@ -99,7 +99,7 @@ export function CinematicHero({
       <nav className="absolute top-0 inset-x-0 z-20 flex items-center justify-between px-6 md:px-10 py-5 md:py-6 text-white">
         <span className="inline-flex items-center gap-2 font-sans font-extrabold tracking-tight">
           <span className="text-sig-link"><Mark size={30} /></span>
-          <span className="font-serif text-[20px] md:text-[23px]">Voyager</span>
+          <span className="font-serif text-[20px] md:text-[23px]">Passage</span>
         </span>
         {headerRight}
       </nav>

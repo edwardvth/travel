@@ -50,7 +50,7 @@ export class ChunkErrorBoundary extends Component<Props, State> {
             <AlertTriangle size={22} />
           </span>
           <h2 className="mt-4 font-serif text-2xl text-ink">
-            {isChunk ? "Couldn't load the latest version of Voyager." : 'Something went wrong.'}
+            {isChunk ? "Couldn't load the latest version of Passage." : 'Something went wrong.'}
           </h2>
           <p className="mt-2 text-[14px] text-muted leading-relaxed">
             {isChunk

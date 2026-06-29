@@ -259,7 +259,7 @@ export default function StopDetail() {
             <p className="text-muted text-[13px]">
               {hasContent
                 ? 'History, facts and tips for this place.'
-                : 'No details yet — let Voyager gather the story for you.'}
+                : 'No details yet — let Passage gather the story for you.'}
             </p>
             <Button
               variant={hasContent ? 'soft' : 'claret'}

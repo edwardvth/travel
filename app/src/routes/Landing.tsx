@@ -44,7 +44,7 @@ export default function Landing() {
     <div className="bg-base text-ink">
       <CinematicHero
         className="relative h-[100svh] min-h-[600px] overflow-hidden"
-        headline={<>Every trip,<br /><span className="italic text-gold whitespace-nowrap">beautifully guided.</span></>}
+        headline={<>Every travel,<br /><span className="italic text-gold whitespace-nowrap">beautifully guided.</span></>}
         subcopy="Made for travelers, by travelers"
         brightness={1.8}
         onSubmit={go}
@@ -64,7 +64,7 @@ export default function Landing() {
         {[
           { k: 'Plan', d: 'Build each day with smart suggestions — places, times, and notes that just work.' },
           { k: 'Walk', d: 'A calm live guide narrates each landmark as you approach it, hands-free.' },
-          { k: 'Remember', d: 'Turn the trip into a beautiful story you’ll actually want to share.' },
+          { k: 'Remember', d: 'Turn your travel into a beautiful story you’ll actually want to share.' },
         ].map((b, i) => (
           <motion.div key={b.k} initial={reduce ? false : { opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
             transition={{ duration: 0.4, delay: i * 0.05, ease: [0.22, 1, 0.36, 1] }}>

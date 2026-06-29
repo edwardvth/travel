@@ -371,7 +371,7 @@ export default function TripMapView({
         data-testid="trip-map"
         className="absolute inset-0 bg-fill"
         role="region"
-        aria-label="Trip map"
+        aria-label="Travel map"
       />
       {ready === 0 && (
         <div className="absolute inset-0" role="status" aria-label="Loading map">
