@@ -16,6 +16,9 @@ import { cn } from '../../lib/utils'
 const MIN_QUERY = 3
 /** Debounce before querying Photon (ms). */
 const DEBOUNCE_MS = 280
+/** On phones, focusing the input scrolls the pill to ~this fraction down the
+ *  viewport so the soft keyboard doesn't cover it (never up to the very top). */
+const FOCUS_VIEWPORT_FRACTION = 0.15
 
 export interface CommandPillCommit {
   destination: string   // committed clean label (top-result rule)
@@ -216,6 +219,22 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
       setCalOpen(false)
     }
 
+    // On a phone, focusing the input raises the soft keyboard over the lower
+    // screen. Nudge the pill UP to a comfortable spot (never the very top) so the
+    // field + its suggestions stay visible above the keyboard. Only ever scrolls
+    // up, waits a beat for the keyboard to appear, and bails if already blurred.
+    const nudgeAboveKeyboard = () => {
+      if (typeof window === 'undefined') return
+      if (!window.matchMedia('(max-width: 767px)').matches) return
+      window.setTimeout(() => {
+        if (document.activeElement !== inputRef.current) return
+        const el = pillBarRef.current
+        if (!el) return
+        const delta = el.getBoundingClientRect().top - window.innerHeight * FOCUS_VIEWPORT_FRACTION
+        if (delta > 24) window.scrollBy({ top: delta, behavior: reduce ? 'auto' : 'smooth' })
+      }, 300)
+    }
+
     // ── Date chip label ────────────────────────────────────────────────────
     const dateChipLabel = datesTBD
       ? 'Dates TBD'
@@ -365,6 +384,7 @@ export const CommandPill = forwardRef<CommandPillHandle, CommandPillProps>(
                 onFocus={() => {
                   setFocused(true)
                   if (text.trim().length >= MIN_QUERY) setAcOpen(true)
+                  nudgeAboveKeyboard()
                 }}
                 onBlur={() => {
                   setFocused(false)
