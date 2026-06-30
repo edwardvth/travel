@@ -1,6 +1,6 @@
 # Voyager — Handoff / Resume Here
 
-> Read **`CLAUDE.md`** (same folder) first for the project overview, stack, commands, architecture, and conventions. This file is the **current state**: what's done, what's pending, and what's next. **Last updated: 2026-06-27.**
+> Read **`CLAUDE.md`** (same folder) first for the project overview, stack, commands, architecture, and conventions. This file is the **current state**: what's done, what's pending, and what's next. **Last updated: 2026-06-29.** (Product is now **Passage**, live at **mypassage.ai**; sections below the App Store block predate the rebrand and still say "Voyager".)
 
 ## TL;DR
 
@@ -8,7 +8,34 @@ Voyager is a premium travel-planning PWA. Work is now on branch **`main`** (the 
 
 Resume: `cd app && npm install && npm run dev`. Verify: `cd app && npm test && npx tsc -b && npm run build` (**760 tests** green on `home-pill-phase-3`; `main` is still 734). Deploy: `cd app && npm run build` then `npx wrangler deploy` from repo root.
 
-## ▶ NEXT UP: deploy Home Phase 3, then Plan-tab Tier 3
+## ▶ NEXT UP (current focus): Apple App Store — the "Mac implementation"
+
+Goal: get **Passage** onto the Apple App Store. The core readiness slice is **SHIPPED + VERIFIED LIVE (2026-06-29)**; everything remaining is bucketed into one workstream — the **Mac implementation** — plus three standalone items deliberately kept out of that bucket.
+
+> **⚠️ Deploy-clobber rule (learned the hard way 2026-06-29):** the live Cloudflare `voyager` worker is **last-`wrangler deploy`-wins for the whole app** — there is no per-feature layering. The account-deletion + legal work briefly vanished from live because a deploy of `main` (without it) overwrote the worker. **Anything that must stay live MUST be merged onto `main` before any deploy.** `main` is now the unified source of truth and carries all the App Store work.
+
+**✅ Done & live (verified in prod):**
+- **In-app account deletion** (Apple Guideline 5.1.1(v)) — delete / **transfer-ownership** / leave. Verified incl. the Zoom-style handoff (owned+shared trip transfers to the earliest-`added_at` real member). Path: client `requestAccountDeletion` (`app/src/auth/deleteAccount.ts`) → `delete-account` edge fn (service-role, auth from JWT only) → `delete_account_data(p_uid,p_email)` RPC (transactional, SECURITY DEFINER). **Edge fn + RPC live on Supabase (`wnpanbjzmcsvhfyjdczv`) — server-side, NOT in the worker, so worker redeploys don't affect them.** UI: `components/AccountSettings.tsx` Danger zone + `DangerConfirm` type-"DELETE" dialog.
+- **Legal pages live:** mypassage.ai/privacy-policy + /tos (+ /privacy,/terms canonical redirects). `worker.js` `reserved` set excludes them from the legacy `/<slug>`→Trip.html redirect. Entity = **KOMITAS LLC, Missouri**. Accurate data-flow disclosure (`routes/PrivacyPolicy.tsx`, `Terms.tsx`).
+- **Sign in with Apple** web flow wired but **GATED OFF** (`APPLE_SIGNIN_ENABLED=false` in `routes/Auth.tsx`; edge-fn Apple-revoke is a no-op) until enrollment.
+- `getAuthRedirectTo()` (`app/src/auth/redirect.ts`): web→`origin+'/auth'`, native→`ai.mypassage.app://auth/callback`. Bundle ID `ai.mypassage.app`.
+
+**🍎 Mac implementation (ONE grouped workstream — gated on the $99 Apple Developer enrollment + a Mac; some prep is Mac-free but lives in this bucket):**
+1. **$99 Apple Developer enrollment** → register bundle ID `ai.mypassage.app`.
+2. **Capacitor native shell** — `@capacitor/core` + `@capacitor/ios`, `capacitor.config.ts`, app icon + splash from `docs/designs/logo`. **NOT a rewrite** — wraps the existing `app/dist` React build in a `WKWebView`; clears Apple 4.2.3. (Config is Mac-free; `npx cap add ios` + compile = Mac.)
+3. **Native deep-link return wiring** (`ai.mypassage.app://auth/callback` — `getAuthRedirectTo` already anticipates it).
+4. **Flip Apple Sign-In on** (`APPLE_SIGNIN_ENABLED=true`) + Apple Services ID creds + edge-fn token revoke (currently no-op).
+5. **App Store Connect listing** — name "Passage", subtitle "Plan trips day-by-day with AI", description copy, keywords, privacy nutrition labels (data map: `docs/superpowers/notes/privacy-data-map.md`), support@mypassage.ai.
+6. **`cap add ios` → compile → sign → TestFlight → submit for review.**
+
+**Standalone (deliberately NOT in the Mac implementation):**
+- **Supabase Redirect-URLs fix** — *owner, dashboard, free, ~5 min.* Add `https://mypassage.ai/auth`, `https://mypassage.ai/*`, `https://voyager.edwardvth.workers.dev/auth`, `http://localhost:5173/auth`, `ai.mypassage.app://auth/callback` under Authentication → URL Configuration. **Leave Site URL = `travel-guide.ai` ON PURPOSE** — owner's mom still uses the legacy site on the **same** Supabase project, and Site URL is the OAuth fallback the legacy flow relies on. This stops the new app's Google/email sign-in from bouncing users to travel-guide.ai.
+- **App Store screenshots** — generated from the **web** app at phone-viewport sizes; no Mac/device needed.
+- **RLS cleanup** — the anon-read gap is still open (see Security status below); a pre-submission blocker. **Key rotation explicitly declined by the owner for now.**
+
+Specs/plans: `docs/superpowers/{specs,plans}/2026-06-29-passage-app-store-readiness*` + `*-account-deletion*`. Memory: `passage-app-store-readiness`.
+
+## Prior focus (superseded by the App Store work): Home Phase 3, then Plan-tab Tier 3
 
 **Home Phase 3 — the progressive command pill — is BUILT on branch `home-pill-phase-3`** (off `main`; worktree `.claude/worktrees/home-pill-phase-3`). 14 task commits, **suite 734 → 760 green**, `tsc -b` clean, `npm run build` succeeds. **NOT yet merged or deployed** — it wants an owner visual pass in `npm run dev` (the seed-flight animation + State-B geometry need eyes-on), then merge to `main` + manual Cloudflare deploy.
 
