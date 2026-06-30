@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { generateStopDetail, type StopDetailContent } from '../trip/enrich'
+import { fetchPlaceDescription } from '../lib/enrichClient'
 import type { Stop, TripData } from '../types'
 
 /** Descriptions are effectively static once generated — cache hard, never auto-refetch. */
@@ -59,13 +60,42 @@ function isEmptyContent(c: StopDetailContent): boolean {
 const queryKeyFor = (key: string) => ['stop-description', key] as const
 
 /**
- * The generator wrapped so an all-empty result becomes a (retryable) error.
- * `generateStopDetail` itself never throws — it swallows AI/network failures and
- * returns its Wikipedia fallback or, in the worst case, empty content. Treating
+ * Resolve a description for a stop. For `placeId` stops we consult the SHARED
+ * place-description library first (the `enrich-place` edge function backed by the
+ * `place_cache` table): a cross-trip cache HIT returns instantly with NO AI cost,
+ * and a MISS makes the function generate + cache server-side so the next trip
+ * containing this place is free. Any non-ready cache result (pending / failed /
+ * unsupported — e.g. Google can't verify the placeId, or the user is rate-limited)
+ * falls through to the existing per-stop local generation, so behaviour never
+ * regresses. By-name / legacy stops (no placeId) always use local generation.
+ *
+ * Wrapped so an all-empty result becomes a (retryable) error: `generateStopDetail`
+ * never throws — it returns a Wikipedia fallback or empty content — and treating
  * "resolved but entirely empty" as an error lets the UI show a graceful fallback
  * + retry instead of a blank, falsely-"successful" description.
  */
-async function runGenerate(stop: Stop, tripTitle: string, destination: string): Promise<StopDetailContent> {
+export async function runGenerate(stop: Stop, tripTitle: string, destination: string): Promise<StopDetailContent> {
+  if (stop.placeId) {
+    const lat = stop.lat ?? stop.coords?.lat
+    const lng = stop.lng ?? stop.coords?.lng
+    const r = await fetchPlaceDescription(stop.placeId, {
+      name: stop.name,
+      destination,
+      ...(lat != null && lng != null ? { coords: { lat, lng } } : {}),
+      ...(stop.placeTypes ? { placeTypes: stop.placeTypes } : {}),
+    })
+    if (r.state === 'ready' && r.content) {
+      const cached: StopDetailContent = {
+        history: r.content.history,
+        facts: r.content.facts,
+        tips: r.content.tips,
+        notice: r.content.notice,
+        goodFor: r.content.goodFor ?? '',
+      }
+      if (!isEmptyContent(cached)) return cached
+    }
+    // pending / failed / unsupported / empty → fall through to local generation.
+  }
   const content = await generateStopDetail(stop, tripTitle, destination)
   if (isEmptyContent(content)) throw new Error('empty-description')
   return content

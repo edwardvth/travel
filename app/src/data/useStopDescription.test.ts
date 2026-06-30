@@ -1,7 +1,12 @@
-import { describe, it, expect } from 'vitest'
-import { stopHasDescription, stopDescriptionKey, applyStopDescription } from './useStopDescription'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { stopHasDescription, stopDescriptionKey, applyStopDescription, runGenerate } from './useStopDescription'
+import { fetchPlaceDescription } from '../lib/enrichClient'
+import { generateStopDetail } from '../trip/enrich'
 import type { Stop, TripData } from '../types'
 import type { StopDetailContent } from '../trip/enrich'
+
+vi.mock('../lib/enrichClient', () => ({ fetchPlaceDescription: vi.fn() }))
+vi.mock('../trip/enrich', () => ({ generateStopDetail: vi.fn() }))
 
 const stop = (p: Partial<Stop>): Stop => ({ name: 'Place', ...p })
 const content: StopDetailContent = { history: 'H', facts: ['f1'], tips: 'T', notice: '', goodFor: '' }
@@ -56,5 +61,48 @@ describe('applyStopDescription', () => {
     const d = data()
     const key = stopDescriptionKey(stop({ name: 'Eiffel' }), 'Paris')
     expect(applyStopDescription(d, key, 'Paris', { history: 'NEW', facts: [], tips: '', notice: '', goodFor: '' })).toBe(d)
+  })
+})
+
+describe('runGenerate — shared place-cache first, then local fallback', () => {
+  const mockFetch = vi.mocked(fetchPlaceDescription)
+  const mockGen = vi.mocked(generateStopDetail)
+  const PID = 'ChIJabc123def4567890'
+
+  beforeEach(() => { mockFetch.mockReset(); mockGen.mockReset() })
+
+  it('serves a ready cache hit (incl. goodFor) without local generation', async () => {
+    mockFetch.mockResolvedValue({ state: 'ready', content: { history: 'H', facts: ['f'], tips: 'T', notice: '', goodFor: 'Foodies' } })
+    const out = await runGenerate(stop({ placeId: PID }), 'Trip', 'Paris')
+    expect(out).toEqual({ history: 'H', facts: ['f'], tips: 'T', notice: '', goodFor: 'Foodies' })
+    expect(mockGen).not.toHaveBeenCalled()
+  })
+
+  it('falls back to local generation on a cache miss/failure', async () => {
+    mockFetch.mockResolvedValue({ state: 'failed' })
+    mockGen.mockResolvedValue({ history: 'L', facts: [], tips: '', notice: '', goodFor: '' })
+    const out = await runGenerate(stop({ placeId: PID }), 'Trip', 'Paris')
+    expect(out.history).toBe('L')
+    expect(mockGen).toHaveBeenCalledTimes(1)
+  })
+
+  it('falls back when a ready cache entry is empty', async () => {
+    mockFetch.mockResolvedValue({ state: 'ready', content: { history: '', facts: [], tips: '', notice: '', goodFor: '' } })
+    mockGen.mockResolvedValue({ history: 'L', facts: [], tips: '', notice: '', goodFor: '' })
+    const out = await runGenerate(stop({ placeId: PID }), 'Trip', 'Paris')
+    expect(out.history).toBe('L')
+    expect(mockGen).toHaveBeenCalledTimes(1)
+  })
+
+  it('skips the shared cache entirely for by-name stops (no placeId)', async () => {
+    mockGen.mockResolvedValue({ history: 'L', facts: [], tips: '', notice: '', goodFor: '' })
+    const out = await runGenerate(stop({ name: 'X' }), 'Trip', 'Paris')
+    expect(mockFetch).not.toHaveBeenCalled()
+    expect(out.history).toBe('L')
+  })
+
+  it('throws on an all-empty local result (retryable)', async () => {
+    mockGen.mockResolvedValue({ history: '', facts: [], tips: '', notice: '', goodFor: '' })
+    await expect(runGenerate(stop({ name: 'X' }), 'Trip', 'Paris')).rejects.toThrow('empty-description')
   })
 })
