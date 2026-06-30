@@ -66,6 +66,7 @@ The **Plan-tab feature-parity** initiative is fully scoped (spec + plans written
 
 All committed + pushed to `main` and deployed to the live URL unless noted.
 
+- **Shared place-description cache — SHIPPED LIVE 2026-06-30** (on `main`, worker `2bf11f52`; suite 803→808). Re-integrated the long-parked cache onto the **live chips architecture** (the `placeid-backfill` branch's version had an incompatible `useStopDescription` — ported the *capability* additively instead of merging). `data/useStopDescription.ts` `runGenerate` now consults the **shared library first** for placeId stops (`lib/enrichClient.ts` → `enrich-place` edge fn → `place_cache` table): cross-trip **HIT = instant + zero AI cost**, MISS = generate+cache server-side, any non-ready result → fall back to local `generateStopDetail` (no regression); by-name stops always local. Edge fn bumped to **v3** to generate/store/serve **`goodFor`** (the only AI-generated chip; `hours`/`price` stay Google `placeDetails`, not cached — they change). Added `place_cache.good_for` column (`docs/supabase/2026-06-29-place-cache-goodfor.sql`). Descriptions run **Sonnet 4.6** (ai-proxy default) in both local + cache paths. **NOTE:** the separate placeId *backfill admin tool* (`/admin/place-ids`, `place-id-admin` fn) is retired and still only on branch `placeid-backfill` — NOT in main. Memory: `voyager-placeid-backfill`.
 - **Phase 1** — Landing + Auth + Dashboard (trips list, new-trip sheet, sharing). Tag `phase-1-complete`.
 - **Phase 2 — Planner (Option C)** — day-by-day split map+itinerary, Do/Eat/Stay, weather glance, walk-time connectors, Stay card, reservations, photo gallery, change-location. Tag `phase-2-planner-c`.
 - **Phase 3 — Three-tab nav refactor** — `Plan · Guide · Trip`; global account settings menu. Tag `phase-3-nav-refactor`.
@@ -106,6 +107,7 @@ AI is live in the production app (verified: "Suggest a day" generates for the fo
 
 ## Other pending workstreams (not the immediate focus)
 
+- **Model strategy — "Opus 4.7 everywhere" (revisit once the cache is proven; owner's call 2026-06-30).** Today: descriptions = **Sonnet 4.6**, itinerary "Suggest a day" = **Opus 4.7**. Now that descriptions are generated once and reused (shared cache), the per-description cost drops enough to justify Opus for descriptions too. Levers: set the model explicitly in `enrich-place` (it currently relies on the ai-proxy Sonnet default) **and** bump `CURRENT_ENRICH_VERSION` so cached entries regenerate on the better model. Verify the cache is humming (two-trip same-place test → instant, free) before pulling it.
 - **Stop Minimap Phase 2** — the auto-discovery teaching morph (once per 24h "travel session", ~3.4s). Phase 3 — offline tiles. Specs already written.
 - **Offline trip downloads + Service Worker / PWA** — roadmapped in the minimap/offline spec; the SW is the prerequisite (none exists yet). Code-splitting already eases SW precaching.
 - **Full account/settings page** — only a minimal stopgap exists.
