@@ -1,7 +1,11 @@
 import { useState } from 'react'
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
-import { generateStopDetail } from './enrich'
+import type { StopDetailContent } from './enrich'
+import { runGenerate } from '../data/useStopDescription'
+import { regeneratePlace } from '../lib/enrichClient'
+import { useAuth } from '../auth/useAuth'
+import { useProfile, isFounder } from '../data/useProfile'
 import { fetchPlaceDetails } from './placeDetails'
 import { stopHoursLabel } from './stop-hours'
 import { toInputTime, fromInputTime } from './time'
@@ -33,6 +37,9 @@ export default function StopDetail() {
   const navigate = useNavigate()
   const { day: dayParam, n: nParam } = useParams<{ day: string; n: string }>()
   const { backfillCoords } = useGeocodeBackfill(trip.id, save)
+  const { user } = useAuth()
+  const { data: profile } = useProfile(user?.id)
+  const founder = isFounder(profile)
 
   const day = Number(dayParam)
   const n = Number(nParam)
@@ -151,8 +158,28 @@ export default function StopDetail() {
     setGenError(null)
     try {
       const dest = destinationOf(trip)
+      // Description goes through the SHARED place-description cache. First-time
+      // "Generate" consults the library (HIT = instant/free; MISS = the edge fn
+      // generates AND caches it for every future trip). A founder "Re-generate"
+      // of a placeId place FORCES a fresh shared entry (overwrites the library);
+      // everyone else's re-generate re-pulls the library's current version. Any
+      // non-ready result falls back to per-trip local generation (no regression).
+      const descPromise: Promise<StopDetailContent> =
+        hasContent && founder && stop.placeId
+          ? regeneratePlace(stop.placeId, true).then(r =>
+              r.state === 'ready' && r.content
+                ? {
+                    history: r.content.history,
+                    facts: r.content.facts,
+                    tips: r.content.tips,
+                    notice: r.content.notice,
+                    goodFor: r.content.goodFor ?? '',
+                  }
+                : runGenerate(stop as Stop, trip.title, dest),
+            )
+          : runGenerate(stop as Stop, trip.title, dest)
       const [result, details] = await Promise.all([
-        generateStopDetail(stop as Stop, trip.title, dest),
+        descPromise,
         fetchPlaceDetails({
           placeId: stop.placeId,
           query: [stop.name, dest].filter(Boolean).join(', '),
