@@ -18,8 +18,9 @@ import { EmptyState } from '../components/EmptyState'
 import { ConfirmDialog } from '../components/ConfirmDialog'
 import { DaySettingsSheet } from './DaySettingsSheet'
 import { addDay, removeDay, reorderDays, setDayMeta } from './day-mutations'
+import { dayUtilization } from './day-utilization'
 import { moveItem, followDayAfterReorder, followDayAfterDelete } from './itinerary-helpers'
-import { Plus, Pencil, Sparkles, Trash2, CalendarPlus } from 'lucide-react'
+import { Plus, Pencil, Sparkles, Trash2, CalendarPlus, TriangleAlert } from 'lucide-react'
 import { cn } from '../lib/utils'
 import type { TripData } from '../types'
 
@@ -41,6 +42,7 @@ export default function Itinerary() {
   const day = Math.min(activeDay, Math.max(0, countDays(trip) - 1))
   const count = stopCount(trip, day)
   const dayObj = trip.data.days?.[day]
+  const util = dayUtilization(dayObj?.stops ?? [])
   const dateLabel = dayLabel(trip, day) // "Fri, Jul 4"
   const customTitle = isAutoDayTitle(dayObj?.title) ? '' : (dayObj?.title ?? '').trim()
   const dayTitle = customTitle ? `${customTitle} (${dateLabel})` : dateLabel
@@ -220,6 +222,17 @@ export default function Itinerary() {
                   )}
                 </div>
                 {dayNote && <p className="text-muted text-[13.5px] mt-0.5 break-words">{dayNote}</p>}
+                {count > 0 && (
+                  <p
+                    className={cn(
+                      'mt-0.5 inline-flex items-center gap-1 text-[12.5px] font-semibold',
+                      util.overloaded ? 'text-amber-700 dark:text-amber-300' : 'text-muted',
+                    )}
+                  >
+                    {util.overloaded && <TriangleAlert size={12} aria-label="This day looks full" />}
+                    <span>{util.stops} {util.stops === 1 ? 'stop' : 'stops'} · ~{util.hours}h planned</span>
+                  </p>
+                )}
               </div>
               <div className="flex-none flex items-center gap-1.5">
                 {canEdit && (

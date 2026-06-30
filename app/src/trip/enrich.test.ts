@@ -44,12 +44,12 @@ describe('coerceFacts', () => {
 describe('parseStopDetail', () => {
   it('parses clean JSON', () => {
     const out = parseStopDetail('{"history":"Founded 1850.","facts":["A","B"],"tips":"Go early."}')
-    expect(out).toEqual({ history: 'Founded 1850.', facts: ['A', 'B'], tips: 'Go early.', notice: '' })
+    expect(out).toEqual({ history: 'Founded 1850.', facts: ['A', 'B'], tips: 'Go early.', notice: '', goodFor: '' })
   })
 
   it('strips code fences and preamble', () => {
     const text = 'Sure! Here you go:\n```json\n{"history":"H","facts":["f1"],"tips":"t"}\n```'
-    expect(parseStopDetail(text)).toEqual({ history: 'H', facts: ['f1'], tips: 't', notice: '' })
+    expect(parseStopDetail(text)).toEqual({ history: 'H', facts: ['f1'], tips: 't', notice: '', goodFor: '' })
   })
 
   it('coerces a string facts field to an array', () => {
@@ -59,16 +59,16 @@ describe('parseStopDetail', () => {
 
   it('handles missing fields without throwing', () => {
     const out = parseStopDetail('{"history":"H"}')
-    expect(out).toEqual({ history: 'H', facts: [], tips: '', notice: '' })
+    expect(out).toEqual({ history: 'H', facts: [], tips: '', notice: '', goodFor: '' })
   })
 
   it('falls back to plain text as history when there is no JSON', () => {
     const out = parseStopDetail('Just a plain paragraph about the place.')
-    expect(out).toEqual({ history: 'Just a plain paragraph about the place.', facts: [], tips: '', notice: '' })
+    expect(out).toEqual({ history: 'Just a plain paragraph about the place.', facts: [], tips: '', notice: '', goodFor: '' })
   })
 
   it('returns an empty shape for empty input', () => {
-    expect(parseStopDetail('')).toEqual({ history: '', facts: [], tips: '', notice: '' })
+    expect(parseStopDetail('')).toEqual({ history: '', facts: [], tips: '', notice: '', goodFor: '' })
   })
 })
 
@@ -236,7 +236,7 @@ describe('generateStopDetail (layered chain)', () => {
     callAIMock.mockRejectedValue(new Error('AI down'))
 
     const out = await generateStopDetail(stop, 'London Trip', 'London')
-    expect(out).toEqual({ history: '', facts: [], tips: '', notice: '' })
+    expect(out).toEqual({ history: '', facts: [], tips: '', notice: '', goodFor: '' })
   })
 })
 
@@ -248,5 +248,23 @@ describe('parseStopDetail notice', () => {
 
   it('defaults notice to empty when absent', () => {
     expect(parseStopDetail('{"history":"h"}').notice).toBe('')
+  })
+})
+
+describe('parseStopDetail goodFor', () => {
+  it('emits goodFor when present', () => {
+    const out = parseStopDetail('{"history":"h","facts":[],"tips":"t","goodFor":"Foodies"}')
+    expect(out.goodFor).toBe('Foodies')
+  })
+  it('omits goodFor (empty string) when absent', () => {
+    const out = parseStopDetail('{"history":"h"}')
+    expect(out.goodFor).toBe('')
+  })
+})
+
+describe('buildEnrichPrompt goodFor', () => {
+  it('asks for a goodFor tag in the JSON schema', () => {
+    const p = buildEnrichPrompt({ name: 'Louvre' } as Stop, 'Paris Trip')
+    expect(p).toContain('"goodFor"')
   })
 })

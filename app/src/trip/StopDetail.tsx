@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { Link, useNavigate, useOutletContext, useParams } from 'react-router-dom'
 import type { PlannerOutletContext } from './PlannerLayout'
 import { generateStopDetail } from './enrich'
+import { fetchPlaceDetails } from './placeDetails'
+import { stopHoursLabel } from './stop-hours'
 import { toInputTime, fromInputTime } from './time'
 import { destinationOf, heroQueries } from './landmark-context'
 import { useHeroImage, usePrefetchHeroImages } from '../data/useLandmarkImage'
-import { isCompleted } from './helpers'
-import { Calendar, CheckCircle2, Lightbulb, MapPin, kindIcon, kindLabel, stopKind } from './icons'
+import { isCompleted, dayDate } from './helpers'
+import { Calendar, CheckCircle2, Clock, Heart, Lightbulb, MapPin, kindIcon, kindLabel, stopKind } from './icons'
 import { remapCompletedAfterDelete, toggleCompleted } from './itinerary-helpers'
 import { reservationStatus, setReservation, type Reservation } from './reservation'
 import { applyLocation, type PlaceLocation } from './location'
@@ -73,6 +75,7 @@ export default function StopDetail() {
   const hasContent = !!(stop.history || (stop.facts && stop.facts.length) || stop.tips)
   const meta = [stop.type, stop.time, stop.address].filter(Boolean).join(' · ')
   const kind = stopKind(stop)
+  const hoursLabel = stopHoursLabel(stop.hours, dayDate(trip, day) ?? undefined)
   const KindIcon = kindIcon(kind)
   const reservation = reservationStatus(stop)
   const reservationTime = stop.reservation?.time ?? stop.booking?.time
@@ -143,12 +146,28 @@ export default function StopDetail() {
     patchPhotos(photos.filter((_, j) => j !== i))
 
   async function handleGenerate() {
-    if (!canEdit || generating) return
+    if (!canEdit || generating || !stop) return
     setGenerating(true)
     setGenError(null)
     try {
-      const result = await generateStopDetail(stop as Stop, trip.title, destinationOf(trip))
-      patchStop({ history: result.history, facts: result.facts, tips: result.tips, notice: result.notice })
+      const dest = destinationOf(trip)
+      const [result, details] = await Promise.all([
+        generateStopDetail(stop as Stop, trip.title, dest),
+        fetchPlaceDetails({
+          placeId: stop.placeId,
+          query: [stop.name, dest].filter(Boolean).join(', '),
+        }),
+      ])
+      patchStop({
+        history: result.history,
+        facts: result.facts,
+        tips: result.tips,
+        notice: result.notice,
+        goodFor: result.goodFor || undefined,
+        ...(details.hours ? { hours: details.hours } : {}),
+        ...(details.price ? { price: details.price } : {}),
+        ...(details.placeId && !stop.placeId ? { placeId: details.placeId, placeSource: 'google' as const } : {}),
+      })
     } catch (e) {
       setGenError(
         e instanceof Error
@@ -222,6 +241,26 @@ export default function StopDetail() {
                   <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11.5px] font-bold text-emerald-700 dark:text-emerald-300">
                     <CheckCircle2 size={12} aria-hidden="true" />
                     {reservationTime ? `Reserved · ${reservationTime}` : 'Reserved'}
+                  </span>
+                )}
+                {hoursLabel && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-fill px-2 py-0.5 text-[11.5px] font-semibold text-muted">
+                    <Clock size={12} aria-hidden="true" />
+                    {hoursLabel}
+                  </span>
+                )}
+                {stop.price && (
+                  <span
+                    className="inline-flex items-center gap-1 rounded-full bg-fill px-2 py-0.5 text-[11.5px] font-mono font-semibold text-muted"
+                    aria-label={`Price level ${stop.price}`}
+                  >
+                    {stop.price}
+                  </span>
+                )}
+                {stop.goodFor && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-fill px-2 py-0.5 text-[11.5px] font-semibold text-muted">
+                    <Heart size={12} aria-hidden="true" />
+                    {stop.goodFor}
                   </span>
                 )}
                 {meta && <p className="text-muted text-[13.5px] min-w-0 basis-full break-words">{meta}</p>}
