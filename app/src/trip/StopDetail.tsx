@@ -6,7 +6,7 @@ import { runGenerate } from '../data/useStopDescription'
 import { regeneratePlace } from '../lib/enrichClient'
 import { useAuth } from '../auth/useAuth'
 import { useProfile, isFounder } from '../data/useProfile'
-import { fetchPlaceDetails } from './placeDetails'
+import { fetchPlaceDetails, type StopPlaceDetails } from './placeDetails'
 import { stopHoursLabel } from './stop-hours'
 import { toInputTime, fromInputTime } from './time'
 import { destinationOf, heroQueries } from './landmark-context'
@@ -158,33 +158,45 @@ export default function StopDetail() {
     setGenError(null)
     try {
       const dest = destinationOf(trip)
-      // Description goes through the SHARED place-description cache. First-time
-      // "Generate" consults the library (HIT = instant/free; MISS = the edge fn
-      // generates AND caches it for every future trip). A founder "Re-generate"
-      // of a placeId place FORCES a fresh shared entry (overwrites the library);
-      // everyone else's re-generate re-pulls the library's current version. Any
-      // non-ready result falls back to per-trip local generation (no regression).
-      const descPromise: Promise<StopDetailContent> =
-        hasContent && founder && stop.placeId
-          ? regeneratePlace(stop.placeId, true).then(r =>
-              r.state === 'ready' && r.content
-                ? {
-                    history: r.content.history,
-                    facts: r.content.facts,
-                    tips: r.content.tips,
-                    notice: r.content.notice,
-                    goodFor: r.content.goodFor ?? '',
-                  }
-                : runGenerate(stop as Stop, trip.title, dest),
-            )
-          : runGenerate(stop as Stop, trip.title, dest)
-      const [result, details] = await Promise.all([
-        descPromise,
-        fetchPlaceDetails({
-          placeId: stop.placeId,
-          query: [stop.name, dest].filter(Boolean).join(', '),
-        }),
-      ])
+      const query = [stop.name, dest].filter(Boolean).join(', ')
+
+      // Description generation through the SHARED place-description cache, keyed
+      // on placeId. Founder "Re-generate" FORCES a fresh shared entry; otherwise
+      // cache-first (HIT = instant/free, MISS = edge fn generates AND caches);
+      // any non-ready result falls back to per-trip local generation.
+      const genDescription = async (pid: string | undefined): Promise<StopDetailContent> => {
+        const genStop = pid && !stop.placeId ? ({ ...(stop as Stop), placeId: pid }) : (stop as Stop)
+        if (hasContent && founder && pid) {
+          const r = await regeneratePlace(pid, true)
+          if (r.state === 'ready' && r.content) {
+            return {
+              history: r.content.history,
+              facts: r.content.facts,
+              tips: r.content.tips,
+              notice: r.content.notice,
+              goodFor: r.content.goodFor ?? '',
+            }
+          }
+        }
+        return runGenerate(genStop, trip.title, dest)
+      }
+
+      // The cache is keyed on placeId, so we must KNOW the placeId before the
+      // description lookup. When the stop already has one, resolve description +
+      // Google details in parallel; when it doesn't, resolve the placeId from
+      // Google FIRST, then run the description with it — otherwise a first-time
+      // generate could never populate/reuse the shared cache.
+      let details: StopPlaceDetails
+      let placeId = stop.placeId
+      let result: StopDetailContent
+      if (placeId) {
+        ;[result, details] = await Promise.all([genDescription(placeId), fetchPlaceDetails({ placeId, query })])
+      } else {
+        details = await fetchPlaceDetails({ query })
+        placeId = details.placeId
+        result = await genDescription(placeId)
+      }
+
       patchStop({
         history: result.history,
         facts: result.facts,
@@ -193,7 +205,7 @@ export default function StopDetail() {
         goodFor: result.goodFor || undefined,
         ...(details.hours ? { hours: details.hours } : {}),
         ...(details.price ? { price: details.price } : {}),
-        ...(details.placeId && !stop.placeId ? { placeId: details.placeId, placeSource: 'google' as const } : {}),
+        ...(placeId && !stop.placeId ? { placeId, placeSource: 'google' as const } : {}),
       })
     } catch (e) {
       setGenError(
