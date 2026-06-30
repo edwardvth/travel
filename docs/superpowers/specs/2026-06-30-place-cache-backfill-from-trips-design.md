@@ -34,8 +34,9 @@ A stop's description is "in depth / up to par" — and therefore eligible to cac
 
 1. **Substantial Story:** `length(history) >= 300` characters (a real
    multi-sentence/2-paragraph Story, not a few words), **AND**
-2. **At least one supporting section:** `jsonb_array_length(facts) >= 2`
-   **OR** `length(tips) >= 40`.
+2. **At least one supporting section:** **>= 2 _string_ facts** (count only
+   string array elements — object/number elements are ignored) **OR**
+   `length(tips) >= 40`.
 
 Anything that fails this bar is **left uncached** and will regenerate fresh
 (paid) on demand — that is the intended behaviour.
@@ -50,8 +51,9 @@ Walk `trips.data -> 'days'[] -> 'stops'[]`. A stop is a candidate iff:
   be dead — never served. We therefore skip them.)
 - It clears the **quality bar** above.
 
-`facts` is read only when it is a JSONB array (`jsonb_typeof = 'array'`); a legacy
-string `facts` contributes 0 to the count.
+`facts` is read only when it is a JSONB array (`jsonb_typeof = 'array'`) and only
+its **string** elements count toward the bar; a legacy string `facts`, or an
+array of objects/numbers, contributes 0.
 
 ## Dedupe
 
@@ -61,24 +63,49 @@ that appears in several trips is cached once, from its best version.
 
 ## Field mapping (stop → `place_cache` row)
 
-| `place_cache` column   | source (stop JSON)                       |
-|------------------------|------------------------------------------|
-| `place_id`             | `s->>'placeId'`                          |
-| `prompt_version`       | `3` (CURRENT_ENRICH_VERSION)             |
-| `generation_status`    | `'ready'`                                |
-| `generation_started_at`| `now()`                                  |
-| `history`              | `s->>'history'`                          |
-| `facts`                | `s->'facts'` (jsonb array)               |
-| `tips`                 | `s->>'tips'`                             |
-| `notice`               | `nullif(s->>'notice','')`                |
-| `good_for`             | `nullif(s->>'goodFor','')` (may be NULL) |
-| `place_name`           | `s->>'name'`                             |
-| `address`              | `nullif(s->>'address','')`               |
-| `lat` / `lng`          | `s->>'lat'` / `s->>'lng'` (cast)         |
-| `place_types`          | `s->'placeTypes'` when array             |
-| `content_source`       | `'generated'`                            |
-| `model`                | `'migrated-from-trips'` (provenance)     |
-| `generated_at` / `updated_at` / `last_verified_at` | `now()`      |
+| `place_cache` column   | source / value                                                              |
+|------------------------|----------------------------------------------------------------------------|
+| `place_id`             | `s->>'placeId'`                                                             |
+| `prompt_version`       | `3` (CURRENT_ENRICH_VERSION — verified in code, see below)                  |
+| `generation_status`    | `'ready'`                                                                   |
+| `generation_started_at`| `now()`                                                                     |
+| `history`              | `s->>'history'`                                                             |
+| `facts`                | **cleaned** `s->'facts'` — string, non-empty elements only (objects/numbers dropped); `[]` if none |
+| `tips`                 | `nullif(s->>'tips','')`                                                     |
+| `notice`               | `nullif(s->>'notice','')`                                                   |
+| `good_for`             | `nullif(s->>'goodFor','')` (may be NULL on pre-chips stops)                 |
+| `place_name`           | `nullif(s->>'name','')`                                                     |
+| `address`              | `nullif(s->>'address','')`                                                  |
+| `lat` / `lng`          | **safe cast** of `s->>'lat'`/`s->>'lng'` — cast only when numeric (`~ '^-?\d+(\.\d+)?$'`), else NULL |
+| `place_types`          | `s->'placeTypes'` **only when a JSONB array**, else NULL                    |
+| `content_source`       | `'generated'`                                                              |
+| `prompt_id`            | `'migrated-from-trips-v3'` — provenance; the prior cache design requires ready rows to carry a prompt id |
+| `model`                | `'migrated-from-trips'` — provenance + the reversibility marker             |
+| `generated_at` / `updated_at` | `now()`                                                             |
+| `last_verified_at`     | **NULL** — this migration performs NO Google Place Details call, and that column means "Google-verified"; leaving it NULL keeps the row honestly un-reverified |
+
+## Robustness guards (one malformed legacy trip must not abort the migration)
+
+- **Hard array checks before every traversal.** `data->'days'`, `day->'stops'`,
+  `s->'facts'`, and `s->'placeTypes'` are each wrapped so a non-array value
+  degrades to an empty array (`case when jsonb_typeof(x)='array' then x else
+  '[]'::jsonb end`) instead of erroring `jsonb_array_elements`.
+- **Guarded numeric casts.** `lat`/`lng` are cast only when the text matches
+  `^-?\d+(\.\d+)?$`; values like `""`, `"unknown"`, or malformed coords become
+  NULL rather than aborting the whole statement.
+- **String-only facts.** The stored `facts` is rebuilt from the source array
+  keeping only non-empty **string** elements, so an array of objects can never
+  land a shape the Guide UI (which expects `string[]`) would choke on — and the
+  same string-only count drives the quality bar.
+
+## Version verification (your #6)
+
+Confirmed in code before writing: `supabase/functions/enrich-place/index.ts:23`
+is `const CURRENT_ENRICH_VERSION = 3`, and the function reads/writes
+`prompt_version = 3` and persists `good_for`. So migrated rows at
+`prompt_version = 3` are exactly what the live read path serves. (The stale
+`version.ts = 2` referenced by the older 2026-06-24 cache spec is not used by the
+shipped integration.)
 
 ## Safety / reversibility
 
