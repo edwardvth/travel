@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, MotionConfig } from 'framer-motion'
 import { cn } from '../../lib/utils'
 
@@ -56,17 +57,26 @@ export function Sheet({ open, onClose, children, labelledBy }:
       }
     }
 
+    // Lock background scroll while the sheet is open (it's a true modal overlay).
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
     window.addEventListener('keydown', onKey)
     return () => {
       window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
       previouslyFocused?.focus?.()
     }
   }, [open, onClose])
 
-  if (!open) return null
-  return (
+  if (!open || typeof document === 'undefined') return null
+  // Portal to <body> so the overlay escapes any ancestor transform/stacking
+  // context (the cinematic home uses framer-motion transforms that would
+  // otherwise trap a nested fixed element below the hero). z above the pill
+  // calendar (z-60) and home layers.
+  return createPortal(
     <MotionConfig reducedMotion="user">
-      <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center"
+      <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center"
         role="dialog" aria-modal="true" aria-labelledby={labelledBy}>
         <motion.div
           className="absolute inset-0 bg-black/60"
@@ -88,6 +98,7 @@ export function Sheet({ open, onClose, children, labelledBy }:
           {children}
         </motion.div>
       </div>
-    </MotionConfig>
+    </MotionConfig>,
+    document.body,
   )
 }
